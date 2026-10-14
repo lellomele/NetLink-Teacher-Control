@@ -28,6 +28,7 @@
 #include <QProcess>
 #include <QTcpServer>
 #include <QTcpSocket>
+#include <QSet>
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
 #include <QRecursiveMutex>
@@ -73,6 +74,7 @@ private:
 
 	VeyonServerInterface& m_server;
 	QTcpServer m_tcpServer;
+	QSet<QTcpSocket*> m_pendingHandshakes;
 
 	struct Worker
 	{

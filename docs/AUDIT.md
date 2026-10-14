@@ -22,6 +22,8 @@ returned Windows error 5 (access denied); privileged WFP execution is NOT verifi
   limits, checked writes and feature UUID/command/map type validation.
 - Single-use worker nonce, socket ownership, handshake timeout, bounded queues,
   unlocked I/O batches, bounded/cancellable session retries and parented kill timer.
+  At most 16 pending local handshakes, with 16 KiB unauthenticated frames; larger
+  buffers are enabled only after worker authentication.
 - Monitoring queries no longer capture a destructible object or overlap; pending
   user/DNS queries are joined before teardown.
 - Corrected the inherited test-build macro so an OFF production build cannot load

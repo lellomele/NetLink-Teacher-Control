@@ -63,7 +63,9 @@ QString humanStatus(const QJsonObject& result) {
     const auto status=result.value("status").toString();
     if(status=="blocked" && result.value("ok").toBool()) return "filtri attivi";
     if(status=="allowed" && result.value("ok").toBool()) return "libero";
-    return "errore: "+status+" ("+QString::number(result.value("code").toInt())+")";
+    // WFP HRESULT values can exceed signed int; preserve the actual DWORD code.
+    const auto code=result.value("code");
+    return "errore: "+status+" ("+(code.isDouble() ? QString::number(code.toDouble(),'f',0) : "?")+")";
 }
 class SchoolPage : public ConfigurationPage {
 public:

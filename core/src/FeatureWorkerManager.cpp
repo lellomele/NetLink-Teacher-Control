@@ -26,6 +26,7 @@
 #include <QDir>
 #include <QThread>
 #include <QTimer>
+#include <QtEndian>
 
 #include "FeatureManager.h"
 #include "FeatureWorkerManager.h"
@@ -63,6 +64,13 @@ FeatureWorkerManager::FeatureWorkerManager( VeyonServerInterface& server, QObjec
 FeatureWorkerManager::~FeatureWorkerManager()
 {
 	m_tcpServer.close();
+	// Disconnect pending sockets before member destruction can trigger callbacks.
+	for(auto socket:qAsConst(m_pendingHandshakes)) {
+		socket->disconnect(this);
+		socket->abort();
+		socket->deleteLater();
+	}
+	m_pendingHandshakes.clear();
 
 	// properly shutdown all worker processes
 	while( m_workers.isEmpty() == false )
@@ -257,8 +265,10 @@ void FeatureWorkerManager::acceptConnection()
 
 	QTcpSocket* socket = m_tcpServer.nextPendingConnection();
 	if( !socket ) return;
-	// The buffer must hold a complete permitted frame, otherwise large frames stall.
-	socket->setReadBufferSize(VariantArrayMessage::MaxMessageSize + sizeof(VariantArrayMessage::MessageSize));
+	if(m_pendingHandshakes.size() >= 16) {socket->abort();socket->deleteLater();return;}
+	m_pendingHandshakes.insert(socket);
+	// An unauthenticated local process must not allocate a full 32 MiB frame.
+	socket->setReadBufferSize(16*1024 + sizeof(VariantArrayMessage::MessageSize));
 	QTimer::singleShot( 5000, socket, [socket] {
 		if( !socket->property("workerAuthenticated").toBool() ) socket->abort();
 	} );
@@ -275,6 +285,11 @@ void FeatureWorkerManager::acceptConnection()
 
 void FeatureWorkerManager::processConnection( QTcpSocket* socket )
 {
+	if(!socket->property("workerAuthenticated").toBool()) {
+		quint32 size=0;
+		if(socket->peek(reinterpret_cast<char*>(&size),sizeof(size))==sizeof(size) &&
+			qFromBigEndian(size)>16*1024) {socket->abort();return;}
+	}
 	FeatureMessage message;
 	// Drain complete frames only: readyRead may contain a fragment or several frames.
 	int budget = 32;
@@ -296,6 +311,9 @@ void FeatureWorkerManager::processConnection( QTcpSocket* socket )
 					worker.socket = socket;
 					worker.token.clear(); // nonce is single-use
 					socket->setProperty("workerAuthenticated", true);
+					m_pendingHandshakes.remove(socket);
+					// An authenticated worker can carry a complete permitted frame.
+					socket->setReadBufferSize(VariantArrayMessage::MaxMessageSize + sizeof(VariantArrayMessage::MessageSize));
 				}
 			}
 			else if( it.value().socket != socket ) reject = true;
@@ -315,6 +333,7 @@ void FeatureWorkerManager::processConnection( QTcpSocket* socket )
 
 void FeatureWorkerManager::closeConnection( QTcpSocket* socket )
 {
+	m_pendingHandshakes.remove(socket);
 	m_workersMutex.lock();
 
 	for( auto it = m_workers.begin(); it != m_workers.end(); )
