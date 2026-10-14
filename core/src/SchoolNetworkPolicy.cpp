@@ -148,6 +148,20 @@ PolicyDaemon::PolicyDaemon(QObject* parent) : QObject(parent), m_server(this), m
     m_timer.start(1000);
 }
 PolicyDaemon::~PolicyDaemon() { release(); }
+quint32 PolicyDaemon::verifyFilters() const {
+#ifdef Q_OS_WIN
+    if(!m_engine || m_filters.isEmpty()) return ERROR_INVALID_HANDLE;
+    for(auto id:m_filters) {
+        FWPM_FILTER0* filter=nullptr;
+        const DWORD error=FwpmFilterGetById0(m_engine,id,&filter);
+        if(filter) FwpmFreeMemory0(reinterpret_cast<void**>(&filter));
+        if(error) return error;
+    }
+    return ERROR_SUCCESS;
+#else
+    return 1;
+#endif
+}
 quint32 PolicyDaemon::release() {
     quint32 error=0;
 #ifdef Q_OS_WIN
@@ -299,6 +313,10 @@ QJsonObject PolicyDaemon::apply(const QJsonObject& command) {
     const auto owner = command.value("owner").toString();
     if (m_engine && m_lease.isValid() && m_lease.elapsed() >= 90000) release();
     if (op == "status") {
+        if(m_engine) {
+            const auto error=verifyFilters();
+            if(error) {release();return result(false,"filters-unavailable",error);}
+        }
         auto reply = result(!m_cleanupError, m_engine ? "blocked" : m_cleanupError ? "unknown" : "allowed",m_cleanupError);
         reply["remainingMs"] = m_engine ? 90000 - int(m_lease.elapsed()) : 0;
         reply["filters"] = m_filters.size(); return reply;
@@ -316,6 +334,14 @@ QJsonObject PolicyDaemon::apply(const QJsonObject& command) {
     policyData+=infra.dns.join('\n').toUtf8()+infra.dhcp4.join('\n').toUtf8()+infra.dhcp6.join('\n').toUtf8();
 #endif
     const auto digest = QCryptographicHash::hash(policyData,QCryptographicHash::Sha256);
+    if(m_engine) {
+        const auto error=verifyFilters();
+        if(error) {
+            // BFE/session loss must not produce a cached success or renew a stale lease.
+            const auto closeError=release();
+            if(closeError) return result(false,"session-reset-failed",closeError);
+        }
+    }
     if (m_engine && digest == m_digest) { m_lease.restart(); return result(true, "blocked"); }
 #ifndef Q_OS_WIN
     return result(false, "windows-required");
@@ -373,7 +399,10 @@ QJsonObject PolicyDaemon::apply(const QJsonObject& command) {
     }
     error = FwpmTransactionCommit0(m_engine);
     if (error) { FwpmTransactionAbort0(m_engine); if (m_filters.isEmpty()) release(); return result(false, "commit-failed", error); }
-    m_filters = next; m_owner = owner; m_digest = digest; m_lease.start();m_cleanupError=0;
+    m_filters=next;
+    error=verifyFilters();
+    if(error) {release();return result(false,"filter-verification-failed",error);}
+    m_owner = owner; m_digest = digest; m_lease.start();m_cleanupError=0;
     auto reply = result(true, "blocked"); reply["filters"] = m_filters.size(); return reply;
 #endif
 }

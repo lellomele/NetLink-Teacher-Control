@@ -39,6 +39,9 @@ returned Windows error 5 (access denied); privileged WFP execution is NOT verifi
   and distinct student/Windows-account fields.
 - Transactional WFP updates, dynamic-session cleanup, 90-second lease, explicit
   errors, DNS/DHCP infrastructure detection, loopback and IPv4/IPv6 support.
+  Commit, status and renewal check installed filter IDs instead of trusting cached
+  state; a lost session is reported/reset before renewal. Live BFE recovery and
+  the lookup cost at the maximum destination count still need verification.
   The pipe requires SYSTEM and the expected installed service/server image paths;
   worker messages cannot request privileged network changes.
 - Bounded discovery XML/HTTP size, depth, nodes, connections, timeouts, duplicate

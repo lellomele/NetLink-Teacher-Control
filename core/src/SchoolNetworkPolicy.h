@@ -22,6 +22,7 @@ public:
 private:
     QJsonObject apply(const QJsonObject& command);
     quint32 release();
+    quint32 verifyFilters() const;
     QLocalServer m_server;
     QTimer m_timer;
     QElapsedTimer m_lease;
