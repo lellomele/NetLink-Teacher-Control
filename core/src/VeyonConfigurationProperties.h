@@ -150,7 +150,13 @@
 	OP( VeyonConfiguration, VeyonCore::config(), bool, legacyComputerFilterHidden, setLegacyComputerFilterHidden, "ComputerFilterHidden", "Master", false, Configuration::Property::Flag::Legacy )	\
 	OP( VeyonConfiguration, VeyonCore::config(), int, legacyPrimaryServicePort, setLegacyPrimaryServicePort, "PrimaryServicePort", "Network", 11100, Configuration::Property::Flag::Legacy )			\
 
+#define FOREACH_VEYON_SCHOOL_CONFIG_PROPERTY(OP) \
+	OP( VeyonConfiguration, VeyonCore::config(), QString, schoolDiscoveryMaster, setSchoolDiscoveryMaster, "DiscoveryMaster", "School", QString(), Configuration::Property::Flag::Standard ) \
+	OP( VeyonConfiguration, VeyonCore::config(), QStringList, schoolResources, setSchoolResources, "Resources", "School", QStringList(), Configuration::Property::Flag::Standard ) \
+	OP( VeyonConfiguration, VeyonCore::config(), bool, schoolDiscoveryEnabled, setSchoolDiscoveryEnabled, "DiscoveryEnabled", "School", true, Configuration::Property::Flag::Standard )
+
 #define FOREACH_VEYON_CONFIG_PROPERTY(OP)				\
+	FOREACH_VEYON_SCHOOL_CONFIG_PROPERTY(OP) \
 	FOREACH_VEYON_CORE_CONFIG_PROPERTIES(OP)			\
 	FOREACH_VEYON_VNC_CONNECTION_CONFIG_PROPERTIES(OP)	\
 	FOREACH_VEYON_UI_CONFIG_PROPERTY(OP)				\

@@ -42,24 +42,28 @@ VariantArrayMessage::VariantArrayMessage( QIODevice* ioDevice ) :
 
 bool VariantArrayMessage::send()
 {
+	if (!m_ioDevice || m_buffer.size() > MaxMessageSize)
+		return false;
 	const auto messageSize = qToBigEndian<MessageSize>( static_cast<MessageSize>( m_buffer.size() ) );
-	m_ioDevice->write( reinterpret_cast<const char *>( &messageSize ), sizeof(messageSize) );
-	m_ioDevice->write( m_buffer.data() );
-
-	return true;
+	QByteArray frame(reinterpret_cast<const char*>(&messageSize), sizeof(messageSize));
+	frame.append(m_buffer.data());
+	return m_ioDevice->write(frame) == frame.size();
 }
 
 
 
 bool VariantArrayMessage::isReadyForReceive()
 {
-	MessageSize messageSize;
+	MessageSize messageSize = 0;
 
 	if( m_ioDevice->peek( reinterpret_cast<char *>( &messageSize ), sizeof(messageSize) ) == sizeof(messageSize) )
 	{
 		messageSize = qFromBigEndian(messageSize);
-
-		return m_ioDevice->bytesAvailable() >= static_cast<MessageSize>( sizeof(messageSize) + messageSize );
+		if (messageSize > MaxMessageSize) {
+			m_ioDevice->close();
+			return false;
+		}
+		return m_ioDevice->bytesAvailable() >= qint64(sizeof(messageSize)) + messageSize;
 	}
 
 	return false;
@@ -69,7 +73,9 @@ bool VariantArrayMessage::isReadyForReceive()
 
 bool VariantArrayMessage::receive()
 {
-	MessageSize messageSize;
+	// Do not consume a header until the complete bounded frame is present.
+	if (!isReadyForReceive()) return false;
+	MessageSize messageSize = 0;
 
 	if( m_ioDevice->read( reinterpret_cast<char *>( &messageSize ), sizeof(messageSize) ) != sizeof(messageSize) ) // Flawfinder: ignore
 	{

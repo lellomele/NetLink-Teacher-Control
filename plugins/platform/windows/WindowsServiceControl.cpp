@@ -23,9 +23,27 @@
  */
 
 #include <QOperatingSystemVersion>
+#include <QElapsedTimer>
 
 #include "WindowsCoreFunctions.h"
 #include "WindowsServiceControl.h"
+
+namespace {
+bool waitForServiceState(SC_HANDLE service, DWORD wanted, DWORD pending)
+{
+	QElapsedTimer deadline;
+	deadline.start();
+	while(deadline.elapsed() < 30000)
+	{
+		SERVICE_STATUS status{};
+		if(!QueryServiceStatus(service, &status)) return false;
+		if(status.dwCurrentState == wanted) return true;
+		if(status.dwCurrentState != pending) return false;
+		Sleep(200);
+	}
+	return false;
+}
+}
 
 
 WindowsServiceControl::WindowsServiceControl( const QString& name ) :
@@ -77,7 +95,7 @@ bool WindowsServiceControl::isRunning()
 		return false;
 	}
 
-	SERVICE_STATUS status;
+	SERVICE_STATUS status{};
 	if( QueryServiceStatus( m_serviceHandle, &status ) )
 	{
 		return status.dwCurrentState == SERVICE_RUNNING;
@@ -95,25 +113,12 @@ bool WindowsServiceControl::start()
 		return false;
 	}
 
-	SERVICE_STATUS status;
-	status.dwCurrentState = SERVICE_START_PENDING;
-
-	if( StartService( m_serviceHandle, 0, nullptr ) )
-	{
-		while( QueryServiceStatus( m_serviceHandle, &status ) )
-		{
-			if( status.dwCurrentState == SERVICE_START_PENDING )
-			{
-				Sleep( ServiceWaitSleepInterval );
-			}
-			else
-			{
-				break;
-			}
-		}
-	}
-
-	if( status.dwCurrentState != SERVICE_RUNNING )
+	SERVICE_STATUS status{};
+	if(!QueryServiceStatus(m_serviceHandle, &status)) return false;
+	if(status.dwCurrentState == SERVICE_RUNNING) return true;
+	if(status.dwCurrentState != SERVICE_START_PENDING &&
+		!StartService(m_serviceHandle, 0, nullptr)) return false;
+	if(!waitForServiceState(m_serviceHandle, SERVICE_RUNNING, SERVICE_START_PENDING))
 	{
 		vWarning() << "service" << m_name << "could not be started.";
 		return false;
@@ -132,59 +137,17 @@ bool WindowsServiceControl::stop()
 		return false;
 	}
 
-	SERVICE_STATUS status;
-	if( QueryServiceStatus( m_serviceHandle, &status ) &&
-		status.dwCurrentState == SERVICE_STOPPED )
+	SERVICE_STATUS status{};
+	if(!QueryServiceStatus(m_serviceHandle, &status)) return false;
+	if(status.dwCurrentState == SERVICE_STOPPED) return true;
+	if(status.dwCurrentState != SERVICE_STOP_PENDING &&
+		!ControlService(m_serviceHandle, SERVICE_CONTROL_STOP, &status)) return false;
+	if(!waitForServiceState(m_serviceHandle, SERVICE_STOPPED, SERVICE_STOP_PENDING))
 	{
-		return true;
+		vWarning() << "failed to stop service within deadline" << m_name;
+		return false;
 	}
-
-	while( status.dwCurrentState == SERVICE_STOP_PENDING )
-	{
-		Sleep( 1000 );
-		if( QueryServiceStatus( m_serviceHandle, &status ) == false )
-		{
-			const auto error = GetLastError();
-			vWarning() << "failed to wait for stopping service" << m_name
-					   << qUtf8Printable(QStringLiteral("(error %1)").arg(error));
-
-			return false;
-		}
-
-		if( status.dwCurrentState == SERVICE_STOPPED )
-		{
-			return true;
-		}
-	}
-
-	if( ControlService( m_serviceHandle, SERVICE_CONTROL_STOP, &status ) )
-	{
-		while( QueryServiceStatus( m_serviceHandle, &status ) )
-		{
-			if( status.dwCurrentState == SERVICE_STOP_PENDING )
-			{
-				Sleep( ServiceWaitSleepInterval );
-			}
-			else
-			{
-				break;
-			}
-		}
-
-		if( status.dwCurrentState != SERVICE_STOPPED )
-		{
-			vWarning() << "failed to stop service" << m_name;
-			return false;
-		}
-
-		return true;
-	}
-
-	const auto error = GetLastError();
-	vWarning() << "failed to stop service" << m_name
-			   << qUtf8Printable(QStringLiteral("(error %1)").arg(error));
-
-	return false;
+	return true;
 }
 
 

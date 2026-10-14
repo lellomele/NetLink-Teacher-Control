@@ -63,7 +63,11 @@ QByteArray CryptoCore::generateChallenge()
 	}
 
 	// generate a random challenge
-	BN_rand( challengeBigNum, ChallengeSize * 8, 0, 0 );
+	if(BN_rand( challengeBigNum, ChallengeSize * 8, 0, 0 )!=1) {
+		BN_free(challengeBigNum);
+		vCritical() << "secure random challenge generation failed";
+		return {};
+	}
 	QByteArray chall( BN_num_bytes( challengeBigNum ), 0 );
 	BN_bn2bin( challengeBigNum, reinterpret_cast<unsigned char *>( chall.data() ) );
 	BN_free( challengeBigNum );

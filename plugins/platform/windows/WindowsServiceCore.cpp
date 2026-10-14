@@ -23,6 +23,7 @@
  */
 
 #include <windows.h>
+#include <array>
 
 #include <QElapsedTimer>
 #include <QThread>
@@ -165,7 +166,7 @@ bool WindowsServiceCore::runAsService()
 
 void WindowsServiceCore::manageServerInstances()
 {
-	m_serverShutdownEvent = CreateEvent( nullptr, false, false, L"Global\\SessionEventUltra" );
+	m_serverShutdownEvent = CreateEvent( nullptr, false, false, L"Global\\SessionEventVeyonSchool" );
 	ResetEvent( m_serverShutdownEvent );
 
 	if( m_sessionManager.mode() != PlatformSessionManager::Mode::Local )

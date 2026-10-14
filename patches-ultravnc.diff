@@ -1,0 +1,257 @@
+diff --git a/common/UltraVncZ.cpp b/common/UltraVncZ.cpp
+index 6c5d40d1..6405f97f 100644
+--- a/common/UltraVncZ.cpp
++++ b/common/UltraVncZ.cpp
+@@ -6,6 +6,9 @@
+ 
+ UltraVncZ::UltraVncZ()
+ {
++	compresslevel = -1; MAX_SIZE = 8192;
++	memset(&compStream, 0, sizeof(compStream));
++	memset(&decompStream, 0, sizeof(decompStream));
+ 	compStreamInitedZlib = false;
+ 	decompStreamInitedZlib = false;
+ 	compStreamInitedZstd = false;
+diff --git a/rdr/InStream.h b/rdr/InStream.h
+index f7834e78..861bdda5 100644
+--- a/rdr/InStream.h
++++ b/rdr/InStream.h
+@@ -100,9 +100,9 @@ namespace rdr {
+     // readOpaqueN() reads a quantity without byte-swapping.
+ 
+     inline U8  readOpaque8()  { return readU8(); }
+-    inline U16 readOpaque16() { check(2); U16 r; ((U8*)&r)[0] = *ptr++;
++    inline U16 readOpaque16() { check(2); U16 r=0; ((U8*)&r)[0] = *ptr++;
+                                 ((U8*)&r)[1] = *ptr++; return r; }
+-    inline U32 readOpaque32() { check(4); U32 r; ((U8*)&r)[0] = *ptr++;
++    inline U32 readOpaque32() { check(4); U32 r=0; ((U8*)&r)[0] = *ptr++;
+                                 ((U8*)&r)[1] = *ptr++; ((U8*)&r)[2] = *ptr++;
+                                 ((U8*)&r)[3] = *ptr++; return r; }
+     inline U32 readOpaque24A() { check(3); U32 r=0; ((U8*)&r)[0] = *ptr++;
+@@ -135,7 +135,7 @@ namespace rdr {
+ 
+   protected:
+ 
+-    InStream() {}
++    InStream() : ptr(0), end(0) {}
+     const U8* ptr;
+     const U8* end;
+   };
+diff --git a/rdr/OutStream.h b/rdr/OutStream.h
+index 222645cb..b21f7f69 100644
+--- a/rdr/OutStream.h
++++ b/rdr/OutStream.h
+@@ -35,7 +35,7 @@ namespace rdr {
+ 
+   protected:
+ 
+-    OutStream() {}
++    OutStream() : ptr(0), end(0) {}
+ 
+   public:
+ 
+diff --git a/winvnc/omnithread/nt.cpp b/winvnc/omnithread/nt.cpp
+index cf5a0b8a..542f73ad 100644
+--- a/winvnc/omnithread/nt.cpp
++++ b/winvnc/omnithread/nt.cpp
+@@ -350,7 +350,8 @@ omni_semaphore::~omni_semaphore(void)
+   if (!CloseHandle(nt_sem)) {
+     DB( cerr << "omni_semaphore::~omni_semaphore: CloseHandle error "
+ 	     << GetLastError() << endl );
+-    throw omni_thread_fatal(GetLastError());
++    // Destructors must not throw: preserve shutdown even after a handle error.
++    OutputDebugStringA("omni_semaphore: CloseHandle failed\n");
+   }
+ }
+ 
+@@ -597,10 +598,10 @@ omni_thread::~omni_thread(void)
+ // sf@ - _endthread() that is used for BCC already does a CloseHandle (that's not the case for _endthreadEx())
+ // #ifndef __BCPLUSPLUS__
+     if (handle && !CloseHandle(handle))
+-	throw omni_thread_fatal(GetLastError());
++	OutputDebugStringA("omni_thread: CloseHandle failed\n");
+ // #endif
+     if (cond_semaphore && !CloseHandle(cond_semaphore))
+-	throw omni_thread_fatal(GetLastError());
++	OutputDebugStringA("omni_thread: CloseHandle condition failed\n");
+ }
+ 
+ 
+@@ -931,7 +932,7 @@ public:
+   inline ~omni_thread_dummy()
+   {
+     if (!TlsSetValue(self_tls_index, (LPVOID)0))
+-      throw omni_thread_fatal(GetLastError());
++      OutputDebugStringA("omni_thread_dummy: TlsSetValue failed\n");
+   }
+ };
+ 
+diff --git a/winvnc/winvnc/IPC.cpp b/winvnc/winvnc/IPC.cpp
+index 7e85eb11..81375a7a 100644
+--- a/winvnc/winvnc/IPC.cpp
++++ b/winvnc/winvnc/IPC.cpp
+@@ -34,6 +34,7 @@ int oldcounter=0;
+ //***********************************************
+ CIPC::CIPC() 
+ {
++	ZeroMemory(&list, sizeof(list));
+ 	m_hFileMap=NULL;
+ 	m_hFileMapBitmap=NULL;
+ 	pBitmap=NULL;
+@@ -152,7 +153,7 @@ bool CIPC::OpenIPCMMFBitmap(void)
+ 			FILE_MAP_READ | FILE_MAP_WRITE,
+ 			0, 0, 0);
+ 			if (m_FileViewBitmap==0) bOpenedBitmap = false;
+-			pBitmap=(byte*) m_FileViewBitmap;
++			pBitmap=static_cast<unsigned char*>(m_FileViewBitmap);
+ 
+ 		}
+ 	}
+@@ -188,4 +189,4 @@ mystruct* CIPC::listall()
+ {
+ 	return plist;
+ }
+-//***********************************************
+\ No newline at end of file
++//***********************************************
+diff --git a/winvnc/winvnc/ScreenCapture.cpp b/winvnc/winvnc/ScreenCapture.cpp
+index 1676c3dc..f33df6d3 100644
+--- a/winvnc/winvnc/ScreenCapture.cpp
++++ b/winvnc/winvnc/ScreenCapture.cpp
+@@ -13,6 +13,9 @@ IsWindows10OrGreater()
+ //----------------------------------------------------------
+ ScreenCapture::ScreenCapture()
+ {
++	osVer = osVersion();
++	pSharedMemory = NULL; pFramebuffer = NULL; pChangebuf = NULL;
++	oldAantal = 0; blocked = false; init = false;
+ }
+ //----------------------------------------------------------
+ int ScreenCapture::osVersion()
+diff --git a/winvnc/winvnc/uvncUiAccess.cpp b/winvnc/winvnc/uvncUiAccess.cpp
+index 8fb47167..8256fd2b 100644
+--- a/winvnc/winvnc/uvncUiAccess.cpp
++++ b/winvnc/winvnc/uvncUiAccess.cpp
+@@ -248,6 +248,10 @@ void keybd_delete()
+ 
+ comm_serv::comm_serv()
+ {
++	ZeroMemory(filemapping_IN,sizeof(filemapping_IN));ZeroMemory(filemapping_OUT,sizeof(filemapping_OUT));
++	ZeroMemory(event_IN,sizeof(event_IN));ZeroMemory(event_OUT,sizeof(event_OUT));
++	ZeroMemory(event_IN_DONE,sizeof(event_IN_DONE));ZeroMemory(event_OUT_DONE,sizeof(event_OUT_DONE));
++	datasize_IN=0;datasize_OUT=0;ZeroMemory(&secAttr,sizeof(secAttr));
+ 	event_E_IN=NULL;
+ 	event_E_IN_DONE=NULL;
+ 	event_E_OUT=NULL;
+@@ -404,7 +408,7 @@ bool comm_serv::Init(char *name,int IN_datasize_IN,int IN_datasize_OUT,bool app,
+ 		event_E_IN=CreateEvent(&secAttr, FALSE, FALSE, event_IN);
+ 		if(event_E_IN==NULL) return false;
+ 		event_E_IN_DONE=CreateEvent(&secAttr, FALSE, FALSE, event_IN_DONE);
+-		if(event_IN_DONE==NULL) return false;
++		if(event_E_IN_DONE==NULL) return false;
+ 
+ 		if (datasize_OUT!=0)
+ 		{
+@@ -416,7 +420,7 @@ bool comm_serv::Init(char *name,int IN_datasize_IN,int IN_datasize_OUT,bool app,
+ 		event_E_OUT=CreateEvent(&secAttr, FALSE, FALSE, event_OUT);
+ 		if(event_E_OUT==NULL) return false;
+ 		event_E_OUT_DONE=CreateEvent(&secAttr, FALSE, FALSE, event_OUT_DONE);
+-		if(event_OUT_DONE==NULL) return false;
++		if(event_E_OUT_DONE==NULL) return false;
+ 	}
+ 	else
+ 	{
+@@ -430,7 +434,7 @@ bool comm_serv::Init(char *name,int IN_datasize_IN,int IN_datasize_OUT,bool app,
+ 		event_E_IN=CreateEvent(NULL, FALSE, FALSE, event_IN);
+ 		if(event_E_IN==NULL) return false;
+ 		event_E_IN_DONE=CreateEvent(NULL, FALSE, FALSE, event_IN_DONE);
+-		if(event_IN_DONE==NULL) return false;
++		if(event_E_IN_DONE==NULL) return false;
+ 
+ 		if (datasize_OUT!=0)
+ 		{
+@@ -442,7 +446,7 @@ bool comm_serv::Init(char *name,int IN_datasize_IN,int IN_datasize_OUT,bool app,
+ 		event_E_OUT=CreateEvent(NULL, FALSE, FALSE, event_OUT);
+ 		if(event_E_OUT==NULL) return false;
+ 		event_E_OUT_DONE=CreateEvent(NULL, FALSE, FALSE, event_OUT_DONE);
+-		if(event_OUT_DONE==NULL) return false;
++		if(event_E_OUT_DONE==NULL) return false;
+ 	}
+ 	}
+ 	else
+@@ -461,8 +465,8 @@ bool comm_serv::Init(char *name,int IN_datasize_IN,int IN_datasize_OUT,bool app,
+ 			if(event_E_IN==NULL) return false;
+ 			ResetEvent(event_E_IN);
+ 			event_E_IN_DONE=OpenEvent(EVENT_ALL_ACCESS, FALSE, event_IN_DONE);
+-			if(event_IN_DONE==NULL) return false;
+-			ResetEvent(event_IN_DONE);
++			if(event_E_IN_DONE==NULL) return false;
++			ResetEvent(event_E_IN_DONE);
+ 			if (datasize_OUT!=0)
+ 			{
+ 			hMapFile_OUT = OpenFileMapping(FILE_MAP_ALL_ACCESS,FALSE,filemapping_OUT);
+@@ -474,8 +478,8 @@ bool comm_serv::Init(char *name,int IN_datasize_IN,int IN_datasize_OUT,bool app,
+ 			if(event_E_OUT==NULL) return false;
+ 			ResetEvent(event_E_OUT);
+ 			event_E_OUT_DONE=OpenEvent(EVENT_ALL_ACCESS, FALSE, event_OUT_DONE);
+-			if(event_OUT_DONE==NULL) return false;
+-			ResetEvent(event_OUT_DONE);
++			if(event_E_OUT_DONE==NULL) return false;
++			ResetEvent(event_E_OUT_DONE);
+ 		}
+ 		else
+ 		{
+@@ -490,8 +494,8 @@ bool comm_serv::Init(char *name,int IN_datasize_IN,int IN_datasize_OUT,bool app,
+ 			if(event_E_IN==NULL) return false;
+ 			ResetEvent(event_E_IN);
+ 			event_E_IN_DONE=OpenEvent(EVENT_ALL_ACCESS, FALSE, event_IN_DONE);
+-			if(event_IN_DONE==NULL) return false;
+-			ResetEvent(event_IN_DONE);
++			if(event_E_IN_DONE==NULL) return false;
++			ResetEvent(event_E_IN_DONE);
+ 
+ 			if (datasize_OUT!=0)
+ 			{
+@@ -504,8 +508,8 @@ bool comm_serv::Init(char *name,int IN_datasize_IN,int IN_datasize_OUT,bool app,
+ 			if(event_E_OUT==NULL) return false;
+ 			ResetEvent(event_E_OUT);
+ 			event_E_OUT_DONE=OpenEvent(EVENT_ALL_ACCESS, FALSE, event_OUT_DONE);
+-			if(event_OUT_DONE==NULL) return false;
+-			ResetEvent(event_OUT_DONE);
++			if(event_E_OUT_DONE==NULL) return false;
++			ResetEvent(event_E_OUT_DONE);
+ 		}
+ 	}
+ 	return true;
+@@ -646,4 +650,4 @@ void comm_serv::Force_unblock()
+ void comm_serv::Release()
+ {
+ 	if (event_E_IN) ResetEvent(event_E_IN);
+-}
+\ No newline at end of file
++}
+diff --git a/winvnc/winvnc/videodrivercheck.cpp b/winvnc/winvnc/videodrivercheck.cpp
+index f3b9cb74..d5e3cbff 100644
+--- a/winvnc/winvnc/videodrivercheck.cpp
++++ b/winvnc/winvnc/videodrivercheck.cpp
+@@ -158,7 +158,7 @@ CheckVideoDriver(bool Box)
+ 						strcpy_s(buf2,"");
+ 						strcpy_s(buf2,"Driver found. \n");
+ 						GetDllProductVersion("mv2.dll",buf,512);
+-						if (strcmp(buf,"1.00.22")==NULL)
++						if (strcmp(buf,"1.00.22")==0)
+ 						{
+ 							strcat_s(buf2,"Driver version OK \n");
+ 						}
+diff --git a/winvnc/winvnc/vncauth.c b/winvnc/winvnc/vncauth.c
+index bf8cee8a..2a280c50 100644
+--- a/winvnc/winvnc/vncauth.c
++++ b/winvnc/winvnc/vncauth.c
+@@ -94,6 +94,7 @@ char *
+ vncDecryptPasswd(char *inouttext, int secure)
+ {
+     unsigned char *passwd = (unsigned char *)malloc(9);
++    if (!passwd) return NULL;
+ 	if (secure)
+ 		deskey(dynkey, DE1);
+ 	else

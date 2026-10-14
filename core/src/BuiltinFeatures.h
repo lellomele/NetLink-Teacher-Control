@@ -29,6 +29,7 @@
 class DesktopAccessDialog;
 class MonitoringMode;
 class SystemTrayIcon;
+class SchoolFeatures;
 
 // clazy:excludeall=rule-of-three
 
@@ -57,4 +58,5 @@ private:
 	SystemTrayIcon* m_systemTrayIcon;
 	MonitoringMode* m_monitoringMode;
 	DesktopAccessDialog* m_desktopAccessDialog;
+	SchoolFeatures* m_schoolFeatures;
 };

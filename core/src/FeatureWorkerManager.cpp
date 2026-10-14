@@ -29,6 +29,7 @@
 
 #include "FeatureManager.h"
 #include "FeatureWorkerManager.h"
+#include "VariantArrayMessage.h"
 #include "Filesystem.h"
 #include "VeyonConfiguration.h"
 #include "VeyonCore.h"
@@ -83,6 +84,7 @@ bool FeatureWorkerManager::startManagedSystemWorker( Feature::Uid featureUid )
 	stopWorker( featureUid );
 
 	Worker worker;
+	worker.token = QUuid::createUuid().toString() + QUuid::createUuid().toString();
 
 	worker.process = new QProcess;
 	worker.process->setProcessChannelMode( QProcess::ForwardedChannels );
@@ -98,11 +100,11 @@ bool FeatureWorkerManager::startManagedSystemWorker( Feature::Uid featureUid )
 								 QStringLiteral("--leak-check=full"),
 								 QStringLiteral("--show-leak-kinds=all"),
 								 QStringLiteral("--log-file=valgrind-%1.log").arg(VeyonCore::formattedUuid(featureUid)),
-								 VeyonCore::filesystem().workerFilePath(), featureUid.toString() } );
+								 VeyonCore::filesystem().workerFilePath(), featureUid.toString(), worker.token } );
 	}
 	else
 	{
-		worker.process->start( VeyonCore::filesystem().workerFilePath(), { featureUid.toString() } );
+		worker.process->start( VeyonCore::filesystem().workerFilePath(), { featureUid.toString(), worker.token } );
 	}
 
 	m_workersMutex.lock();
@@ -125,6 +127,7 @@ bool FeatureWorkerManager::startUnmanagedSessionWorker( Feature::Uid featureUid 
 	stopWorker( featureUid );
 
 	Worker worker;
+	worker.token = QUuid::createUuid().toString() + QUuid::createUuid().toString();
 
 	vDebug() << "Starting worker (unmanaged session process) for feature" << featureUid;
 
@@ -136,7 +139,7 @@ bool FeatureWorkerManager::startUnmanagedSessionWorker( Feature::Uid featureUid 
 	}
 
 	const auto ret = VeyonCore::platform().coreFunctions().
-					 runProgramAsUser( VeyonCore::filesystem().workerFilePath(), { featureUid.toString() },
+					 runProgramAsUser( VeyonCore::filesystem().workerFilePath(), { featureUid.toString(), worker.token },
 									   currentUser,
 									   VeyonCore::platform().coreFunctions().activeDesktopName() );
 	if( ret == false )
@@ -156,6 +159,7 @@ bool FeatureWorkerManager::startUnmanagedSessionWorker( Feature::Uid featureUid 
 
 bool FeatureWorkerManager::stopWorker( Feature::Uid featureUid )
 {
+	m_retryGenerations.remove(featureUid);
 	if( thread() != QThread::currentThread() )
 	{
 		vCritical() << "thread mismatch for feature" << featureUid;
@@ -181,7 +185,8 @@ bool FeatureWorkerManager::stopWorker( Feature::Uid featureUid )
 
 		if( worker.process )
 		{
-			auto killTimer = new QTimer;
+			auto killTimer = new QTimer( worker.process );
+			killTimer->setSingleShot( true );
 			connect( killTimer, &QTimer::timeout, worker.process, &QProcess::terminate );
 			connect( killTimer, &QTimer::timeout, worker.process, &QProcess::kill );
 			connect( killTimer, &QTimer::timeout, killTimer, &QTimer::deleteLater );
@@ -189,6 +194,7 @@ bool FeatureWorkerManager::stopWorker( Feature::Uid featureUid )
 		}
 
 		m_workers.remove( featureUid );
+		return true;
 	}
 
 	return false;
@@ -213,15 +219,25 @@ void FeatureWorkerManager::sendMessageToManagedSystemWorker( const FeatureMessag
 
 void FeatureWorkerManager::sendMessageToUnmanagedSessionWorker( const FeatureMessage& message )
 {
+	const auto generation=++m_retryGeneration;
+	m_retryGenerations[message.featureUid()]=generation;
+	retrySessionMessage(message, 6, generation);
+}
+
+void FeatureWorkerManager::retrySessionMessage(const FeatureMessage& message, int remaining, quint64 generation)
+{
+	if(m_retryGenerations.value(message.featureUid())!=generation) return;
 	if( isWorkerRunning( message.featureUid() ) == false &&
 		startUnmanagedSessionWorker( message.featureUid() ) == false )
 	{
-		vDebug() << "User session likely not yet available - retrying worker start";
+		// startWorker calls stopWorker; restore the retry generation only for this attempt.
+		m_retryGenerations[message.featureUid()]=generation;
+		if(remaining<=0) {m_retryGenerations.remove(message.featureUid());return;}
 		QTimer::singleShot( UnmanagedSessionProcessRetryInterval, this,
-							[=]() { sendMessageToUnmanagedSessionWorker( message ); } );
+							[=]() { retrySessionMessage(message, remaining-1, generation); } );
 		return;
 	}
-
+	m_retryGenerations.remove(message.featureUid());
 	sendMessage( message );
 }
 
@@ -240,6 +256,12 @@ void FeatureWorkerManager::acceptConnection()
 	vDebug() << "accepting connection";
 
 	QTcpSocket* socket = m_tcpServer.nextPendingConnection();
+	if( !socket ) return;
+	// The buffer must hold a complete permitted frame, otherwise large frames stall.
+	socket->setReadBufferSize(VariantArrayMessage::MaxMessageSize + sizeof(VariantArrayMessage::MessageSize));
+	QTimer::singleShot( 5000, socket, [socket] {
+		if( !socket->property("workerAuthenticated").toBool() ) socket->abort();
+	} );
 
 	// connect to readyRead() signal of new connection
 	connect( socket, &QTcpSocket::readyRead,
@@ -254,32 +276,39 @@ void FeatureWorkerManager::acceptConnection()
 void FeatureWorkerManager::processConnection( QTcpSocket* socket )
 {
 	FeatureMessage message;
-	message.receive( socket );
-
-	m_workersMutex.lock();
-
-	// set socket information
-	if( m_workers.contains( message.featureUid() ) )
+	// Drain complete frames only: readyRead may contain a fragment or several frames.
+	int budget = 32;
+	while( budget-- && message.isReadyForReceive( socket ) )
 	{
-		if( m_workers[message.featureUid()].socket.isNull() )
+		if( !message.receive( socket ) ) { socket->abort(); return; }
+		bool dispatch = false;
+		bool reject = false;
 		{
-			m_workers[message.featureUid()].socket = socket;
-			sendPendingMessages();
+			QMutexLocker locker( &m_workersMutex );
+			auto it = m_workers.find( message.featureUid() );
+			if( it == m_workers.end() ) reject = true;
+			else if( it.value().socket.isNull() )
+			{
+				auto& worker = it.value();
+				if( message.command() != FeatureMessage::InitCommand ||
+					message.argument(0).toString() != worker.token ) reject = true;
+				else {
+					worker.socket = socket;
+					worker.token.clear(); // nonce is single-use
+					socket->setProperty("workerAuthenticated", true);
+				}
+			}
+			else if( it.value().socket != socket ) reject = true;
+			else dispatch = message.command() >= 0;
 		}
-
-		m_workersMutex.unlock();
-
-		if( message.command() >= 0 )
-		{
-			VeyonCore::featureManager().handleFeatureMessage( m_server, MessageContext( socket ), message );
-		}
+		// abort can synchronously emit disconnected and erase the worker-map entry.
+		if(reject) { socket->abort(); return; }
+		if( dispatch ) VeyonCore::featureManager().handleFeatureMessage( m_server, MessageContext( socket ), message );
+		if( !socket->isOpen() ) return;
 	}
-	else
-	{
-		m_workersMutex.unlock();
-
-		vCritical() << "got data from non-existing worker!" << message.featureUid();
-	}
+	sendPendingMessages();
+	if( budget < 0 && socket->bytesAvailable() )
+		QTimer::singleShot( 0, socket, [this, socket] { processConnection(socket); } );
 }
 
 
@@ -314,7 +343,9 @@ void FeatureWorkerManager::sendMessage( const FeatureMessage& message )
 
 	if( m_workers.contains( message.featureUid() ) )
 	{
-		m_workers[message.featureUid()].pendingMessages.append( message );
+		auto& messages = m_workers[message.featureUid()].pendingMessages;
+		if( messages.size() < 128 ) messages.append( message );
+		else vWarning() << "worker message queue limit exceeded";
 	}
 	else
 	{
@@ -328,18 +359,22 @@ void FeatureWorkerManager::sendMessage( const FeatureMessage& message )
 
 void FeatureWorkerManager::sendPendingMessages()
 {
-	m_workersMutex.lock();
-
-	for( auto it = m_workers.begin(); it != m_workers.end(); ++it )
+	QList<QPair<QPointer<QTcpSocket>, QList<FeatureMessage>>> batches;
 	{
-		auto& worker = it.value();
-
-		while( worker.socket && worker.pendingMessages.isEmpty() == false )
+		QMutexLocker locker( &m_workersMutex );
+		for( auto& worker : m_workers )
 		{
-			worker.pendingMessages.first().send( worker.socket );
-			worker.pendingMessages.removeFirst();
+			if( worker.socket && worker.socket->bytesToWrite() < 1024 * 1024 && !worker.pendingMessages.isEmpty() )
+			{
+				batches.append( qMakePair(worker.socket, worker.pendingMessages) );
+				worker.pendingMessages.clear();
+			}
 		}
 	}
-
-	m_workersMutex.unlock();
+	// Socket callbacks must never invalidate a worker-map iterator under this loop.
+	for( const auto& batch : batches ) for( const auto& message : batch.second )
+	{
+		if( !batch.first ) break;
+		if( !message.send(batch.first) ) { batch.first->abort(); break; }
+	}
 }

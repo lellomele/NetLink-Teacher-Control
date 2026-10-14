@@ -1,0 +1,66 @@
+[
+  {
+    "package": "mingw-w64-x86_64-qt5-base",
+    "version": "5.15.18+kde+r109-6",
+    "recipeCommit": "82bcf47d0ae2621e1cd00fb82c8ee5db02b91955",
+    "recipeSha256": "bf981cd33353ba4ba4ab8bdef2c07a73075711e3f0c9c5a58ef2d73ee39c8bb0",
+    "sourceUrl": "https://invent.kde.org/qt/qt/qtbase/-/archive/bebdfd54917e25d1c100e6bd9f5dd53c2e645fd8/qtbase-bebdfd54917e25d1c100e6bd9f5dd53c2e645fd8.tar.gz",
+    "sourceSha256": "bdbd3a1eab033385cccf672da5bc9ab1e20e4edefb41d6674f2c3d9ee2388fc3"
+  },
+  {
+    "package": "mingw-w64-x86_64-qca-qt5",
+    "version": "2.3.10-2",
+    "recipeCommit": "020c0e6450a23217aa54b07b61c15932efa264fc",
+    "recipeSha256": "d1edbde94ccc530ce42e8efddd449bbafb1a645d490103eade013ccfc828f533",
+    "sourceUrl": "https://download.kde.org/stable/qca/2.3.10/qca-2.3.10.tar.xz",
+    "sourceSha256": "1c5b722da93d559365719226bb121c726ec3c0dc4c67dea34f1e50e4e0d14a02"
+  },
+  {
+    "package": "mingw-w64-x86_64-glib2",
+    "version": "2.88.1-1",
+    "recipeCommit": "b820f42c53d269660cf522a57d193c778f92b652",
+    "recipeSha256": "205730c49115db1cb9385efdc5bb20b8a34397eb28810885a2d9272e16a23688",
+    "sourceUrl": "https://download.gnome.org/sources/glib/2.88/glib-2.88.1.tar.xz",
+    "sourceSha256": "51ab804c56f6eab3e5045c774d1290ac5e4c923d4f9a3d8e33123bee45c1840e"
+  },
+  {
+    "package": "mingw-w64-x86_64-graphite2",
+    "version": "1.3.14-3",
+    "recipeCommit": "ced2cae1ea79baf30254fdd34712b40ccdad1e16",
+    "recipeSha256": "da8768256a9003d163a1b543ce1fd4ed40a48ae2a97967554e1d2265a2fea5b1",
+    "sourceUrl": "https://github.com/silnrsi/graphite/releases/download/1.3.14/graphite2-1.3.14.tgz",
+    "sourceSha256": "f99d1c13aa5fa296898a181dff9b82fb25f6cc0933dbaa7a475d8109bd54209d"
+  },
+  {
+    "package": "mingw-w64-x86_64-libiconv",
+    "version": "1.19-1",
+    "recipeCommit": "045d46aedb9fdbd93b0900b1e20c1a6c73f23072",
+    "recipeSha256": "9b3212d06910560fb59e017e0b73a29d392a5082d3a47a613e61509bd7dcd475",
+    "sourceUrl": "https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.19.tar.gz",
+    "sourceSha256": "88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6"
+  },
+  {
+    "package": "mingw-w64-x86_64-gettext-runtime",
+    "version": "1.0-1",
+    "recipeCommit": "efb77424dfbeaaa22d96621274765d7ab5a3344f",
+    "recipeSha256": "853ef80a50588f29355722a4513f24cf1a5f8de06e0b5ee326580464db539741",
+    "sourceUrl": "https://ftp.gnu.org/pub/gnu/gettext/gettext-1.0.tar.lz",
+    "sourceSha256": "d6342cbe1411a2fe7d139bfed80c2d63b1babc92acfedc72501cc105184f61ee"
+  },
+  {
+    "package": "mingw-w64-x86_64-lzo2",
+    "version": "2.10-3",
+    "recipeCommit": "de95a3869ec9a03a37f9553af998aa595c017963",
+    "recipeSha256": "ffbc8ec851a99d4ba39f84dbaedb450c8a09bccd2f859c8984da97e854feb088",
+    "sourceUrl": "https://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz",
+    "sourceSha256": "c0f892943208266f9b6543b3ae308fab6284c5c90e627931446fb49b4221a072"
+  },
+  {
+    "package": "mingw-w64-x86_64-gcc-libs",
+    "version": "16.1.0-5",
+    "recipeCommit": "18aeb95f69dd6bd3c9172a938c9fd35491536410",
+    "recipeSha256": "40f248fa589babd9315cc589a76a0c00939355bd68c92287a2dcb7d1acb58f96",
+    "sourceUrl": "https://ftp.gnu.org/gnu/gcc/gcc-16.1.0/gcc-16.1.0.tar.xz",
+    "sourceSha256": "50efb4d94c3397aff3b0d61a5abd748b4dd31d9d3f2ab7be05b171d36a510f79"
+  }
+]

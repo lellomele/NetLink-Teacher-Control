@@ -1,165 +1,96 @@
-# Veyon - Virtual Eye On Networks
+# Veyon School
 
-[![.github/workflows/build.yml](https://github.com/veyon/veyon/actions/workflows/build.yml/badge.svg?branch=4.5)](https://github.com/veyon/veyon/actions/workflows/build.yml)
-[![Latest stable release](https://img.shields.io/github/release/veyon/veyon.svg?maxAge=3600)](https://github.com/veyon/veyon/releases)
-[![Overall downloads on Github](https://img.shields.io/github/downloads/veyon/veyon/total.svg?maxAge=3600)](https://github.com/veyon/veyon/releases)
-[![Documentation Status](https://readthedocs.org/projects/veyon/badge/?version=latest)](https://docs.veyon.io/)
-[![Localise on Transifex](https://img.shields.io/badge/localise-on_transifex-green.svg)](https://www.transifex.com/veyon-solutions/veyon/)
-[![license](https://img.shields.io/badge/license-GPLv2-green.svg)](LICENSE)
+Fork di **Veyon 4.7.5** per aule Windows: visualizzazione e controllo dei PC,
+InternetGuard basato su Windows Filtering Platform, Appello con il nome dichiarato
+dallo studente sulle miniature e ricerca dei client tramite WS-Discovery 1.1.
+Le funzioni sono integrate: non occorre installare un plugin esterno.
 
+**Versione preliminare 0.1.0-alpha.1: destinata a PC di prova, non al laboratorio in uso.**
 
-## What is Veyon?
+## Installazione
 
-Veyon is a free and open source software for monitoring and controlling
-computers across multiple platforms. Veyon supports you in teaching in digital
-learning environments, performing virtual trainings or giving remote support.
+Scaricare l’installer x64 dalla [pagina delle release](https://github.com/lellomele/veyon-school/releases).
+Installarlo come amministratore sul PC docente e sui client. Windows 10 a 64 bit è
+il sistema di riferimento; le librerie necessarie sono incluse nell’installer.
+Non servono Python, .NET aggiuntivo, DDS, Zenoh o un nuovo driver kernel.
 
-The following features are available in Veyon:
+Il programma usa la configurazione Veyon esistente e installa il servizio separato
+`VeyonSchoolService`. Non eseguire contemporaneamente i due servizi: usano le stesse
+porte. L’installazione originale, le chiavi e la configurazione non vengono eliminate.
+L’installer salva la configurazione in una cartella Backups accessibile solo agli
+amministratori. Se il servizio originale è presente, ne disabilita l’avvio automatico
+con conferma e ripristina il tipo di avvio alla disinstallazione.
 
-  * Overview: monitor all computers in one or multiple locations or classrooms
-  * Remote access: view or control computers to watch and support users
-  * Demo: broadcast the teacher's screen in realtime (fullscreen/window)
-  * Screen lock: draw attention to what matters right now
-  * Communication: send text messages to students
-  * Start and end lessons: log in and log out users all at once
-  * Screenshots: record learning progress and document infringements
-  * Programs & websites: launch programs and open website URLs remotely
-  * Teaching material: distribute and open documents, images and videos easily
-  * Administration: power on/off and reboot computers remotely
+Nel Configurator mantenere le aule, i PC, l’autenticazione e le regole di accesso
+già configurati. È consigliata l’autenticazione a chiave con diritti limitati ai
+docenti. Non distribuire la chiave privata ai client.
 
+## Uso
 
-## License
+- **InternetGuard:** selezionare i PC, aprire InternetGuard e scegliere Blocca,
+  Sblocca o Verifica stato. La console mostra conferme, errori e richieste senza risposta.
+  Il blocco è rinnovato ogni 20 secondi e scade dopo 90 secondi senza rinnovo.
+- **Appello:** selezionare i PC e richiedere nome e cognome. I nomi sono visualizzati
+  sulle miniature, ricercabili e ordinabili. Si può esportare il risultato in CSV
+  oppure terminare l’appello e cancellare i nomi.
+- **Trova client:** vedere i PC rilevati, verificarli e importare il PC selezionato.
+  L’importazione richiede diritti di scrittura sulla configurazione e il riavvio
+  del Master. Non modifica automaticamente le chiavi o le autorizzazioni.
 
-Copyright (c) 2004-2022 Tobias Junghans / Veyon Solutions.
+## Configurazione aggiuntiva
 
-See the file COPYING for the GNU GENERAL PUBLIC LICENSE.
+Pagina **Veyon School** del Configurator:
 
+- Stessa subnet: discovery multicast su UDP 3702, senza indirizzi da inserire.
+- Subnet diverse: indicare sui client il nome/IP del docente in `DiscoveryMaster`.
+  Il Master riceve gli annunci via HTTP su TCP 3702. Il routing e le ACL della rete
+  devono consentire il collegamento. In alternativa l’installer accetta `/Master=NOME-PC`.
+- Risorse scolastiche extra: aggiungere solo gli IP o CIDR necessari, uno per riga.
+  I PC selezionati nel Master e il suo indirizzo effettivo vengono riutilizzati;
+  DNS e DHCP delle interfacce attive vengono rilevati dal client.
 
-## Installation and configuration
+Le eccezioni discovery sono limitate ai profili Windows **Privato/Dominio**.
+Il multicast non attraversa automaticamente le subnet. Il nome del Master può
+essere distribuito insieme alla normale configurazione Veyon.
 
-Please refer to the official Veyon Administrator Manual at https://docs.veyon.io/en/latest/admin/index.html
-for information on the installation and configuration of Veyon.
+## Limiti operativi
 
+Il feedback InternetGuard conferma l’installazione dei filtri WFP, **non** una prova
+di navigazione. Serve ancora il collaudo su Windows 10 con firewall/antivirus reali,
+connessioni già aperte, IPv6, VPN e cambi di interfaccia. La scadenza è volutamente
+fail-open: questo non è un firewall aziendale o un controllo di sicurezza assoluto.
 
-## Usage
+Le destinazioni autorizzate restano raggiungibili su tutte le porte; proxy o VPN su
+quelle destinazioni possono permettere l’accesso esterno. Non autorizzare intere
+subnet senza motivo. Gli studenti non devono avere diritti amministrativi locali.
+Un altro docente non può sostituire una policy attiva di una diversa connessione:
+in caso di riconnessione può essere necessario aspettare la scadenza di 90 secondi.
 
-Please refer to the official Veyon User Manual at https://docs.veyon.io/en/latest/user/index.html
-for information on how to use Veyon.
+Appello è un’autodichiarazione, non un’identificazione verificata. I nomi restano
+nella memoria del Master finché termina l’appello o si chiude il programma; il CSV
+contiene dati personali e va conservato soltanto quando necessario. Gli annunci
+discovery non trasmettono i nomi degli studenti e non sono autenticati.
 
+La comunicazione eredita il modello di sicurezza Veyon 4.7.5: non viene aggiunto un
+canale TLS generalizzato. Non esporre i servizi a Internet o a reti non fidate.
+Limiti: 256 client per operazione, 255 destinazioni totali, 128 risorse aggiuntive,
+1.024 candidati discovery; le risposte SOAP sono limitate a 32 KiB e 64 record.
 
-## Veyon on Linux
+Non sono inclusi Interception né la DLL binaria DeskDupEngine. Si usa l’acquisizione
+schermo software: verificare fluidità e carico CPU sui PC di destinazione. Il blocco
+degli input non ha la stessa forza della modalità con driver Interception.
+Le nuove funzioni richiedono Veyon School sui client.
 
-### Downloading sources
+## Compilazione
 
-First grab the latest sources by cloning the Git repository and fetching all submodules:
+Clonare con `git clone --recurse-submodules https://github.com/lellomele/veyon-school.git`.
+Su Windows usare MSYS2 MinGW64 con GCC, CMake, Ninja, Qt 5, QCA, OpenSSL, OpenLDAP,
+LZO, libjpeg-turbo, libpng, zlib e NSIS. Le istruzioni complete sono in
+[BUILD.md](docs/BUILD.md). I sorgenti dell’icona sono in `branding/`.
 
-	git clone --recursive https://github.com/veyon/veyon.git && cd veyon
+## Copyright e licenza
 
-
-### Installing dependencies
-
-Requirements for Debian-based distributions:
-
-- Build tools: g++ libc6-dev make cmake dpkg-dev
-- Qt5: qtbase5-dev qtbase5-private-dev qtbase5-dev-tools qttools5-dev qttools5-dev-tools
-- X11: xorg-dev libxtst-dev libfakekey-dev
-- libjpeg: libjpeg-dev provided by libjpeg-turbo8-dev or libjpeg62-turbo-dev
-- zlib: zlib1g-dev
-- OpenSSL: libssl-dev
-- PAM: libpam0g-dev
-- procps: libprocps-dev
-- LZO: liblzo2-dev
-- QCA: libqca-qt5-2-dev
-- LDAP: libldap2-dev
-- SASL: libsasl2-dev
-
-As root you can run
-
-	apt install g++ libc6-dev make cmake qtbase5-dev qtbase5-private-dev \
-	            qtbase5-dev-tools qttools5-dev qttools5-dev-tools \
-	            xorg-dev libxtst-dev libfakekey-dev libjpeg-dev zlib1g-dev libssl-dev libpam0g-dev \
-	            libprocps-dev liblzo2-dev libqca-qt5-2-dev libldap2-dev \
-	            libsasl2-dev
-
-
-
-Requirements for RedHat-based distributions:
-
-- Build tools: gcc-c++ make cmake rpm-build
-- Qt5: qt5-devel qt5-qtbase-private-devel
-- X11: libXtst-devel libXrandr-devel libXinerama-devel libXcursor-devel libXrandr-devel libXdamage-devel libXcomposite-devel libXfixes-devel libfakekey-devel
-- libjpeg: libjpeg-turbo-devel
-- zlib: zlib-devel
-- OpenSSL: openssl-devel
-- PAM: pam-devel
-- procps: procps-devel
-- LZO: lzo-devel
-- QCA: qca-devel qca-qt5-devel
-- LDAP: openldap-devel
-- SASL: cyrus-sasl-devel
-
-As root you can run
-
-	dnf install gcc-c++ make cmake rpm-build qt5-devel libXtst-devel libXrandr-devel libXinerama-devel libXcursor-devel \
-             libXrandr-devel libXdamage-devel libXcomposite-devel libXfixes-devel libjpeg-turbo-devel zlib-devel \
-             openssl-devel pam-devel procps-devel lzo-devel qca-devel qca-qt5-devel openldap-devel cyrus-sasl-devel
-
-
-### Configuring and building sources
-
-Run the following commands:
-
-	mkdir build
-	cd build
-	cmake ..
-	make -j4
-
-NOTE: If you want to build a .deb or .rpm package for this software, instead of the provided cmake command, you should use:
-
-	cmake -DCMAKE_INSTALL_PREFIX=/usr ..
-
-to install package files in /usr instead of /usr/local.
-
-If some requirements are not fullfilled, CMake will inform you about it and
-you will have to install the missing software before continuing.
-
-You can now generate a package (.deb or .rpm depending what system you are in).
-
-For generating a package you can run
-
-	fakeroot make package
-
-Then you'll get something like veyon_x.y.z_arch.deb or veyon-x.y.z.arch.rpm
-
-Alternatively you can install the built binaries directly (not recommended for
-production systems) by running the following command as root:
-
-	make install
-
-### Arch linux
-
-A PKGBUILD can be found in the [AUR](https://aur.archlinux.org/packages/veyon/).
-
-### PPA
-
-This PPA contains official Veyon packages for Ubuntu suitable for use both on desktop computers and ARM boards (e.g. Raspberry Pi). Even though only packages for LTS releases are available they should work for subsequent non-LTS releases as well.
-
-	sudo add-apt-repository ppa:veyon/stable
-	sudo apt-get update
-
-## Join development
-
-If you are interested in Veyon, its programming, artwork, testing or something like that, you're welcome to participate in the development of Veyon!
-
-Before starting the implementation of a new feature, please always open an issue at https://github.com/veyon/veyon/issues to start a discussion about your intended implementation. There may be different ideas, improvements, hints or maybe an already ongoing work on this feature.
-
-## Join translation team
-
-Veyon and its documentation are translated at the Transifex platform. Please go to https://www.transifex.com/veyon-solutions/veyon and join the corresponding translation team. Please DO NOT submit pull requests for modified translation files since this would require manual Transifex synchronizations on our side.
-
-## More information
-
-* https://veyon.io/
-* https://docs.veyon.io/
-* https://facebook.com/veyon.io/
-* https://twitter.com/veyon_io
+Veyon © Tobias Junghans, Veyon Solutions e contributori; Veyon School © 2026 i
+contributori del fork. Non è una release ufficiale del progetto Veyon.
+Il codice Veyon è GPL-2.0-or-later; le licenze delle librerie sono conservate.
+Vedere [COPYING](COPYING) e [DEPENDENCIES.md](docs/DEPENDENCIES.md).

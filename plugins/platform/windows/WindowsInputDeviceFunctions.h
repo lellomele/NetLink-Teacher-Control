@@ -24,7 +24,9 @@
 
 #pragma once
 
+#ifdef VEYON_WITH_INTERCEPTION
 #include <interception.h>
+#endif
 
 #include "PlatformInputDeviceFunctions.h"
 
@@ -59,7 +61,9 @@ private:
 	static int interceptionInstaller( const QString& argument );
 
 	bool m_inputDevicesDisabled{false};
+#ifdef VEYON_WITH_INTERCEPTION
 	InterceptionContext m_interceptionContext{nullptr};
+#endif
 	QString m_hidServiceName{QStringLiteral("hidserv")};
 	bool m_hidServiceStatusInitialized{false};
 	bool m_hidServiceActivated{false};

@@ -1,4 +1,5 @@
 #include <windows.h>
+veyonschoolicon ICON "@CMAKE_SOURCE_DIR@/branding/veyon-school.ico"
 
 CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST data/veyon-service.exe.manifest
 

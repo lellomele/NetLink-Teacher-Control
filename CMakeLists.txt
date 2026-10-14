@@ -79,8 +79,7 @@ if(GIT_FOUND)
 	string(REGEX REPLACE "^v[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" VERSION_PATCH "${VERSION_STRING}")
 
 	# determine build number to use in NSIS installer and resource files
-	execute_process(COMMAND "${GIT_EXECUTABLE}" describe --tags
-		COMMAND cut -d "-" -f2
+	execute_process(COMMAND "${GIT_EXECUTABLE}" rev-list --count HEAD
 		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 		OUTPUT_STRIP_TRAILING_WHITESPACE
 		OUTPUT_VARIABLE VERSION_BUILD)
@@ -95,12 +94,15 @@ if(GIT_FOUND)
 	#   git shortlog -sne v3.0.2 | cut -c8-
 	set(CONTRIBUTORS "${CMAKE_BINARY_DIR}/CONTRIBUTORS")
 	if(NOT EXISTS "${CONTRIBUTORS}")
-		execute_process(COMMAND "${GIT_EXECUTABLE}" shortlog -s d160d147165271516589c304cb1b8f5e48f8527d..HEAD
-			COMMAND cut -c8-
-			COMMAND sort -f
-			OUTPUT_FILE "${CONTRIBUTORS}"
+		execute_process(COMMAND "${GIT_EXECUTABLE}" log "--format=%aN <%aE>" d160d147165271516589c304cb1b8f5e48f8527d..HEAD
+			OUTPUT_VARIABLE school_authors
 			WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 			TIMEOUT 10)
+		string(REPLACE "\n" ";" school_authors "${school_authors}")
+		list(REMOVE_DUPLICATES school_authors)
+		list(SORT school_authors)
+		string(REPLACE ";" "\n" school_authors "${school_authors}")
+		file(WRITE "${CONTRIBUTORS}" "${school_authors}")
 	endif()
 
 endif()
@@ -118,6 +120,12 @@ else()
 endif()
 
 # set up compiler version variable
+set(VERSION_MAJOR 4)
+set(VERSION_MINOR 7)
+set(VERSION_PATCH 5)
+set(VERSION_BUILD 1)
+set(VERSION_STRING "4.7.5-school.0.1.0-alpha.1")
+
 string(REGEX REPLACE "\\.[0-9]$" "" COMPILER_VERSION_MAJOR_MINOR ${CMAKE_CXX_COMPILER_VERSION})
 
 
@@ -131,7 +139,7 @@ if(WIN32)
 		set(VEYON_BUILD_WIN32 1)
 		set(VEYON_WINDOWS_ARCH "win32")
 	endif()
-	add_definitions(-DUNICODE -D_UNICODE)
+	add_definitions(-DUNICODE -D_UNICODE -DWIN32_LEAN_AND_MEAN= -DNOMINMAX)
 endif()
 if(APPLE)
 	set(VEYON_BUILD_APPLE 1)
@@ -256,6 +264,7 @@ add_definitions(
 	-DQT_STRICT_ITERATORS
 	)
 
+set(VEYON_WITH_TESTS ${WITH_TESTS})
 file(GLOB_RECURSE IN_FILES RELATIVE ${CMAKE_SOURCE_DIR} "veyonconfig.h.in" "*.rc.in" "*.desktop.in" "*.policy.in" "*.service.in" "*.manifest.in" "*.nsi.in")
 configure_files(${IN_FILES})
 
@@ -269,6 +278,7 @@ set(libvncserver_DIR ${3rdparty_DIR}/libvncserver)
 set(x11vnc_DIR ${3rdparty_DIR}/x11vnc)
 set(libfakekey_DIR ${3rdparty_DIR}/libfakekey)
 set(qthttpserver_DIR ${3rdparty_DIR}/qthttpserver)
+include(SchoolVendorFixes)
 
 set(CMAKE_SKIP_BUILD_RPATH  FALSE)
 set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)

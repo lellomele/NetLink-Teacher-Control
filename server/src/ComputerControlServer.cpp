@@ -72,6 +72,7 @@ ComputerControlServer::~ComputerControlServer()
 	vDebug();
 
 	m_vncProxyServer.stop();
+	for(auto watcher:findChildren<QFutureWatcher<void>*>()) watcher->waitForFinished();
 }
 
 
@@ -110,6 +111,10 @@ VncProxyConnection* ComputerControlServer::createVncProxyConnection( QTcpSocket*
 bool ComputerControlServer::handleFeatureMessage(ComputerControlClient* client)
 {
 	auto socket = client->proxyClientSocket();
+	if(client->serverClient()->authState()!=VncServerClient::AuthState::Successful ||
+		client->serverClient()->accessControlState()!=VncServerClient::AccessControlState::Successful) {
+		socket->close();return false;
+	}
 
 	char messageType;
 	if( socket->getChar( &messageType ) == false )
@@ -258,7 +263,7 @@ void ComputerControlServer::showAccessControlMessage( VncServerClient* client )
 
 QFutureWatcher<void>* ComputerControlServer::resolveFQDNs( const QStringList& hosts )
 {
-	auto watcher = new QFutureWatcher<void>();
+	auto watcher = new QFutureWatcher<void>(this);
 
 	watcher->setFuture( QtConcurrent::run( [this, hosts]() {
 		for( const auto& host : hosts )

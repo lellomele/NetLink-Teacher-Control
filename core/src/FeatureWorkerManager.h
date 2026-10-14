@@ -65,6 +65,9 @@ private:
 	void sendMessage( const FeatureMessage& message );
 
 	void sendPendingMessages();
+	void retrySessionMessage(const FeatureMessage& message, int remaining, quint64 generation);
+	QMap<Feature::Uid, quint64> m_retryGenerations;
+	quint64 m_retryGeneration = 0;
 
 	static constexpr auto UnmanagedSessionProcessRetryInterval = 5000;
 
@@ -73,6 +76,7 @@ private:
 
 	struct Worker
 	{
+		QString token;
 		QPointer<QTcpSocket> socket;
 		QPointer<QProcess> process;
 		QList<FeatureMessage> pendingMessages;

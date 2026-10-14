@@ -30,6 +30,7 @@
 #include "PlatformNetworkFunctions.h"
 #include "VeyonConfiguration.h"
 #include "VeyonServiceControl.h"
+#include "SchoolNetworkPolicy.h"
 
 
 
@@ -80,6 +81,10 @@ bool ConfigurationManager::applyConfiguration()
 	if( VeyonCore::platform().coreFunctions().applyConfiguration() == false )
 	{
 		m_errorString =  tr( "Could not apply platform-specific configuration settings." );
+		return false;
+	}
+	if(!SchoolNetwork::configureDiscoveryFirewall(m_configuration.schoolDiscoveryEnabled())) {
+		m_errorString=tr("Could not configure Veyon School discovery firewall rules.");
 		return false;
 	}
 

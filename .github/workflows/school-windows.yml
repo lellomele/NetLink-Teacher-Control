@@ -1,0 +1,62 @@
+name: Veyon School Windows
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/school-*']
+permissions:
+  contents: read
+concurrency:
+  group: school-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: recursive
+      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-qt5-base mingw-w64-x86_64-qt5-tools mingw-w64-x86_64-qca-qt5
+            mingw-w64-x86_64-openssl mingw-w64-x86_64-openldap mingw-w64-x86_64-lzo2
+            mingw-w64-x86_64-libjpeg-turbo mingw-w64-x86_64-libpng mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-nsis
+      - name: Configure and build
+        shell: msys2 {0}
+        run: |
+          cmake -S . -B build-school -G Ninja -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=x86_64 -DCMAKE_PREFIX_PATH=C:/msys64/mingw64 -DWITH_BUILTIN_LIBVNC=ON -DWITH_TESTS=ON -DWITH_PCH=OFF -DWITH_UNITY_BUILD=OFF -DWITH_LTO=OFF -DWITH_TRANSLATIONS=OFF -DWITH_INTERCEPTION=OFF -DCMAKE_BUILD_TYPE=Release -DMINGW_PREFIX=C:/msys64/mingw64 -DMINGW_PLATFORM=win64 -DMINGW_TARGET=x86_64-w64-mingw32
+          cmake --build build-school -j 4
+      - name: Unit tests
+        shell: msys2 {0}
+        run: |
+          export PATH="$PWD/build-school/core:$PATH"
+          export VEYON_SCHOOL_SCHEMA_FIXTURES="$(cygpath -w "$PWD/build-school/schema-fixtures")"
+          ctest --test-dir build-school --output-on-failure
+          cat build-school/tests/school-tests-results.txt
+      - name: Official XML schema validation
+        shell: pwsh
+        run: ./tests/validate-discovery.ps1 -Fixtures build-school/schema-fixtures
+      - name: Production build
+        shell: msys2 {0}
+        run: |
+          cmake -S . -B build-release -G Ninja -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=x86_64 -DCMAKE_PREFIX_PATH=C:/msys64/mingw64 -DWITH_BUILTIN_LIBVNC=ON -DWITH_TESTS=OFF -DWITH_PCH=OFF -DWITH_UNITY_BUILD=OFF -DWITH_LTO=OFF -DWITH_TRANSLATIONS=OFF -DWITH_INTERCEPTION=OFF -DCMAKE_BUILD_TYPE=Release -DMINGW_PREFIX=C:/msys64/mingw64 -DMINGW_PLATFORM=win64 -DMINGW_TARGET=x86_64-w64-mingw32
+          cmake --build build-release -j 4
+      - name: Package
+        shell: pwsh
+        run: |
+          $env:PATH='C:\msys64\mingw64\bin;'+$env:PATH
+          ./packaging/build-package.ps1 -Build build-release
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          name: installer
+          path: |
+            dist/*setup.exe
+            dist/package-manifest.json
+          retention-days: 1
+          if-no-files-found: error

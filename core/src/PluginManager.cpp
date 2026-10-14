@@ -212,9 +212,13 @@ void PluginManager::loadPlugins( const QString& nameFilter )
 		auto pluginLoader = new QPluginLoader( fileInfo.filePath(), this );
 		auto pluginObject = pluginLoader->instance();
 		auto pluginInterface = qobject_cast<PluginInterface *>( pluginObject );
+		bool duplicateUid = false;
+		if(pluginInterface) for(const auto& loaded:m_pluginInterfaces) {
+			if(loaded->uid()==pluginInterface->uid()) {duplicateUid=true;break;}
+		}
 
 		if( pluginObject && pluginInterface &&
-			m_pluginInterfaces.contains( pluginInterface ) == false )
+			m_pluginInterfaces.contains( pluginInterface ) == false && !duplicateUid )
 		{
 			if( m_noDebugMessages == false )
 			{

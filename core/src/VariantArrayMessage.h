@@ -35,6 +35,7 @@ class VEYON_CORE_EXPORT VariantArrayMessage
 {
 public:
 	using MessageSize = quint32;
+	static constexpr auto MaxMessageSize = 1024*1024*32;
 
 	explicit VariantArrayMessage( QIODevice* ioDevice );
 
@@ -54,10 +55,6 @@ public:
 	}
 
 private:
-	enum {
-		MaxMessageSize = 1024*1024*32
-	};
-
 	QBuffer m_buffer;
 	VariantStream m_stream;
 	QIODevice* m_ioDevice;

@@ -37,12 +37,14 @@
 #include "WtsSessionManager.h"
 
 
+#ifdef VEYON_WITH_INTERCEPTION
 static int interception_is_any( InterceptionDevice device )
 {
 	Q_UNUSED(device)
 
 	return true;
 }
+#endif
 
 
 
@@ -91,6 +93,7 @@ KeyboardShortcutTrapper* WindowsInputDeviceFunctions::createKeyboardShortcutTrap
 
 void WindowsInputDeviceFunctions::checkInterceptionInstallation()
 {
+#ifdef VEYON_WITH_INTERCEPTION
 	if( VeyonCore::config().multiSessionModeEnabled() )
 	{
 		uninstallInterception();
@@ -111,6 +114,7 @@ void WindowsInputDeviceFunctions::checkInterceptionInstallation()
 			uninstallInterception();
 		}
 	}
+#endif
 }
 
 
@@ -125,6 +129,7 @@ void WindowsInputDeviceFunctions::stopOnScreenKeyboard()
 
 void WindowsInputDeviceFunctions::enableInterception()
 {
+#ifdef VEYON_WITH_INTERCEPTION
 	if( WindowsPlatformConfiguration( &VeyonCore::config() ).useInterceptionDriver() )
 	{
 		m_interceptionContext = interception_create_context();
@@ -136,18 +141,21 @@ void WindowsInputDeviceFunctions::enableInterception()
 									 INTERCEPTION_FILTER_KEY_ALL | INTERCEPTION_FILTER_MOUSE_ALL );
 		}
 	}
+#endif
 }
 
 
 
 void WindowsInputDeviceFunctions::disableInterception()
 {
+#ifdef VEYON_WITH_INTERCEPTION
 	if( m_interceptionContext )
 	{
 		interception_destroy_context( m_interceptionContext );
 
 		m_interceptionContext = nullptr;
 	}
+#endif
 }
 
 

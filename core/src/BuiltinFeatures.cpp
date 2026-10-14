@@ -27,16 +27,19 @@
 #include "PluginManager.h"
 #include "SystemTrayIcon.h"
 #include "DesktopAccessDialog.h"
+#include "SchoolFeatures.h"
 
 
 BuiltinFeatures::BuiltinFeatures() :
 	m_systemTrayIcon( new SystemTrayIcon ),
 	m_monitoringMode( new MonitoringMode ),
-	m_desktopAccessDialog( new DesktopAccessDialog )
+	m_desktopAccessDialog( new DesktopAccessDialog ),
+	m_schoolFeatures( new SchoolFeatures )
 {
 	VeyonCore::pluginManager().registerExtraPluginInterface( m_systemTrayIcon );
 	VeyonCore::pluginManager().registerExtraPluginInterface( m_monitoringMode );
 	VeyonCore::pluginManager().registerExtraPluginInterface( m_desktopAccessDialog );
+	VeyonCore::pluginManager().registerExtraPluginInterface( m_schoolFeatures );
 }
 
 
@@ -46,4 +49,5 @@ BuiltinFeatures::~BuiltinFeatures()
 	delete m_systemTrayIcon;
 	delete m_monitoringMode;
 	delete m_desktopAccessDialog;
+	delete m_schoolFeatures;
 }

@@ -2,6 +2,7 @@
   <qresource prefix="/core">
     <file>../../COPYING</file>
     <file>icon64.png</file>
+    <file alias="veyon.png">../../branding/icon256.png</file>
     <file>application-x-pem-key.png</file>
     <file>license.png</file>
     <file>user-group-new.png</file>

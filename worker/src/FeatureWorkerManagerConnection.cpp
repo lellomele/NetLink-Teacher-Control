@@ -86,7 +86,8 @@ void FeatureWorkerManagerConnection::sendInitMessage()
 
 	m_connectTimer.stop();
 
-	FeatureMessage( m_featureUid, FeatureMessage::InitCommand ).send( &m_socket );
+	FeatureMessage( m_featureUid, FeatureMessage::InitCommand )
+		.addArgument(0, QCoreApplication::arguments().value(2)).send( &m_socket );
 }
 
 

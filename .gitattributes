@@ -1,0 +1,7 @@
+# Legacy opaque binaries are not part of the corresponding-source release.
+3rdparty/ddengine/*.dll export-ignore
+3rdparty/interception/install-interception.exe export-ignore
+# Unified-diff context includes upstream whitespace; preserve patch line endings.
+patches-*.diff text eol=lf -whitespace
+# Official schemas are retained without whitespace-only rewrites.
+tests/schemas/*.xsd -whitespace

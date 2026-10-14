@@ -79,8 +79,9 @@ bool VariantStream::checkByteArray()
 {
 	const auto pos = m_dataStream.device()->pos();
 
-	quint32 len;
+	quint32 len = 0;
 	m_dataStream >> len;
+	if(m_dataStream.status()!=QDataStream::Ok) return false;
 
 	// null array?
 	if (len == 0xffffffff)
@@ -126,8 +127,9 @@ bool VariantStream::checkString()
 {
 	const auto pos = m_dataStream.device()->pos();
 
-	quint32 len;
+	quint32 len = 0;
 	m_dataStream >> len;
+	if(m_dataStream.status()!=QDataStream::Ok) return false;
 
 	// null string?
 	if (len == 0xffffffff)
@@ -153,8 +155,9 @@ bool VariantStream::checkString()
 
 bool VariantStream::checkStringList()
 {
-	quint32 n;
+	quint32 n = 0;
 	m_dataStream >> n;
+	if(m_dataStream.status()!=QDataStream::Ok) return false;
 
 	if (n > MaxContainerSize)
 	{
@@ -197,6 +200,7 @@ bool VariantStream::checkVariant(int depth)
 
 	quint8 isNull = false;
 	m_dataStream >> isNull;
+	if(m_dataStream.status()!=QDataStream::Ok || isNull>1) return false;
 
 	switch(typeId)
 	{
@@ -221,8 +225,9 @@ bool VariantStream::checkVariant(int depth)
 
 bool VariantStream::checkVariantList(int depth)
 {
-	quint32 n;
+	quint32 n = 0;
 	m_dataStream >> n;
+	if(m_dataStream.status()!=QDataStream::Ok) return false;
 
 	if (n > MaxContainerSize)
 	{
@@ -245,8 +250,9 @@ bool VariantStream::checkVariantList(int depth)
 
 bool VariantStream::checkVariantMap(int depth)
 {
-	quint32 n;
+	quint32 n = 0;
 	m_dataStream >> n;
+	if(m_dataStream.status()!=QDataStream::Ok) return false;
 
 	if (n > MaxContainerSize)
 	{

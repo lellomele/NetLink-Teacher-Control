@@ -25,6 +25,7 @@
 #pragma once
 
 #include <QTimer>
+#include <QFutureWatcher>
 
 #include "FeatureProviderInterface.h"
 
@@ -33,6 +34,7 @@ class VEYON_CORE_EXPORT MonitoringMode : public QObject, FeatureProviderInterfac
 	Q_OBJECT
 	Q_INTERFACES(FeatureProviderInterface PluginInterface)
 public:
+	~MonitoringMode() override;
 	enum class Argument
 	{
 		UserLoginName,
@@ -168,6 +170,7 @@ private:
 	QString m_userFullName;
 	int m_userSessionId{0};
 	QAtomicInt m_userInfoVersion{0};
+	QFutureWatcher<QVariantMap> m_userQuery{this};
 
 	QVariantList m_screenInfoList;
 	int m_screenInfoListVersion{0};

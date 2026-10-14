@@ -63,9 +63,13 @@ bool FeatureMessage::receive( QIODevice* ioDevice )
 
 		if( message.receive() )
 		{
-			m_featureUid = message.read().toUuid(); // Flawfinder: ignore
-			m_command = QVariantHelper<Command>::value( message.read() ); // Flawfinder: ignore
-			m_arguments = message.read().toMap(); // Flawfinder: ignore
+			const auto uid=message.read(), command=message.read(), arguments=message.read();
+			if(uid.userType()!=QMetaType::QUuid || uid.toUuid().isNull() ||
+				command.userType()!=QMetaType::Int || arguments.userType()!=QMetaType::QVariantMap ||
+				command.toInt()<InitCommand) return false;
+			m_featureUid = uid.toUuid();
+			m_command = command.toInt();
+			m_arguments = arguments.toMap();
 			return true;
 		}
 

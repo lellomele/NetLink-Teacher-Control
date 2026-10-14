@@ -1,0 +1,12 @@
+diff --git a/libvncclient/vncviewer.c b/libvncclient/vncviewer.c
+index c7170f8..dcf8c3a 100644
+--- a/libvncclient/vncviewer.c
++++ b/libvncclient/vncviewer.c
+@@ -261,6 +261,7 @@ rfbClient* rfbGetClient(int bitsPerSample,int samplesPerPixel,
+ #ifdef WIN32
+   if((errno = WSAStartup(MAKEWORD(2,0), &unused)) != 0) {
+       rfbClientErr("Could not init Windows Sockets: %s\n", strerror(errno));
++      free(client);
+       return NULL;
+   }
+ #endif

@@ -70,7 +70,7 @@ VeyonCore::VeyonCore( QCoreApplication* application, Component component, const 
 	m_userGroupsBackendManager( nullptr ),
 	m_networkObjectDirectoryManager( nullptr ),
 	m_component( component ),
-	m_applicationName( QStringLiteral( "Veyon" ) ),
+	m_applicationName( QStringLiteral( "Veyon School" ) ),
 	m_debugging( false )
 {
 	Q_ASSERT( application != nullptr );

@@ -1,5 +1,12 @@
 include(BuildVeyonPlugin)
 
+option(WITH_INTERCEPTION "Enable optional external kernel input driver integration" OFF)
+if(WITH_INTERCEPTION)
+    add_library(interception STATIC ${CMAKE_SOURCE_DIR}/3rdparty/interception-source/library/interception.c)
+    target_compile_definitions(interception PUBLIC INTERCEPTION_STATIC)
+    target_include_directories(interception PUBLIC ${CMAKE_SOURCE_DIR}/3rdparty/interception-source/library)
+endif()
+
 build_veyon_plugin(windows-platform
 	WindowsPlatformPlugin.cpp
 	WindowsPlatformConfigurationPage.h
@@ -56,7 +63,11 @@ target_include_directories(windows-platform PRIVATE
 	${ultravnc_DIR}
 	)
 
-target_link_libraries(windows-platform PRIVATE -lws2_32 -lwtsapi32 -lnetapi32 -luserenv -linterception -liphlpapi)
+target_link_libraries(windows-platform PRIVATE -lws2_32 -lwtsapi32 -lnetapi32 -luserenv -liphlpapi)
+if(WITH_INTERCEPTION)
+    target_link_libraries(windows-platform PRIVATE interception)
+    target_compile_definitions(windows-platform PRIVATE VEYON_WITH_INTERCEPTION)
+endif()
 target_link_libraries(windows-platform PRIVATE Qt${QT_MAJOR_VERSION}::GuiPrivate)
 target_compile_definitions(windows-platform PRIVATE ULTRAVNC_VEYON_SUPPORT)
 target_compile_options(windows-platform PRIVATE "-Wno-unknown-pragmas")

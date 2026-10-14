@@ -64,6 +64,16 @@ MonitoringMode::MonitoringMode( QObject* parent ) :
 {
 	if(VeyonCore::component() == VeyonCore::Component::Server)
 	{
+		connect(&m_userQuery,&QFutureWatcher<QVariantMap>::finished,this,[this] {
+			const auto data=m_userQuery.result();
+			QWriteLocker locker(&m_userDataLock);
+			const auto login=data.value(QStringLiteral("login")).toString();
+			const auto full=data.value(QStringLiteral("full")).toString();
+			const auto session=data.value(QStringLiteral("session"),-1).toInt();
+			if(login!=m_userLoginName || full!=m_userFullName || session!=m_userSessionId) {
+				m_userLoginName=login;m_userFullName=full;m_userSessionId=session;++m_userInfoVersion;
+			}
+		});
 		connect(&m_activeFeaturesUpdateTimer, &QTimer::timeout, this, &MonitoringMode::updateActiveFeatures);
 		m_activeFeaturesUpdateTimer.start(ActiveFeaturesUpdateInterval);
 
@@ -74,6 +84,8 @@ MonitoringMode::MonitoringMode( QObject* parent ) :
 		connect(qGuiApp, &QGuiApplication::screenRemoved, this, &MonitoringMode::updateScreenInfoList);
 	}
 }
+
+MonitoringMode::~MonitoringMode() {m_userQuery.waitForFinished();}
 
 
 
@@ -338,27 +350,20 @@ void MonitoringMode::updateActiveFeatures()
 
 void MonitoringMode::updateUserData()
 {
-	// asynchronously query information about logged on user (which might block
-	// due to domain controller queries and timeouts etc.)
-	(void) QtConcurrent::run( [=]() {
+	if(m_userQuery.isRunning()) return;
+	const auto session=VeyonCore::sessionId();
+	m_userQuery.setFuture(QtConcurrent::run( [session]() {
+		QVariantMap data;
 		if( VeyonCore::platform().sessionFunctions().currentSessionHasUser() )
 		{
 			const auto userLoginName = VeyonCore::platform().userFunctions().currentUser();
 			const auto userFullName = VeyonCore::platform().userFunctions().fullName( userLoginName );
-			const auto userSessionId = VeyonCore::sessionId();
-			m_userDataLock.lockForWrite();
-			if(m_userLoginName != userLoginName ||
-				m_userFullName != userFullName ||
-				m_userSessionId != userSessionId )
-			{
-				m_userLoginName = userLoginName;
-				m_userFullName = userFullName;
-				m_userSessionId = userSessionId;
-				++m_userInfoVersion;
-			}
-			m_userDataLock.unlock();
+			data[QStringLiteral("login")]=userLoginName;
+			data[QStringLiteral("full")]=userFullName;
+			data[QStringLiteral("session")]=session;
 		}
-	} );
+		return data;
+	} ));
 }
 
 

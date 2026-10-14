@@ -32,6 +32,7 @@
 
 #include "VeyonConfiguration.h"
 #include "WindowsCoreFunctions.h"
+#include <shellapi.h>
 #include "WindowsPlatformConfiguration.h"
 #include "WindowsPlatformPlugin.h"
 #include "WtsSessionManager.h"

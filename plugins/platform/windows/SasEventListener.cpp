@@ -25,6 +25,7 @@
 #include <windows.h>
 
 #include "SasEventListener.h"
+#include <array>
 
 SasEventListener::SasEventListener()
 {

@@ -148,6 +148,7 @@ void ComputerManager::updateUser(const ComputerControlInterface::Pointer& contro
 	if( networkObjectIndex.isValid() )
 	{
 		auto user = controlInterface->userFullName();
+		if(!controlInterface->studentName().isEmpty()) user = controlInterface->studentName();
 		if( user.isEmpty() )
 		{
 			user = controlInterface->userLoginName();

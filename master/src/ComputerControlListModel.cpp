@@ -182,14 +182,11 @@ void ComputerControlListModel::reload()
 	m_computerControlInterfaces.clear();
 	m_computerControlInterfaces.reserve( computerList.size() );
 
-	int row = 0;
-
 	for( const auto& computer : computerList )
 	{
 		const auto controlInterface = ComputerControlInterface::Pointer::create( computer );
 		m_computerControlInterfaces.append( controlInterface );
 		startComputerControlInterface( controlInterface.data() );
-		++row;
 	}
 
 	endResetModel();
@@ -280,7 +277,7 @@ void ComputerControlListModel::updateActiveFeatures( const QModelIndex& index )
 
 void ComputerControlListModel::updateUser( const QModelIndex& index )
 {
-	Q_EMIT dataChanged( index, index, { Qt::DisplayRole, Qt::ToolTipRole } );
+	Q_EMIT dataChanged( index, index, { Qt::DisplayRole, Qt::ToolTipRole, Qt::InitialSortOrderRole } );
 
 	auto controlInterface = computerControlInterface( index );
 	if( controlInterface.isNull() == false )
@@ -392,27 +389,33 @@ QImage ComputerControlListModel::computerDecorationRole( const ComputerControlIn
 
 QString ComputerControlListModel::computerToolTipRole( const ComputerControlInterface::Pointer& controlInterface ) const
 {
-	const QString state( computerStateDescription( controlInterface ) );
-	const QString name( tr( "Name: %1" ).arg( controlInterface->computer().name() ) );
-	const QString location( tr( "Location: %1" ).arg( controlInterface->computer().location() ) );
+	const QString state( computerStateDescription( controlInterface ).toHtmlEscaped() );
+	const QString name( tr( "Name: %1" ).arg( controlInterface->computer().name() ).toHtmlEscaped() );
+	const QString location( tr( "Location: %1" ).arg( controlInterface->computer().location() ).toHtmlEscaped() );
 	const QString host( tr( "Host/IP address: %1" ).arg( controlInterface->computer().hostAddress().isEmpty()
 															 ? QStringLiteral("&lt;%1&gt;").arg( tr("invalid") )
 															 : controlInterface->computer().hostAddress() ) );
-	const QString user( loggedOnUserInformation( controlInterface ) );
-	const QString features( tr( "Active features: %1" ).arg( activeFeatures( controlInterface ) ) );
+	const QString user( loggedOnUserInformation( controlInterface ).toHtmlEscaped() );
+	const QString features( tr( "Active features: %1" ).arg( activeFeatures( controlInterface ) ).toHtmlEscaped() );
+	const QString school = QStringLiteral("<br>Appello: %1<br>InternetGuard: %2")
+		.arg(controlInterface->studentName().toHtmlEscaped(),controlInterface->networkPolicyStatus().toHtmlEscaped());
 
 	if( user.isEmpty() )
 	{
-		return QStringLiteral("<b>%1</b><br>%2<br>%3<br>%4<br>%5").arg(state, name, location, host, features);
+		return QStringLiteral("<b>%1</b><br>%2<br>%3<br>%4<br>%5").arg(state, name, location, host.toHtmlEscaped(), features)+school;
 	}
 
-	return QStringLiteral("<b>%1</b><br>%2<br>%3<br>%4<br>%5<br>%6").arg(state, name, location, host, features, user);
+	return QStringLiteral("<b>%1</b><br>%2<br>%3<br>%4<br>%5<br>%6").arg(state, name, location, host.toHtmlEscaped(), features, user)+school;
 }
 
 
 
 QString ComputerControlListModel::computerDisplayRole( const ComputerControlInterface::Pointer& controlInterface ) const
 {
+	QString suffix;
+	if(!controlInterface->networkPolicyStatus().isEmpty()) suffix = QStringLiteral(" [IG: %1]").arg(controlInterface->networkPolicyStatus());
+	if(!controlInterface->studentName().isEmpty()) return controlInterface->studentName()+QStringLiteral(" - ")+controlInterface->computer().name()+suffix;
+	if(!suffix.isEmpty()) return controlInterface->computer().name()+suffix;
 	if( displayRoleContent() != DisplayRoleContent::ComputerName &&
 		controlInterface->state() == ComputerControlInterface::State::Connected &&
 		controlInterface->userLoginName().isEmpty() == false )
@@ -456,6 +459,7 @@ QString ComputerControlListModel::computerSortRole( const ComputerControlInterfa
 				controlInterface->computer().hostAddress();
 
 	case SortOrder::UserName:
+		if(!controlInterface->studentName().isEmpty()) return controlInterface->studentName();
 		if( controlInterface->userFullName().isEmpty() == false )
 		{
 			return controlInterface->userFullName();

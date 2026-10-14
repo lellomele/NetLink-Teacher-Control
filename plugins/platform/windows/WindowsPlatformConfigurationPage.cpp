@@ -35,6 +35,10 @@ WindowsPlatformConfigurationPage::WindowsPlatformConfigurationPage() :
 	m_configuration( &VeyonCore::config() )
 {
 	ui->setupUi(this);
+#ifndef VEYON_WITH_INTERCEPTION
+	ui->useInterceptionDriver->setEnabled(false);
+	ui->useInterceptionDriver->setToolTip(QStringLiteral("Not included in this driver-free Veyon School build."));
+#endif
 
 	Configuration::UiMapping::setFlags( this, Configuration::Property::Flag::Advanced );
 }
