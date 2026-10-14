@@ -14,18 +14,25 @@ $rootArchive=Join-Path $stage 'root.tar'
 if($LASTEXITCODE-ne0){throw 'Root archive failed'}
 & "$env:SystemRoot/System32/tar.exe" -xf $rootArchive -C $stage
 if($LASTEXITCODE-ne0){throw 'Root extraction failed'}
-$submodules=& git @gitOptions submodule status --recursive
-if($LASTEXITCODE-ne0){throw 'Submodule inventory failed'}
-foreach($line in $submodules) {
-    if($line-notmatch'^[ +]?([a-f0-9]{40}) (\S+)'){throw "Uninitialized or conflicted submodule: $line"}
-    $sha=$Matches[1];$path=$Matches[2]
-    if($path.StartsWith('/') -or ($path -split '/')-contains'..'){throw 'Unsafe submodule path'}
-    $moduleArchive=Join-Path $stage ($path.Replace('/','_')+'.tar')
-    & git -c "core.excludesFile=$repoRoot/.gitignore" -C (Join-Path $repoRoot $path) archive --format=tar "--prefix=$prefix/$path/" "--output=$moduleArchive" $sha
-    if($LASTEXITCODE-ne0){throw "Submodule archive failed: $path"}
-    & "$env:SystemRoot/System32/tar.exe" -xf $moduleArchive -C $stage
-    if($LASTEXITCODE-ne0){throw "Submodule extraction failed: $path"}
+function ArchiveSubmodules([string]$directory,[string]$revision,[string]$parentPath) {
+    # Read gitlinks from the committed tree, not dirty worktree state or shell helpers.
+    $tree=& git -c "core.excludesFile=$repoRoot/.gitignore" -C $directory ls-tree -r $revision
+    if($LASTEXITCODE-ne0){throw 'Submodule tree inventory failed'}
+    foreach($line in $tree) {
+        if($line-notmatch'^160000 commit ([a-f0-9]{40})\t(.+)$'){continue}
+        $sha=$Matches[1];$relative=$Matches[2]
+        $path=if($parentPath){"$parentPath/$relative"}else{$relative}
+        if($path.StartsWith('/') -or ($path -split '/')-contains'..'){throw 'Unsafe submodule path'}
+        $moduleRoot=Join-Path $directory $relative
+        $moduleArchive=Join-Path $stage ($path.Replace('/','_')+'.tar')
+        & git -c "core.excludesFile=$repoRoot/.gitignore" -C $moduleRoot archive --format=tar "--prefix=$prefix/$path/" "--output=$moduleArchive" $sha
+        if($LASTEXITCODE-ne0){throw "Submodule archive failed: $path"}
+        & "$env:SystemRoot/System32/tar.exe" -xf $moduleArchive -C $stage
+        if($LASTEXITCODE-ne0){throw "Submodule extraction failed: $path"}
+        ArchiveSubmodules $moduleRoot $sha $path
+    }
 }
+ArchiveSubmodules $repoRoot $revisionId ''
 $destination=Join-Path $distRoot 'VeyonSchool-0.1.0-alpha.1-source.tar.gz'
 & "$env:SystemRoot/System32/tar.exe" -czf $destination -C $stage $prefix
 if($LASTEXITCODE-ne0){throw 'Source compression failed'}
