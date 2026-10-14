@@ -17,6 +17,7 @@ jobs:
         with:
           submodules: recursive
       - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+        id: msys2
         with:
           msystem: MINGW64
           update: true
@@ -29,7 +30,8 @@ jobs:
       - name: Configure and build
         shell: msys2 {0}
         run: |
-          cmake -S . -B build-school -G Ninja -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=x86_64 -DCMAKE_PREFIX_PATH=C:/msys64/mingw64 -DWITH_BUILTIN_LIBVNC=ON -DWITH_TESTS=ON -DWITH_PCH=OFF -DWITH_UNITY_BUILD=OFF -DWITH_LTO=OFF -DWITH_TRANSLATIONS=OFF -DWITH_INTERCEPTION=OFF -DCMAKE_BUILD_TYPE=Release -DMINGW_PREFIX=C:/msys64/mingw64 -DMINGW_PLATFORM=win64 -DMINGW_TARGET=x86_64-w64-mingw32
+          toolchain="$(cygpath -m /mingw64)"
+          cmake -S . -B build-school -G Ninja -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=x86_64 -DCMAKE_PREFIX_PATH="$toolchain" -DWITH_BUILTIN_LIBVNC=ON -DWITH_TESTS=ON -DWITH_PCH=OFF -DWITH_UNITY_BUILD=OFF -DWITH_LTO=OFF -DWITH_TRANSLATIONS=OFF -DWITH_INTERCEPTION=OFF -DCMAKE_BUILD_TYPE=Release -DMINGW_PREFIX="$toolchain" -DMINGW_PLATFORM=win64 -DMINGW_TARGET=x86_64-w64-mingw32
           cmake --build build-school -j 4
       - name: Unit tests
         shell: msys2 {0}
@@ -44,13 +46,15 @@ jobs:
       - name: Production build
         shell: msys2 {0}
         run: |
-          cmake -S . -B build-release -G Ninja -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=x86_64 -DCMAKE_PREFIX_PATH=C:/msys64/mingw64 -DWITH_BUILTIN_LIBVNC=ON -DWITH_TESTS=OFF -DWITH_PCH=OFF -DWITH_UNITY_BUILD=OFF -DWITH_LTO=OFF -DWITH_TRANSLATIONS=OFF -DWITH_INTERCEPTION=OFF -DCMAKE_BUILD_TYPE=Release -DMINGW_PREFIX=C:/msys64/mingw64 -DMINGW_PLATFORM=win64 -DMINGW_TARGET=x86_64-w64-mingw32
+          toolchain="$(cygpath -m /mingw64)"
+          cmake -S . -B build-release -G Ninja -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=x86_64 -DCMAKE_PREFIX_PATH="$toolchain" -DWITH_BUILTIN_LIBVNC=ON -DWITH_TESTS=OFF -DWITH_PCH=OFF -DWITH_UNITY_BUILD=OFF -DWITH_LTO=OFF -DWITH_TRANSLATIONS=OFF -DWITH_INTERCEPTION=OFF -DCMAKE_BUILD_TYPE=Release -DMINGW_PREFIX="$toolchain" -DMINGW_PLATFORM=win64 -DMINGW_TARGET=x86_64-w64-mingw32
           cmake --build build-release -j 4
       - name: Package
         shell: pwsh
         run: |
-          $env:PATH='C:\msys64\mingw64\bin;'+$env:PATH
-          ./packaging/build-package.ps1 -Build build-release
+          $toolchain=Join-Path '${{ steps.msys2.outputs.msys2-location }}' 'mingw64'
+          $env:PATH=(Join-Path $toolchain 'bin')+';'+$env:PATH
+          ./packaging/build-package.ps1 -Build build-release -Toolchain $toolchain
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: github.event_name == 'workflow_dispatch'
         with:

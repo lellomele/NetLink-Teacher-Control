@@ -14,10 +14,14 @@ Get-ChildItem -LiteralPath (Join-Path $buildRoot 'plugins') -Recurse -File -Filt
     Copy-Item -LiteralPath $_.FullName -Destination $destination
 }
 # Deliberately do not distribute the opaque DeskDupEngine DLL or kernel driver installer.
-$qtPlugins=Join-Path $Toolchain 'share/qt5/plugins'
+$qmakeTool=Join-Path $Toolchain 'bin/qmake-qt5.exe'
+$qtPlugins=(& $qmakeTool -query QT_INSTALL_PLUGINS).Trim()
+if($LASTEXITCODE-ne0 -or !(Test-Path -LiteralPath $qtPlugins)){throw 'Cannot locate installed Qt plugins'}
 Copy-Item -LiteralPath (Join-Path $qtPlugins 'platforms/qwindows.dll') -Destination (Join-Path $packageRoot 'platforms')
 Copy-Item -LiteralPath (Join-Path $qtPlugins 'imageformats/qjpeg.dll') -Destination (Join-Path $packageRoot 'imageformats')
-Copy-Item -LiteralPath (Join-Path $qtPlugins 'crypto/libqca-ossl.dll') -Destination (Join-Path $packageRoot 'crypto')
+$cryptoSource=@((Join-Path $qtPlugins 'crypto/libqca-ossl.dll'),(Join-Path $Toolchain 'share/qt5/plugins/crypto/libqca-ossl.dll'),(Join-Path $Toolchain 'lib/qt5/plugins/crypto/libqca-ossl.dll')) | Where-Object {Test-Path -LiteralPath $_} | Select-Object -First 1
+if(!$cryptoSource){throw 'Missing installed QCA OpenSSL plugin'}
+Copy-Item -LiteralPath $cryptoSource -Destination (Join-Path $packageRoot 'crypto')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'qt.conf') -Destination $packageRoot
 Copy-Item -LiteralPath (Join-Path $repoRoot 'COPYING.GPL3') -Destination (Join-Path $packageRoot 'LICENSE.txt')
 Copy-Item -LiteralPath (Join-Path $repoRoot 'COPYING') -Destination (Join-Path $packageRoot 'licenses/Veyon-GPL-2.0.txt')
@@ -48,7 +52,7 @@ while($pending.Count){
     }}
 }
 Copy-Item -LiteralPath (Join-Path $repoRoot 'docs/DEPENDENCIES.md') -Destination (Join-Path $packageRoot 'licenses/DEPENDENCIES.md')
-foreach($source in @('C:/msys64/mingw64/share/licenses')){
+foreach($source in @((Join-Path $Toolchain 'share/licenses'))){
     # Preserve installed package license texts, never runtime binaries or developer tools.
     if(Test-Path -LiteralPath $source){Copy-Item -LiteralPath $source -Destination (Join-Path $packageRoot 'licenses/toolchain') -Recurse}
 }
