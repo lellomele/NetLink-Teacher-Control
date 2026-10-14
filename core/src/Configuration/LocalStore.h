@@ -43,7 +43,7 @@ public:
 	bool isWritable() const override;
 	void clear() override;
 
-	QSettings *createSettingsObject() const;
+	virtual QSettings *createSettingsObject() const;
 
 } ;
 

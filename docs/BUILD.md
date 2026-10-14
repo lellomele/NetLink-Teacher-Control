@@ -16,7 +16,7 @@ cmake -S . -B build-school -G Ninja -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_P
 cmake --build build-school -j 4
 ```
 
-Run `build-school/tests/school-tests.exe` with `build-school/core` and the toolchain
+Run `ctest --test-dir build-school --output-on-failure` with `build-school/core` and the toolchain
 binary directory in PATH. Tests must pass before packaging. For a release build,
 configure a fresh `build-release` with the same options except `WITH_TESTS=OFF`;
 this removes developer plugin search paths and runtime test hooks.

@@ -2,10 +2,10 @@ param([string]$Revision='HEAD')
 $ErrorActionPreference='Stop'
 $repoRoot=Split-Path $PSScriptRoot
 $distRoot=Join-Path $repoRoot 'dist'
-$stage=Join-Path $distRoot 'source-stage'
+$stage=Join-Path $distRoot 'source-stage-alpha.2'
 if(Test-Path -LiteralPath $stage){throw 'Source staging directory already exists; use a fresh directory'}
 New-Item -ItemType Directory -Path $stage | Out-Null
-$prefix='VeyonSchool-0.1.0-alpha.1-source'
+$prefix='VeyonSchool-0.1.0-alpha.2-source'
 $gitOptions=@('-c',"core.excludesFile=$repoRoot/.gitignore",'-C',$repoRoot)
 $revisionId=& git @gitOptions rev-parse --verify "$Revision^{commit}"
 if($LASTEXITCODE-ne0){throw 'Invalid source revision'}
@@ -33,7 +33,7 @@ function ArchiveSubmodules([string]$directory,[string]$revision,[string]$parentP
     }
 }
 ArchiveSubmodules $repoRoot $revisionId ''
-$destination=Join-Path $distRoot 'VeyonSchool-0.1.0-alpha.1-source.tar.gz'
+$destination=Join-Path $distRoot 'VeyonSchool-0.1.0-alpha.2-source.tar.gz'
 & "$env:SystemRoot/System32/tar.exe" -czf $destination -C $stage $prefix
 if($LASTEXITCODE-ne0){throw 'Source compression failed'}
 Write-Output $destination

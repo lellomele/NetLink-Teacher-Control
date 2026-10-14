@@ -132,9 +132,14 @@ void MainWindow::reset( bool onlyUI )
 
 void MainWindow::apply()
 {
+	const auto pages = findChildren<ConfigurationPage *>();
+	// Reject invalid staged values before writing settings or changing service/firewall state.
+	for( auto page : pages )
+	{
+		if( page->validateConfiguration() == false ) return;
+	}
 	if( applyConfiguration() )
 	{
-		const auto pages = findChildren<ConfigurationPage *>();
 		for( auto page : pages )
 		{
 			page->applyConfiguration();

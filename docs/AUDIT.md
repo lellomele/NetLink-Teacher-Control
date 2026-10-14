@@ -1,4 +1,4 @@
-# Audit and release gates — 0.1.0-alpha.1
+# Audit and release gates — 0.1.0-alpha.2
 
 Status: **partial audit and preliminary implementation, not a completed security
 audit, certified WS-Discovery implementation or production-ready release**.
@@ -7,9 +7,13 @@ audit, certified WS-Discovery implementation or production-ready release**.
 
 Windows 10 Pro x64 10.0.19045, GCC 16.1.0 and Qt 5.15.18. Complete application
 build and a separate production build without developer plugin paths/test hooks.
-13 Qt tests passed: address validation, every frame-fragment boundary, oversized
+13 protocol/input Qt tests passed: address validation, every frame-fragment boundary, oversized
 headers, invalid message types, namespace resolution, independent Probe fixture,
 HTTP discovery on loopback, fixture export and 10,000 malformed XML inputs.
+12 GUI configuration tests additionally exercise Apply, per-field and combined
+edits, persistence/reopen with JSON and the real LocalStore/QSettings code on an
+isolated INI backend, reset/discard and pre-save resource validation. The latter
+tests use offscreen Qt widgets and never write live registry/configuration keys.
 All six discovery message forms pass the independent .NET validator using the
 official OASIS/W3C XML schemas. XML validity is not full protocol conformance.
 Packaged CLI loading is checked with only Windows system directories in PATH.
@@ -18,6 +22,13 @@ returned Windows error 5 (access denied); privileged WFP execution is NOT verifi
 
 ## Corrections
 
+- School configuration fields update the staged model immediately, enabling Apply
+  and persisting before post-save hooks. Reset blocks widget signals; connections
+  are idempotent. Invalid/oversized resource lists are rejected by pre-save page
+  validation, before any configuration/service/firewall change. GUI regression
+  tests exercise each field, reopening a saved isolated configuration, clearing,
+  reset/discard and rejection without partial persistence; no live HKLM or service
+  writes are used by these tests.
 - Complete-frame checks, initialized lengths, overflow-safe arithmetic, size
   limits, checked writes and feature UUID/command/map type validation.
 - Single-use worker nonce, socket ownership, handshake timeout, bounded queues,

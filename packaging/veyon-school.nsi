@@ -3,8 +3,8 @@ Unicode true
 !include "LogicLib.nsh"
 !include "x64.nsh"
 !include "FileFunc.nsh"
-Name "Veyon School 0.1.0 alpha.1"
-OutFile "${OUTPUT}\VeyonSchool-0.1.0-alpha.1-win64-setup.exe"
+Name "Veyon School 0.1.0 alpha.2"
+OutFile "${OUTPUT}\VeyonSchool-0.1.0-alpha.2-win64-setup.exe"
 InstallDir "$PROGRAMFILES64\Veyon School"
 RequestExecutionLevel admin
 SetCompressor /SOLID lzma
@@ -17,10 +17,10 @@ SetCompressor /SOLID lzma
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "Italian"
-VIProductVersion "4.7.5.1"
+VIProductVersion "4.7.5.2"
 VIAddVersionKey /LANG=1040 "ProductName" "Veyon School"
 VIAddVersionKey /LANG=1040 "FileDescription" "Veyon School installer (pre-release)"
-VIAddVersionKey /LANG=1040 "FileVersion" "0.1.0-alpha.1"
+VIAddVersionKey /LANG=1040 "FileVersion" "0.1.0-alpha.2"
 VIAddVersionKey /LANG=1040 "LegalCopyright" "Veyon and Veyon School contributors"
 Function .onInit
  ${IfNot} ${RunningX64}
@@ -122,7 +122,7 @@ Section "Veyon School"
  CreateDirectory "$SMPROGRAMS\Veyon School"
  CreateShortcut "$SMPROGRAMS\Veyon School\Master.lnk" "$INSTDIR\veyon-master.exe"
  CreateShortcut "$SMPROGRAMS\Veyon School\Configurator.lnk" "$INSTDIR\veyon-configurator.exe"
- WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "DisplayName" "Veyon School 0.1.0 alpha.1"
+ WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "DisplayName" "Veyon School 0.1.0 alpha.2"
  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "UninstallString" '"$INSTDIR\Uninstall.exe"'
  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "DisplayIcon" "$INSTDIR\veyon-master.exe"
 SectionEnd

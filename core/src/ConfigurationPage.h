@@ -37,6 +37,7 @@ public:
 
 	virtual void resetWidgets() = 0;
 	virtual void connectWidgetsToProperties() = 0;
+	virtual bool validateConfiguration() { return true; }
 	virtual void applyConfiguration() = 0;
 
 Q_SIGNALS:

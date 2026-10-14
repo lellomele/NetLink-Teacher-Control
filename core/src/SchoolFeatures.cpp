@@ -3,6 +3,7 @@
 #undef QT_USE_QSTRINGBUILDER
 #include "SchoolFeatures.h"
 #include "SchoolNetworkPolicy.h"
+#include "SchoolConfigurationPage.h"
 #include "ConfigurationPage.h"
 #include "Configuration/LocalStore.h"
 #include "ConfigurationManager.h"
@@ -67,41 +68,6 @@ QString humanStatus(const QJsonObject& result) {
     const auto code=result.value("code");
     return "errore: "+status+" ("+(code.isDouble() ? QString::number(code.toDouble(),'f',0) : "?")+")";
 }
-class SchoolPage : public ConfigurationPage {
-public:
-    SchoolPage() : ConfigurationPage() {
-        auto layout=new QFormLayout(this);
-        setWindowTitle("Veyon School"); setWindowIcon(QIcon(":/core/veyon.png"));
-        m_master=new QLineEdit(this);m_master->setMaxLength(253);
-        m_enabled=new QCheckBox("Abilita WS-Discovery",this);
-        m_resources=new QTextEdit(this);m_resources->setAcceptRichText(false);
-        layout->addRow(m_enabled);layout->addRow("Nome/IP del Master (client di altre subnet)",m_master);
-        layout->addRow("Risorse autorizzate: un IP o CIDR per riga",m_resources);
-        auto help=new QLabel("I PC selezionati nel Master sono riutilizzati automaticamente.\n"
-            "Non inserire intere subnet senza necessità: ogni destinazione consentita resta raggiungibile su tutte le porte.\n"
-            "Il discovery non sostituisce le chiavi e le regole di accesso Veyon.",this);
-        help->setTextFormat(Qt::PlainText);help->setWordWrap(true);layout->addRow(help);
-        resetWidgets();connectWidgetsToProperties();
-    }
-    void resetWidgets() override { m_master->setText(VeyonCore::config().schoolDiscoveryMaster());m_resources->setPlainText(VeyonCore::config().schoolResources().join('\n'));m_enabled->setChecked(VeyonCore::config().schoolDiscoveryEnabled()); }
-    void connectWidgetsToProperties() override {
-        connect(m_master,&QLineEdit::textChanged,this,[this]{Q_EMIT widgetsChanged();});
-        connect(m_resources,&QTextEdit::textChanged,this,[this]{Q_EMIT widgetsChanged();});
-        connect(m_enabled,&QCheckBox::toggled,this,[this]{Q_EMIT widgetsChanged();});
-    }
-    void applyConfiguration() override {
-        QStringList resources;
-        for(const auto& line:m_resources->toPlainText().split('\n',Qt::SkipEmptyParts)) {
-            if(!SchoolNetwork::validAddress(line.trimmed())) {QMessageBox::warning(this,"Veyon School","Risorsa non valida: "+line.left(120));return;}
-            resources.append(line.trimmed());
-        }
-        if(resources.size()>128) {QMessageBox::warning(this,"Veyon School","Massimo 128 risorse aggiuntive.");return;}
-        VeyonCore::config().setSchoolDiscoveryMaster(m_master->text().trimmed());
-        VeyonCore::config().setSchoolResources(resources);
-        VeyonCore::config().setSchoolDiscoveryEnabled(m_enabled->isChecked());
-    }
-private: QLineEdit* m_master; QTextEdit* m_resources;QCheckBox* m_enabled;
-};
 }
 SchoolFeatures::SchoolFeatures(QObject* parent) : QObject(parent),
     m_guardUid("9509a4cc-f39e-4857-a3fc-8e288f1d577f"),
@@ -127,7 +93,7 @@ SchoolFeatures::~SchoolFeatures() {
     if(m_studentDialog) delete m_studentDialog;
     if(m_serviceThread) {m_serviceThread->quit();m_serviceThread->wait();}
 }
-ConfigurationPage* SchoolFeatures::createConfigurationPage() {return new SchoolPage;}
+ConfigurationPage* SchoolFeatures::createConfigurationPage() {return new SchoolConfigurationPage(VeyonCore::config());}
 CommandLinePluginInterface::RunResult SchoolFeatures::handle_firewall_setup(const QStringList&) {return SchoolNetwork::configureDiscoveryFirewall(true) ? CommandLinePluginInterface::Successful : CommandLinePluginInterface::Failed;}
 CommandLinePluginInterface::RunResult SchoolFeatures::handle_firewall_remove(const QStringList&) {return SchoolNetwork::configureDiscoveryFirewall(false) ? CommandLinePluginInterface::Successful : CommandLinePluginInterface::Failed;}
 CommandLinePluginInterface::RunResult SchoolFeatures::handle_selftest(const QStringList&) {
