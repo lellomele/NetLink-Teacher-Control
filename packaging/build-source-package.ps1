@@ -10,7 +10,7 @@ $gitOptions=@('-c',"core.excludesFile=$repoRoot/.gitignore",'-C',$repoRoot)
 $revisionId=& git @gitOptions rev-parse --verify "$Revision^{commit}"
 if($LASTEXITCODE-ne0){throw 'Invalid source revision'}
 $rootArchive=Join-Path $stage 'root.tar'
-& git @gitOptions archive --format=tar "--prefix=$prefix/" "--output=$rootArchive" $revisionId
+& git @gitOptions archive --format=tar "--prefix=$prefix/" "--output=$rootArchive" $revisionId -- . ':(exclude)*.exe' ':(exclude)*.dll' ':(exclude)*.sys'
 if($LASTEXITCODE-ne0){throw 'Root archive failed'}
 & "$env:SystemRoot/System32/tar.exe" -xf $rootArchive -C $stage
 if($LASTEXITCODE-ne0){throw 'Root extraction failed'}
@@ -25,7 +25,7 @@ function ArchiveSubmodules([string]$directory,[string]$revision,[string]$parentP
         if($path.StartsWith('/') -or ($path -split '/')-contains'..'){throw 'Unsafe submodule path'}
         $moduleRoot=Join-Path $directory $relative
         $moduleArchive=Join-Path $stage ($path.Replace('/','_')+'.tar')
-        & git -c "core.excludesFile=$repoRoot/.gitignore" -C $moduleRoot archive --format=tar "--prefix=$prefix/$path/" "--output=$moduleArchive" $sha
+        & git -c "core.excludesFile=$repoRoot/.gitignore" -C $moduleRoot archive --format=tar "--prefix=$prefix/$path/" "--output=$moduleArchive" $sha -- . ':(exclude)*.exe' ':(exclude)*.dll' ':(exclude)*.sys'
         if($LASTEXITCODE-ne0){throw "Submodule archive failed: $path"}
         & "$env:SystemRoot/System32/tar.exe" -xf $moduleArchive -C $stage
         if($LASTEXITCODE-ne0){throw "Submodule extraction failed: $path"}

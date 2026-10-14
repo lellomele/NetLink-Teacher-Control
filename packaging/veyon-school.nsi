@@ -11,7 +11,7 @@ SetCompressor /SOLID lzma
 !define MUI_ICON "${REPOROOT}\branding\veyon-school.ico"
 !define MUI_UNICON "${REPOROOT}\branding\veyon-school.ico"
 !insertmacro MUI_PAGE_WELCOME
-!insertmacro MUI_PAGE_LICENSE "${REPOROOT}\COPYING"
+!insertmacro MUI_PAGE_LICENSE "${REPOROOT}\COPYING.GPL3"
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -64,10 +64,26 @@ Section "Veyon School"
  ${EndIf}
  IfFileExists "$INSTDIR\veyon-wcli.exe" 0 fresh
  ExecWait '"$INSTDIR\veyon-wcli.exe" config export "$INSTDIR\Backups\configuration-before-upgrade.json"' $0
- ExecWait '"$INSTDIR\veyon-wcli.exe" service stop' $0
- ExecWait '"$INSTDIR\veyon-wcli.exe" service unregister' $0
+ ${If} $0 != 0
+   Abort "Backup prima dell’aggiornamento non riuscito."
+ ${EndIf}
+ ReadRegStr $1 HKLM "SYSTEM\CurrentControlSet\Services\VeyonSchoolService" "ImagePath"
+ ${If} $1 != ""
+   ExecWait '"$INSTDIR\veyon-wcli.exe" service stop' $0
+   ${If} $0 != 0
+     Abort "Impossibile fermare il servizio del fork; nessun file è stato sostituito."
+   ${EndIf}
+   ExecWait '"$INSTDIR\veyon-wcli.exe" service unregister' $0
+   ${If} $0 != 0
+     Abort "Impossibile rimuovere la precedente registrazione del servizio."
+   ${EndIf}
+ ${EndIf}
  fresh:
  File /r "${PAYLOAD}\*"
+ ; Keep recovery available even if later configuration or service startup fails.
+ WriteUninstaller "$INSTDIR\Uninstall.exe"
+ WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "DisplayName" "Veyon School (installazione incompleta)"
+ WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "UninstallString" '"$INSTDIR\Uninstall.exe"'
  IfFileExists "$INSTDIR\Backups\configuration-original.json" backup_done
  ExecWait '"$INSTDIR\veyon-wcli.exe" config export "$INSTDIR\Backups\configuration-original.json"' $0
  ${If} $0 != 0
@@ -106,7 +122,6 @@ Section "Veyon School"
  CreateDirectory "$SMPROGRAMS\Veyon School"
  CreateShortcut "$SMPROGRAMS\Veyon School\Master.lnk" "$INSTDIR\veyon-master.exe"
  CreateShortcut "$SMPROGRAMS\Veyon School\Configurator.lnk" "$INSTDIR\veyon-configurator.exe"
- WriteUninstaller "$INSTDIR\Uninstall.exe"
  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "DisplayName" "Veyon School 0.1.0 alpha.1"
  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "UninstallString" '"$INSTDIR\Uninstall.exe"'
  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "DisplayIcon" "$INSTDIR\veyon-master.exe"

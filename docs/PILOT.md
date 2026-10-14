@@ -61,3 +61,16 @@ Non pubblicare chiavi private, password o esportazioni di configurazione.
 Riportare passaggio, passato/non passato ed errore testuale, senza credenziali.
 Prima della stabile servono anche carico prolungato su una classe e chiusura
 dei punti ancora aperti in AUDIT.md.
+
+## Recupero in caso di errore
+
+Non proseguire un’installazione segnalata come incompleta. Conservare il messaggio
+e il backup protetto in `C:\Program Files\Veyon School\Backups`. Dopo la copia dei
+file è disponibile `Uninstall.exe` anche se la configurazione successiva fallisce.
+Il rollback completo di un aggiornamento non è automatico né ancora collaudato.
+
+Per tornare a Veyon originale: disinstallare il fork, importare il backup della
+configurazione nel Configurator originale avviato come amministratore e avviare
+il servizio originale. La configurazione è condivisa e le due impostazioni dei
+driver/acquisizione vengono disabilitate dal fork; rimuovere il programma non
+ripristina automaticamente quelle impostazioni. Le chiavi restano al loro posto.

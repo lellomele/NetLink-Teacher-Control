@@ -20,6 +20,9 @@ porte. L’installazione originale, le chiavi e la configurazione non vengono el
 L’installer salva la configurazione in una cartella Backups accessibile solo agli
 amministratori. Se il servizio originale è presente, ne disabilita l’avvio automatico
 con conferma e ripristina il tipo di avvio alla disinstallazione.
+La configurazione è condivisa: il fork disabilita Interception e DeskDupEngine.
+La disinstallazione non reimporta automaticamente il backup della configurazione;
+per tornare alle impostazioni precedenti usare il Configurator originale.
 
 Nel Configurator mantenere le aule, i PC, l’autenticazione e le regole di accesso
 già configurati. È consigliata l’autenticazione a chiave con diritti limitati ai

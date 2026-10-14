@@ -19,7 +19,8 @@ Copy-Item -LiteralPath (Join-Path $qtPlugins 'platforms/qwindows.dll') -Destinat
 Copy-Item -LiteralPath (Join-Path $qtPlugins 'imageformats/qjpeg.dll') -Destination (Join-Path $packageRoot 'imageformats')
 Copy-Item -LiteralPath (Join-Path $qtPlugins 'crypto/libqca-ossl.dll') -Destination (Join-Path $packageRoot 'crypto')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'qt.conf') -Destination $packageRoot
-Copy-Item -LiteralPath (Join-Path $repoRoot 'COPYING') -Destination (Join-Path $packageRoot 'LICENSE.txt')
+Copy-Item -LiteralPath (Join-Path $repoRoot 'COPYING.GPL3') -Destination (Join-Path $packageRoot 'LICENSE.txt')
+Copy-Item -LiteralPath (Join-Path $repoRoot 'COPYING') -Destination (Join-Path $packageRoot 'licenses/Veyon-GPL-2.0.txt')
 Copy-Item -LiteralPath (Join-Path $repoRoot 'COPYING.GPL3') -Destination (Join-Path $packageRoot 'licenses/GPL-3.0.txt')
 Copy-Item -LiteralPath (Join-Path $repoRoot 'README.md') -Destination (Join-Path $packageRoot 'README.txt')
 $translationTool=Join-Path $Toolchain 'bin/lrelease-qt5.exe'
