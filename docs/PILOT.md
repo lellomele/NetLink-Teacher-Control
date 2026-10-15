@@ -48,7 +48,10 @@ Non pubblicare chiavi private, password o esportazioni di configurazione.
 
 ## Discovery e installazione
 
-1. Trova client: verificare nome/IP/porta e assenza dei nomi degli studenti.
+1. Trova client: verificare nome/IPv4/porta e assenza dei nomi degli studenti.
+   Sul MATEBOOK deve comparire il DELL remoto, non il MATEBOOK stesso, né il suo
+   Wi-Fi né le schede virtuali. Non devono apparire righe IPv6; IPv6 di Windows
+   deve restare attivo. I client remoti su altre subnet IPv4 non sono esclusi.
 2. La scoperta NON deve concedere accesso senza autenticazione Veyon.
 3. Client spento: il candidato deve scadere entro circa 95 secondi.
 4. Una sola subnet verifica multicast/HTTP locale, NON il routing tra VLAN.

@@ -55,7 +55,14 @@ public:
 	static QString querySessionInformation( SessionId sessionId, SessionInfo sessionInfo );
 
 	static ProcessId findWinlogonProcessId( SessionId sessionId );
-	static ProcessId findUserProcessId( const QString& userName );
+	// Returns an owned primary token for this exact user and session. The caller
+	// must CloseHandle(); process enumeration is only a verified fallback.
+	static HANDLE queryUserToken( const QString& userName, SessionId sessionId );
+	static constexpr DWORD UserTokenAccess = TOKEN_QUERY | TOKEN_DUPLICATE |
+		TOKEN_ASSIGN_PRIMARY | TOKEN_IMPERSONATE;
 	static ProcessId findProcessId( const QString& processName );
 
+private:
+	friend class WindowsSessionTokenTests;
+	static HANDLE copyMatchingUserToken(HANDLE token, PSID expectedSid, SessionId expectedSession);
 } ;

@@ -29,6 +29,7 @@
 
 #include <shlobj.h>
 #include <userenv.h>
+#include <memory>
 
 #include "VeyonConfiguration.h"
 #include "WindowsCoreFunctions.h"
@@ -304,14 +305,17 @@ bool WindowsCoreFunctions::runProgramAsUser( const QString& program,
 	// Worker parameters include a one-shot IPC authentication nonce.
 	vDebug() << program << "argument count" << parameters.size() << username << desktop;
 
-	const auto baseProcessId = WtsSessionManager::findUserProcessId( username );
-	if( baseProcessId == WtsSessionManager::InvalidProcess )
+	const auto sessionId=WtsSessionManager::currentSession();
+	enablePrivilege(SE_TCB_NAME,true);
+	const auto token=WtsSessionManager::queryUserToken(username,sessionId);
+	if(!token)
 	{
-		vCritical() << "could not determine base process ID for user" << username;
+		vWarning() << "could not obtain user token for session" << sessionId;
 		return false;
 	}
 
-	auto processHandle = runProgramInSession( program, parameters, {}, baseProcessId, desktop );
+	auto processHandle = runProgramWithToken( program, parameters, {}, token, desktop );
+	CloseHandle(token);
 	if( processHandle )
 	{
 		CloseHandle( processHandle );
@@ -441,6 +445,7 @@ bool WindowsCoreFunctions::enablePrivilege( LPCWSTR privilegeName, bool enable )
 	if( !LookupPrivilegeValue( nullptr, privilegeName, &luid ) )
 	{
 		vCritical() << "could not lookup privilege value";
+		CloseHandle(token);
 		return false;
 	}
 
@@ -448,11 +453,13 @@ bool WindowsCoreFunctions::enablePrivilege( LPCWSTR privilegeName, bool enable )
 	tokenPrivileges.Privileges[0].Luid = luid;
 	tokenPrivileges.Privileges[0].Attributes = enable ? SE_PRIVILEGE_ENABLED : 0;
 
+	SetLastError(ERROR_SUCCESS);
 	const auto ret = AdjustTokenPrivileges( token, false, &tokenPrivileges, 0, nullptr, nullptr );
+	const auto error=GetLastError();
 
 	CloseHandle( token );
 
-	return ret;
+	return ret && error==ERROR_SUCCESS;
 }
 
 
@@ -475,6 +482,44 @@ const wchar_t* WindowsCoreFunctions::toConstWCharArray( const QString& qstring )
 
 
 
+namespace {
+struct SessionHandleCloser {
+	void operator()(HANDLE handle) const {if(handle) CloseHandle(handle);}
+};
+using SessionHandle=std::unique_ptr<void,SessionHandleCloser>;
+struct EnvironmentCloser {
+	void operator()(void* environment) const {if(environment) DestroyEnvironmentBlock(environment);}
+};
+struct ProfileCloser {
+	void operator()(wchar_t* profile) const {CoTaskMemFree(profile);}
+};
+class ScopedThreadImpersonation {
+public:
+	bool begin(HANDLE token) {
+		HANDLE previous=nullptr;
+		if(!OpenThreadToken(GetCurrentThread(),TOKEN_QUERY|TOKEN_IMPERSONATE,true,&previous) &&
+			GetLastError()!=ERROR_NO_TOKEN) {
+			vWarning() << "OpenThreadToken() before worker launch" << GetLastError();
+			return false;
+		}
+		m_previous.reset(previous);
+		if(!ImpersonateLoggedOnUser(token)) {
+			vWarning() << "ImpersonateLoggedOnUser()" << GetLastError();
+			return false;
+		}
+		m_active=true;
+		return true;
+	}
+	~ScopedThreadImpersonation() {
+		if(m_active && !(m_previous ? SetThreadToken(nullptr,m_previous.get()) : RevertToSelf()))
+			qFatal("Could not restore thread identity after process launch");
+	}
+private:
+	SessionHandle m_previous;
+	bool m_active=false;
+};
+}
+
 HANDLE WindowsCoreFunctions::runProgramInSession( const QString& program,
 												  const QStringList& parameters,
 												  const QStringList& extraEnvironment,
@@ -484,51 +529,50 @@ HANDLE WindowsCoreFunctions::runProgramInSession( const QString& program,
 	vDebug() << program << "argument count" << parameters.size()
 		<< "environment entry count" << extraEnvironment.size() << baseProcessId;
 
-	enablePrivilege( SE_ASSIGNPRIMARYTOKEN_NAME, true );
-	enablePrivilege( SE_INCREASE_QUOTA_NAME, true );
-	enablePrivilege( SE_TCB_NAME, true );
-
-	const auto userProcessHandle = OpenProcess( PROCESS_ALL_ACCESS, false, baseProcessId );
-	if( userProcessHandle == nullptr )
+	SessionHandle process(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,false,baseProcessId));
+	if(!process)
 	{
 		vCritical() << "OpenProcess()" << GetLastError();
 		return nullptr;
 	}
 
 	HANDLE userProcessToken = nullptr;
-	if( OpenProcessToken( userProcessHandle, MAXIMUM_ALLOWED, &userProcessToken ) == false )
+	if( OpenProcessToken( process.get(), TOKEN_QUERY|TOKEN_DUPLICATE, &userProcessToken ) == false )
 	{
 		vCritical() << "OpenProcessToken()" << GetLastError();
-		CloseHandle( userProcessHandle );
 		return nullptr;
 	}
+	SessionHandle sourceToken(userProcessToken);
+	HANDLE primaryToken=nullptr;
+	if(!DuplicateTokenEx(sourceToken.get(),WtsSessionManager::UserTokenAccess,nullptr,
+		SecurityImpersonation,TokenPrimary,&primaryToken)) {
+		vCritical() << "DuplicateTokenEx()" << GetLastError();
+		return nullptr;
+	}
+	SessionHandle token(primaryToken);
+	return runProgramWithToken(program,parameters,extraEnvironment,token.get(),desktop);
+}
 
+HANDLE WindowsCoreFunctions::runProgramWithToken(const QString& program,
+	const QStringList& parameters,const QStringList& extraEnvironment,HANDLE token,const QString& desktop)
+{
+	enablePrivilege(SE_ASSIGNPRIMARYTOKEN_NAME,true);
+	enablePrivilege(SE_INCREASE_QUOTA_NAME,true);
+	enablePrivilege(SE_TCB_NAME,true);
 	LPVOID userEnvironment = nullptr;
-	if( CreateEnvironmentBlock( &userEnvironment, userProcessToken, false ) == false )
+	if( CreateEnvironmentBlock( &userEnvironment, token, false ) == false )
 	{
 		vCritical() << "CreateEnvironmentBlock()" << GetLastError();
-		CloseHandle( userProcessHandle );
-		CloseHandle( userProcessToken );
 		return nullptr;
 	}
+	std::unique_ptr<void,EnvironmentCloser> environment(userEnvironment);
 
 	PWSTR profileDir = nullptr;
-	if( SHGetKnownFolderPath( FOLDERID_Profile, 0, userProcessToken, &profileDir ) != S_OK )
+	const auto profileResult=SHGetKnownFolderPath(FOLDERID_Profile,0,token,&profileDir);
+	std::unique_ptr<wchar_t,ProfileCloser> profile(profileDir);
+	if(FAILED(profileResult))
 	{
-		vCritical() << "SHGetKnownFolderPath()" << GetLastError();
-		DestroyEnvironmentBlock( userEnvironment );
-		CloseHandle( userProcessHandle );
-		CloseHandle( userProcessToken );
-		return nullptr;
-	}
-
-	if( ImpersonateLoggedOnUser( userProcessToken ) == false )
-	{
-		vCritical() << "ImpersonateLoggedOnUser()" << GetLastError();
-		CoTaskMemFree( profileDir );
-		DestroyEnvironmentBlock( userEnvironment );
-		CloseHandle( userProcessHandle );
-		CloseHandle( userProcessToken );
+		vCritical() << "SHGetKnownFolderPath()" << profileResult;
 		return nullptr;
 	}
 
@@ -539,30 +583,31 @@ HANDLE WindowsCoreFunctions::runProgramInSession( const QString& program,
 		desktopWide = toWCharArray( QStringLiteral("Winsta0\\Default") );
 	}
 
-	STARTUPINFO si;
-	PROCESS_INFORMATION pi;
-	ZeroMemory( &si, sizeof( STARTUPINFO ) );
+	STARTUPINFO si{};
+	PROCESS_INFORMATION pi{};
 	si.cb = sizeof( STARTUPINFO );
 	si.lpDesktop = desktopWide.data();
 
-	auto fullEnvironment = appendToEnvironmentBlock( reinterpret_cast<const wchar_t *>( userEnvironment ), extraEnvironment );
-
-	HANDLE newToken = nullptr;
-
-	DuplicateTokenEx( userProcessToken, TOKEN_ASSIGN_PRIMARY|TOKEN_ALL_ACCESS, nullptr,
-					  SecurityImpersonation, TokenPrimary, &newToken );
+	std::unique_ptr<wchar_t[]> fullEnvironment(appendToEnvironmentBlock(
+		reinterpret_cast<const wchar_t*>(userEnvironment),extraEnvironment));
+	if(!fullEnvironment) {
+		vWarning() << "Invalid or excessive process environment";
+		return nullptr;
+	}
 
 	auto commandLine = toWCharArray( QStringLiteral("\"%1\" %2").arg( program, parameters.join( QLatin1Char(' ') ) ) );
+	ScopedThreadImpersonation impersonation;
+	if(!impersonation.begin(token)) return nullptr;
 
 	auto createProcessResult = CreateProcessAsUser(
-				newToken,			// client's access token
-				nullptr,			  // file to execute
+				token,			// client's access token
+				toConstWCharArray(program), // explicit executable, no path ambiguity
 				commandLine.data(),	 // command line
 				nullptr,			  // pointer to process SECURITY_ATTRIBUTES
 				nullptr,			  // pointer to thread SECURITY_ATTRIBUTES
 				false,			 // handles are not inheritable
 				CREATE_UNICODE_ENVIRONMENT | NORMAL_PRIORITY_CLASS,   // creation flags
-				fullEnvironment ? fullEnvironment : userEnvironment,			  // pointer to new environment block
+				fullEnvironment.get(),			  // pointer to new environment block
 				profileDir,			  // name of current directory
 				&si,			   // pointer to STARTUPINFO structure
 				&pi				// receives information about new process
@@ -573,19 +618,9 @@ HANDLE WindowsCoreFunctions::runProgramInSession( const QString& program,
 		vCritical() << "CreateProcessAsUser()" << GetLastError();
 	}
 
-	delete[] fullEnvironment;
-
-	CoTaskMemFree( profileDir );
-	DestroyEnvironmentBlock( userEnvironment );
-
-	CloseHandle( newToken );
-	RevertToSelf();
-
-	CloseHandle( userProcessToken );
-	CloseHandle( userProcessHandle );
-
 	if( createProcessResult )
 	{
+		CloseHandle(pi.hThread);
 		return pi.hProcess;
 	}
 

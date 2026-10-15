@@ -20,6 +20,16 @@ static const QString Discovery = "http://docs.oasis-open.org/ws-dd/ns/discovery/
 static const QString School = "urn:veyon-school:discovery:1";
 static const QString Target = "urn:docs-oasis-open-org:ws-dd:ns:discovery:2009:01";
 static QString identifier() { return "urn:uuid:" + QUuid::createUuid().toString(QUuid::WithoutBraces); }
+static bool normalizedIpv4(const QHostAddress& input,QHostAddress& output) {
+    if(input.protocol()==QAbstractSocket::IPv4Protocol) {output=input;return true;}
+    if(input.protocol()!=QAbstractSocket::IPv6Protocol) return false;
+    const auto bytes=input.toIPv6Address();
+    for(int i=0;i<10;++i) if(bytes.c[i]!=0) return false;
+    if(bytes.c[10]!=0xff || bytes.c[11]!=0xff) return false;
+    bool valid=false;const auto value=input.toIPv4Address(&valid);
+    if(valid) output=QHostAddress(value);
+    return valid;
+}
 bool decode(const QByteArray& xml, Message& output) {
     output = {};
     if (xml.size() > 32768 || xml.isEmpty()) return false;
@@ -144,7 +154,7 @@ Agent::Agent(bool master, const QString& bootstrap, int port, QObject* parent, b
     identity+=master ? ":discovery-proxy" : ":client";
     m_endpoint = "urn:uuid:" + QUuid::fromRfc4122(QCryptographicHash::hash(identity,QCryptographicHash::Sha256).left(16)).toString(QUuid::WithoutBraces);
     if(!initializeSockets) return;
-    m_interfaces=QNetworkInterface::allInterfaces();
+    refreshInterfaces();
     const auto flags = QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint;
     if (!m_udp4.bind(QHostAddress::AnyIPv4,3702,flags)) m_error = m_udp4.errorString();
     m_udp6.bind(QHostAddress::AnyIPv6,3702,flags);
@@ -168,7 +178,7 @@ Agent::Agent(bool master, const QString& bootstrap, int port, QObject* parent, b
     connect(&m_timer,&QTimer::timeout,this,[this] {
         m_rate.clear();
         m_overloadReported=false;
-        m_interfaces=QNetworkInterface::allInterfaces();
+        refreshInterfaces();
         const auto now = m_clock.elapsed();
         for (auto it=m_records.begin();it!=m_records.end();) { if (now-it->seen > 95000) it=m_records.erase(it); else ++it; }
         for (auto it=m_seen.begin();it!=m_seen.end();) { if (now-it.value()>60000) it=m_seen.erase(it); else ++it; }
@@ -179,7 +189,36 @@ Agent::Agent(bool master, const QString& bootstrap, int port, QObject* parent, b
     QTimer::singleShot(int(QRandomGenerator::global()->bounded(500u)),this,[this]{announce();if(m_master) probe();});
 }
 Agent::~Agent() { multicast(encode(announcement("Bye"))); }
-QList<Record> Agent::records() const { return m_records.values(); }
+void Agent::refreshInterfaces() {
+    m_interfaces=QNetworkInterface::allInterfaces();
+    m_localIpv4.clear();
+    for(const auto& interface:m_interfaces) for(const auto& entry:interface.addressEntries()) {
+        QHostAddress address;
+        if(normalizedIpv4(entry.ip(),address)) m_localIpv4.insert(address.toIPv4Address());
+    }
+    // A newly assigned address may have been observed before the next refresh.
+    // Remove that local observation permanently, so a later NIC disconnect
+    // cannot make its cached row reappear as a remote computer.
+    for(auto it=m_records.begin();it!=m_records.end();) {
+        if(isLocalIpv4(QHostAddress(it->address))) it=m_records.erase(it);else ++it;
+    }
+}
+bool Agent::isLocalIpv4(const QHostAddress& address) const {
+    QHostAddress ipv4;
+    return normalizedIpv4(address,ipv4) && (ipv4.isLoopback() || m_localIpv4.contains(ipv4.toIPv4Address()));
+}
+QList<Record> Agent::records() const {
+    QList<Record> result;
+    for(auto record:m_records) {
+        QHostAddress address;if(!normalizedIpv4(QHostAddress(record.address),address)) continue;
+        // Exclude this computer on every NIC, including virtual adapters. Use
+        // the observed sender address, never an untrusted hostname or an EPR
+        // which another PC could share after cloning a Windows installation.
+        if(isLocalIpv4(address)) continue;
+        record.address=address.toString();result.append(record);
+    }
+    return result;
+}
 Message Agent::announcement(const QString& action) const {
     Message message; message.action=action; message.id=identifier(); message.instance=m_instance; message.sequence=m_sequence+1;
     Record record; record.endpoint=m_endpoint; record.name=QHostInfo::localHostName(); record.port=m_master ? 3702 : m_port;
@@ -226,22 +265,35 @@ void Agent::probe() {
     QTimer::singleShot(200,this,[this,data]{multicast(data);});QTimer::singleShot(600,this,[this,data]{multicast(data);});
 }
 QByteArray Agent::process(const QByteArray& xml,const QHostAddress& source,bool http) {
-    const auto key=source.toString();
-    if (source.isNull() || source.isMulticast()) return {};
+    QHostAddress normalized;const bool ipv4=normalizedIpv4(source,normalized);
+    const auto sender=ipv4?normalized:source;
+    const auto key=sender.toString();
+    if (sender.isNull() || sender.isMulticast() || sender==QHostAddress::AnyIPv4 ||
+        sender==QHostAddress::AnyIPv6 || sender==QHostAddress::Broadcast) return {};
     if(m_rate.size()>1024 || ++m_rate[key]>32) {
         if(!m_overloadReported) {m_overloadReported=true;qWarning("NetLink WS-Discovery input rate limited; further messages are temporarily ignored");}
         return {};
     }
     Message message; if(!decode(xml,message)) return {};
-    if(m_seen.contains(message.id) || m_seen.size()>=4096) return {};
-    m_seen.insert(message.id,m_clock.elapsed());
     const auto action=message.action.section('/',-1);
+    // The client list is IPv4-only. Keep protocol responses to IPv6 probes,
+    // but never let a true IPv6 announcement replace a usable IPv4 record or
+    // consume its MessageID before the IPv4 copy arrives on another socket.
+    if(m_master && !ipv4 && (action=="Hello" || action=="Bye" || action.endsWith("Matches"))) return {};
+    if(m_master && isLocalIpv4(sender) && (action=="Hello" || action=="Bye" || action.endsWith("Matches"))) return {};
+    // A dual-stack Probe uses one MessageID on both transports. Answer each
+    // family once: an IPv6 reply is not a substitute for the requested IPv4
+    // discovery result. The separator cannot occur in valid XML MessageIDs.
+    const auto seenKey=(action=="Probe" || action=="Resolve") ?
+        QString(QChar(0))+QString(ipv4?"4:":"6:")+message.id : message.id;
+    if(m_seen.contains(seenKey) || m_seen.size()>=4096) return {};
+    m_seen.insert(seenKey,m_clock.elapsed());
     if(action.endsWith("Matches") && m_master && !m_queries.contains(message.relatesTo)) return {};
     if(action=="Hello" || action=="ProbeMatches" || action=="ResolveMatches" || action=="Bye") {
         for(auto record : message.records) {
             if(action!="Bye" && !record.client) continue;
             // Never follow remote metadata URLs or accept an IP different from the sender.
-            record.address=source.toString(); record.seen=m_clock.elapsed();
+            record.address=sender.toString(); record.seen=m_clock.elapsed();
             auto old=m_records.constFind(record.endpoint);
             if(old!=m_records.cend() && (old->instance>record.instance || (old->instance==record.instance && old->sequence>=record.sequence && !http))) continue;
             if(action=="Bye") m_records.remove(record.endpoint);
@@ -252,7 +304,7 @@ QByteArray Agent::process(const QByteArray& xml,const QHostAddress& source,bool 
     if(action!="Probe" && action!="Resolve") return {};
     if(!message.scopes.isEmpty()) return {};
     const auto requestedType=message.types.trimmed();
-    const bool proxyRequested=requestedType==Discovery+"}DiscoveryProxy" || (action=="Resolve" && message.resolve==m_endpoint);
+    const bool proxyRequested=requestedType==Discovery+"}DiscoveryProxy" || (m_master && action=="Resolve" && message.resolve==m_endpoint);
     if(!requestedType.isEmpty() && requestedType!=School+"}Client" && !proxyRequested) return {};
     Message answer; answer.action=action=="Probe" ? "ProbeMatches" : "ResolveMatches";
     answer.relatesTo=message.id; answer.to=Addressing+"/anonymous";

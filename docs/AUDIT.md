@@ -1,7 +1,52 @@
-# Audit and release gates — NetLink 0.1.0-alpha.7
+# Audit and release gates — NetLink 0.1.0-alpha.8
 
 Status: **partial audit and preliminary implementation, not a completed security
 audit, certified WS-Discovery implementation or production-ready release**.
+
+## Alpha 8 focused changes
+
+The discovery list accepts native and mapped IPv4 only and excludes the local
+computer by observed sender addresses assigned to its interfaces, including
+virtual/down adapters and loopback. Hostnames, cloned machine endpoints and
+private subnets are not used as exclusion criteria. Local observations are not
+cached; refreshing the cached interface inventory also removes observations
+that have become local. The interface inventory is not queried for every row
+or two-second UI refresh. A disappearing row clears the current selection rather
+than leaving a different computer selected for import. IPv6 Windows/network
+policy support is not disabled. IPv6 announcements cannot consume IPv4 message
+IDs; Probe/Resolve requests are answered once per address family. A client now
+answers Resolve for its own client endpoint instead of treating it as a proxy.
+
+Windows user workers obtain a primary token for the exact requested SID and
+actual server session, preferring WTS and then a verified interactive shell
+before other candidates. Unusable/protected processes are skipped, process
+access rights are limited, and opened tokens are revalidated against PID reuse.
+Token/environment/profile/process-thread handles have scoped cleanup and any
+previous thread impersonation is restored after launch. Startup logging omits
+command-line values. Token tests inspect/copy metadata and check identity,
+session, restricted-token rejection and repeated handle cleanup; they do not
+launch a desktop process or prove tray rendering under SYSTEM after login.
+
+Local history comparison found the first-user-process/full-access fragility
+already in upstream 4.7.5 and the initial School alpha; no direct branding change
+was established as the cause of the MATEBOOK symptom. An absent worker snapshot
+does not distinguish failed creation from early exit. The installed-PC tray
+check remains a release pilot requirement, not a confirmed fix result.
+
+Focused discovery tests include Wi-Fi/virtual/mapped/loopback self exclusion,
+remote peers with the same name or endpoint, routed private IPv4 addresses,
+IPv6-before-IPv4 duplicate ordering, client/proxy Resolve and safe UI selection.
+The real HTTP handler is tested on an isolated ephemeral loopback port, not the
+production discovery port; this no longer skips when the installed service is
+running. These fixtures do not establish multicast or cross-subnet reachability.
+
+The alpha.8 application and separate production build passed locally. All 18
+CTest suites passed, including 171 Qt passes (setup/cleanup included), no failures
+and no skips. The six SOAP fixtures passed the independent schema validator.
+The focused discovery/lifecycle and protocol suites also passed five consecutive
+runs before the version bump. The additional native suites retain the hook and
+region-queue stress coverage described below; no live system-wide hook, privileged
+WFP policy, service restart or installation was performed by this test run.
 
 ## Alpha 7 focused changes
 

@@ -24,8 +24,11 @@
 
 #include <windows.h>
 #include <wtsapi32.h>
+#include <array>
+#include <memory>
+#include <vector>
 
-#include "WindowsCoreFunctions.h"
+#include "Logger.h"
 #include "WtsSessionManager.h"
 
 
@@ -166,8 +169,36 @@ WtsSessionManager::ProcessId WtsSessionManager::findWinlogonProcessId( SessionId
 
 
 
-WtsSessionManager::ProcessId WtsSessionManager::findUserProcessId( const QString& userName )
+namespace {
+struct TokenHandleCloser {
+	void operator()(HANDLE handle) const {if(handle) CloseHandle(handle);}
+};
+using TokenHandle = std::unique_ptr<void,TokenHandleCloser>;
+}
+
+HANDLE WtsSessionManager::copyMatchingUserToken(HANDLE token, PSID expectedSid, SessionId expectedSession)
 {
+	if(!token || !expectedSid || !IsValidSid(expectedSid) || expectedSession==InvalidSession) return nullptr;
+	DWORD size=0, session=0;
+	if(!GetTokenInformation(token,TokenSessionId,&session,sizeof(session),&size) || session!=expectedSession)
+		return nullptr;
+	GetTokenInformation(token,TokenUser,nullptr,0,&size);
+	if(size<sizeof(TOKEN_USER) || size>64*1024) return nullptr;
+	std::vector<BYTE> user(size);
+	if(!GetTokenInformation(token,TokenUser,user.data(),size,&size) ||
+		!EqualSid(reinterpret_cast<TOKEN_USER*>(user.data())->User.Sid,expectedSid)) return nullptr;
+	DWORD appContainer=0;
+	if(!GetTokenInformation(token,TokenIsAppContainer,&appContainer,sizeof(appContainer),&size) ||
+		appContainer || IsTokenRestricted(token)) return nullptr;
+	HANDLE primary=nullptr;
+	if(!DuplicateTokenEx(token,WtsSessionManager::UserTokenAccess,nullptr,
+		SecurityImpersonation,TokenPrimary,&primary)) return nullptr;
+	return primary;
+}
+
+HANDLE WtsSessionManager::queryUserToken( const QString& userName, SessionId sessionId )
+{
+	if(userName.isEmpty() || sessionId==InvalidSession) return nullptr;
 	DWORD sidLen = SECURITY_MAX_SID_SIZE; // Flawfinder: ignore
 	std::array<char, SECURITY_MAX_SID_SIZE> userSID{};
 	std::array<wchar_t, DOMAIN_LENGTH> domainName{};
@@ -175,7 +206,7 @@ WtsSessionManager::ProcessId WtsSessionManager::findUserProcessId( const QString
 	SID_NAME_USE sidNameUse;
 
 	if( LookupAccountName( nullptr,		// system name
-						   WindowsCoreFunctions::toConstWCharArray( userName ),
+						   reinterpret_cast<const wchar_t*>( userName.utf16() ),
 						   userSID.data(),
 						   &sidLen,
 						   domainName.data(),
@@ -183,34 +214,71 @@ WtsSessionManager::ProcessId WtsSessionManager::findUserProcessId( const QString
 						   &sidNameUse ) == false )
 	{
 		vCritical() << "could not look up SID structure";
-		return InvalidProcess;
+		return nullptr;
 	}
 
-	PWTS_PROCESS_INFO processInfo;
+	// The service can obtain the session's actual logon token without touching
+	// an arbitrary user process (which might be protected, such as antimalware).
+	HANDLE sessionToken=nullptr;
+	if(WTSQueryUserToken(sessionId,&sessionToken)) {
+		TokenHandle scopedToken(sessionToken);
+		if(auto primary=copyMatchingUserToken(sessionToken,userSID.data(),sessionId)) {
+			vDebug() << "User token source WTS; session" << sessionId;
+			return primary;
+		}
+		vWarning() << "WTS user token unusable for requested session; trying verified processes" << sessionId;
+	} else {
+		const auto error=GetLastError();
+		vDebug() << "WTSQueryUserToken() failed; session" << sessionId << "error" << error;
+	}
+
+	PWTS_PROCESS_INFO processInfo=nullptr;
 	DWORD processCount = 0;
 
 	if( WTSEnumerateProcesses( WTS_CURRENT_SERVER_HANDLE, 0, 1, &processInfo, &processCount ) == false )
 	{
-		vWarning() << "WTSEnumerateProcesses() failed:" << GetLastError();
-		return InvalidProcess;
+		vWarning() << "WTSEnumerateProcesses() failed; session" << sessionId << "error" << GetLastError();
+		return nullptr;
 	}
 
-	auto pid = InvalidProcess;
+	HANDLE result=nullptr;
 
-	for( DWORD proc = 0; proc < processCount; ++proc )
+	// Prefer the interactive shell over an arbitrary (possibly elevated) app.
+	// This is a preference, not a security exception: every token is still
+	// checked for matching SID/session and usable rights. Custom shells retain
+	// the same verified fallback on the second pass.
+	for(int pass=0;pass<2 && !result;++pass)
 	{
-		if( processInfo[proc].ProcessId > 0 &&
-			processInfo[proc].pUserSid != nullptr &&
-			EqualSid( processInfo[proc].pUserSid, userSID.data() ) )
+		for(DWORD proc=0;proc<processCount;++proc)
 		{
-			pid = processInfo[proc].ProcessId;
-			break;
+			const bool shell=processInfo[proc].pProcessName &&
+				QString::fromWCharArray(processInfo[proc].pProcessName)
+					.compare(QStringLiteral("explorer.exe"),Qt::CaseInsensitive)==0;
+			if((pass==0)!=shell) continue;
+			if(processInfo[proc].ProcessId>0 && processInfo[proc].SessionId==sessionId &&
+				processInfo[proc].pUserSid && EqualSid(processInfo[proc].pUserSid,userSID.data()))
+			{
+				TokenHandle process(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,false,processInfo[proc].ProcessId));
+				if(!process) continue;
+				HANDLE processToken=nullptr;
+				if(!OpenProcessToken(process.get(),TOKEN_QUERY|TOKEN_DUPLICATE,&processToken)) continue;
+				TokenHandle scopedToken(processToken);
+				// Recheck the opened token: an enumerated PID may have exited
+				// or been reused. Skip unusable tokens and keep trying.
+				result=copyMatchingUserToken(processToken,userSID.data(),sessionId);
+				if(result) {
+					vDebug() << "User token source verified process; session" << sessionId
+						<< "PID" << processInfo[proc].ProcessId << "shell preference" << shell;
+					break;
+				}
+			}
 		}
 	}
 
 	WTSFreeMemory( processInfo );
 
-	return pid;
+	if(!result) vWarning() << "No usable user token in WTS session" << sessionId;
+	return result;
 }
 
 

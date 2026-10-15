@@ -13,6 +13,7 @@
 #include "VeyonCore.h"
 
 class SchoolLifecycleTests;
+class SchoolTests;
 namespace SchoolDiscovery {
 struct Record {
     QString endpoint, name, address;
@@ -40,8 +41,11 @@ public:
     void probe();
 private:
     friend class ::SchoolLifecycleTests;
+    friend class ::SchoolTests;
     Agent(bool master, const QString& bootstrap, int port, QObject* parent, bool initializeSockets);
     Message announcement(const QString& action) const;
+    void refreshInterfaces();
+    bool isLocalIpv4(const QHostAddress& address) const;
     void announce();
     void multicast(const QByteArray& data);
     void readUdp(QUdpSocket* socket);
@@ -60,6 +64,7 @@ private:
     QHash<QString, qint64> m_seen;
     QHash<QString, int> m_rate;
     QList<QNetworkInterface> m_interfaces;
+    QSet<quint32> m_localIpv4;
     QSet<QUdpSocket*> m_udpDrainScheduled;
     QElapsedTimer m_clock;
     qint64 m_lastProbe = -2000;

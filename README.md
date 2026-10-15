@@ -5,7 +5,7 @@ InternetGuard basato su Windows Filtering Platform, Appello con il nome dichiara
 dallo studente sulle miniature e ricerca dei client tramite WS-Discovery 1.1.
 Le funzioni sono integrate: non occorre installare un plugin esterno.
 
-**Versione preliminare 0.1.0-alpha.7: destinata a PC di prova, non al laboratorio in uso.**
+**Versione preliminare 0.1.0-alpha.8: destinata a PC di prova, non al laboratorio in uso.**
 
 ## Installazione
 
@@ -49,7 +49,9 @@ docenti. Non distribuire la chiave privata ai client.
 - **Appello:** selezionare i PC e richiedere nome e cognome. I nomi sono visualizzati
   sulle miniature, ricercabili e ordinabili. Si può esportare il risultato in CSV
   oppure terminare l’appello e cancellare i nomi.
-- **Trova client:** vedere i PC rilevati, verificarli e importare il PC selezionato.
+- **Trova client:** mostra soltanto PC remoti con indirizzi IPv4, escludendo il
+  computer docente e tutte le sue schede, anche virtuali. IPv6 di Windows resta
+  attivo. Verificare i PC rilevati prima di importare quello selezionato.
   L’importazione richiede diritti di scrittura sulla configurazione e il riavvio
   del Master. Non modifica automaticamente le chiavi o le autorizzazioni.
 

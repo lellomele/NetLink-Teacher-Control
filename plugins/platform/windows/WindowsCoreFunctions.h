@@ -84,6 +84,11 @@ public:
 	static bool terminateProcess( ProcessId processId, DWORD timeout = DefaultProcessTerminationTimeout );
 
 private:
+	static HANDLE runProgramWithToken( const QString& program,
+									  const QStringList& parameters,
+									  const QStringList& extraEnvironment,
+									  HANDLE token,
+									  const QString& desktop );
 	static constexpr int ConsoleOutputBufferSize = 256;
 	static constexpr DWORD DefaultProcessTerminationTimeout = 5000;
 	static constexpr size_t ScreenSaverSettingsCount = 3;

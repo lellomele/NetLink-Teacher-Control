@@ -80,8 +80,9 @@ Logger::Logger( const QString &appName ) :
 
 	if( QCoreApplication::instance() )
 	{
-		// log current application start up
-		vDebug() << "Startup with arguments" << QCoreApplication::arguments();
+		// Positional worker nonces, passwords and pairing invitations must never
+		// enter a debug log. A count is sufficient for startup diagnostics.
+		vDebug() << "Startup; argument count" << QCoreApplication::arguments().size();
 	}
 	else
 	{

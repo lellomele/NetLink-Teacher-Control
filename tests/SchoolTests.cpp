@@ -7,6 +7,8 @@
 #include <QtEndian>
 #include <QDir>
 #include <QFile>
+#include <QNetworkProxy>
+#include <QNetworkReply>
 #include "FeatureMessage.h"
 #include "SchoolDiscovery.h"
 #include "SchoolNetworkPolicy.h"
@@ -64,12 +66,28 @@ private Q_SLOTS:
         QCOMPARE(message.types.trimmed(),QString("urn:veyon-school:discovery:1}Client"));
     }
     void discoveryHttpLoopback() {
-        SchoolDiscovery::Agent master(true,{},11100,this);
-        if(!master.error().isEmpty()) QSKIP("Port 3702 already occupied; loopback integration test unavailable");
-        SchoolDiscovery::Agent client(false,"127.0.0.1",11100,this);
-        QTRY_VERIFY_WITH_TIMEOUT(!master.records().isEmpty(),7000);
-        const auto records=master.records();
-        QVERIFY(records.first().client);QCOMPARE(records.first().port,11100);
+        // Exercise the real HTTP handler on an ephemeral loopback port, with
+        // no production listener, multicast traffic or installed service.
+        SchoolDiscovery::Agent master(true,{},11100,this,false);
+        QVERIFY(master.m_http.listen(QHostAddress::LocalHost,0));
+        QObject::connect(&master.m_http,&QTcpServer::newConnection,&master,&SchoolDiscovery::Agent::acceptHttp);
+        QNetworkAccessManager network;network.setProxy(QNetworkProxy(QNetworkProxy::NoProxy));
+        QNetworkRequest request(QUrl(QString("http://127.0.0.1:%1/discovery").arg(master.m_http.serverPort())));
+        request.setHeader(QNetworkRequest::ContentTypeHeader,"application/soap+xml; charset=utf-8");
+        SchoolDiscovery::Record local;local.endpoint="urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces);
+        local.name="Local test client";local.address="127.0.0.1";local.port=11100;local.client=true;
+        for(const auto& action:{"Hello","Probe"}) {
+            SchoolDiscovery::Message packet;packet.action=action;packet.instance=1;packet.sequence=1;
+            if(packet.action=="Hello") packet.records.append(local);
+            QScopedPointer<QNetworkReply> reply(network.post(request,SchoolDiscovery::encode(packet)));
+            QTRY_VERIFY_WITH_TIMEOUT(reply->isFinished(),7000);
+            QCOMPARE(reply->error(),QNetworkReply::NoError);
+            QCOMPARE(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(),200);
+            const auto body=reply->readAll();
+            if(packet.action=="Hello") QVERIFY(body.isEmpty());
+            else {SchoolDiscovery::Message answer;QVERIFY(SchoolDiscovery::decode(body,answer));QCOMPARE(answer.action.section('/',-1),QString("ProbeMatches"));}
+            QVERIFY(master.records().isEmpty());
+        }
     }
     void schemaPackets() {
         const auto directory=qEnvironmentVariable("VEYON_SCHOOL_SCHEMA_FIXTURES");if(directory.isEmpty()) QSKIP("Schema fixture export not requested");

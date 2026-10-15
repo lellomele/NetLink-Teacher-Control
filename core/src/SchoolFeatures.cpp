@@ -396,8 +396,8 @@ void SchoolFeatures::discovery(VeyonMasterInterface& master) {
     }
     m_discovery->probe();
     auto dialog=new QDialog(master.mainWindow());m_discoveryDialog=dialog;prepareDialog(dialog,"schoolDiscoveryDialog");dialog->setWindowTitle("Client trovati — WS-Discovery");dialog->resize(800,400);
-    auto layout=new QVBoxLayout(dialog);auto help=new QLabel("Gli annunci non sono autenticati. Verifica i PC prima di importarli.\nPer altre subnet distribuisci School/DiscoveryMaster ai client. "+m_discovery->error(),dialog);help->setWordWrap(true);help->setTextFormat(Qt::PlainText);layout->addWidget(help);
-    auto table=new QTableWidget(dialog);table->setColumnCount(3);table->setHorizontalHeaderLabels({"Nome dichiarato dal PC","IP rilevato","Porta"});table->setSelectionBehavior(QAbstractItemView::SelectRows);table->setSelectionMode(QAbstractItemView::SingleSelection);table->setEditTriggers(QAbstractItemView::NoEditTriggers);layout->addWidget(table);
+    auto layout=new QVBoxLayout(dialog);auto help=new QLabel("Sono mostrati soltanto i PC remoti con indirizzo IPv4; questo computer è escluso.\nGli annunci non sono autenticati. Verifica i PC prima di importarli.\nPer altre subnet distribuisci School/DiscoveryMaster ai client. "+m_discovery->error(),dialog);help->setWordWrap(true);help->setTextFormat(Qt::PlainText);layout->addWidget(help);
+    auto table=new QTableWidget(dialog);table->setColumnCount(3);table->setHorizontalHeaderLabels({"Nome dichiarato dal PC","IPv4 rilevato","Porta"});table->setSelectionBehavior(QAbstractItemView::SelectRows);table->setSelectionMode(QAbstractItemView::SingleSelection);table->setEditTriggers(QAbstractItemView::NoEditTriggers);layout->addWidget(table);
     auto records=QSharedPointer<QList<SchoolDiscovery::Record>>::create();
     auto refresh=[this,table,records] {
         auto updated=m_discovery->records();
@@ -409,7 +409,7 @@ void SchoolFeatures::discovery(VeyonMasterInterface& master) {
         }
         if(!changed) return;
         const int selected=table->currentRow();const auto endpoint=selected>=0 && selected<records->size() ? (*records)[selected].endpoint : QString{};
-        *records=updated;table->setUpdatesEnabled(false);table->setRowCount(records->size());
+        *records=updated;table->setUpdatesEnabled(false);table->clearSelection();table->setCurrentItem(nullptr);table->setRowCount(records->size());
         for(int i=0;i<records->size();++i) {const auto& record=(*records)[i];table->setItem(i,0,new QTableWidgetItem(record.name));table->setItem(i,1,new QTableWidgetItem(record.address));table->setItem(i,2,new QTableWidgetItem(QString::number(record.port)));if(record.endpoint==endpoint) table->selectRow(i);}
         table->setUpdatesEnabled(true);
     };

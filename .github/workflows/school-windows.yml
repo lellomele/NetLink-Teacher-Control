@@ -49,6 +49,7 @@ jobs:
           cat build-school/tests/netlink-health-tests-results.txt
           cat build-school/tests/school-lifecycle-tests-results.txt
           cat build-school/tests/netlink-worker-lifecycle-tests-results.txt
+          cat build-school/tests/netlink-windows-session-token-tests-results.txt
           cat build-school/tests/netlink-connection-reliability-tests-results.txt
           cat build-school/tests/netlink-policy-reliability-tests-results.txt
           cat build-school/tests/netlink-authentication-wait-tests-results.txt
