@@ -50,6 +50,13 @@ AboutDialog::AboutDialog( QWidget *parent ) :
 	ui->license->setPlainText( QString::fromUtf8( license.readAll() ) );
 
 	VeyonCore::enforceBranding( this );
+	ui->label_3->setText(QString::fromUtf8("NetLink — console per la gestione dell’aula\nBasato su Veyon 4.7.5"));
+	ui->label_8->setText(QString::fromUtf8("NetLink: Copyright © 2025-26 prof. Ing. Raffaele Mele\n"
+		"Veyon: Copyright © 2004-2022 Tobias Junghans / Veyon Solutions e contributori"));
+	ui->label_8->setWordWrap(true);
+	ui->label_4->setText(QStringLiteral("<a href=\"https://github.com/lellomele/veyon-school\">NetLink — repository</a> | "
+		"<a href=\"https://veyon.io\">Progetto originale Veyon</a>"));
+	ui->donateButton->setText(QString::fromUtf8("Sostieni il progetto originale Veyon"));
 }
 
 

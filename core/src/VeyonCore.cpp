@@ -70,10 +70,11 @@ VeyonCore::VeyonCore( QCoreApplication* application, Component component, const 
 	m_userGroupsBackendManager( nullptr ),
 	m_networkObjectDirectoryManager( nullptr ),
 	m_component( component ),
-	m_applicationName( QStringLiteral( "Veyon School" ) ),
+	m_applicationName( QStringLiteral( "NetLink" ) ),
 	m_debugging( false )
 {
 	Q_ASSERT( application != nullptr );
+	if(qobject_cast<QGuiApplication*>(application)) QGuiApplication::setApplicationDisplayName(m_applicationName);
 
 	s_instance = this;
 
@@ -240,39 +241,46 @@ QString VeyonCore::applicationName()
 
 void VeyonCore::enforceBranding( QWidget *topLevelWidget )
 {
-	const auto appName = QStringLiteral( "Veyon" );
+	const auto brandText = [](QString text) {
+		// Do not rewrite attribution, copyright holders or upstream URLs.
+		if(text.contains(QStringLiteral("Copyright"), Qt::CaseInsensitive) || text.contains(QChar(0x00a9)) ||
+		   text.contains(QStringLiteral("https://veyon.io"))) return text;
+		text.replace(QStringLiteral("Veyon School"), VeyonCore::applicationName());
+		return text.replace(QStringLiteral("Veyon"), VeyonCore::applicationName());
+	};
 
 	const auto labels = topLevelWidget->findChildren<QLabel *>();
 	for( auto label : labels )
 	{
-		label->setText( label->text().replace( appName, VeyonCore::applicationName() ) );
+		label->setText( brandText(label->text()) );
 	}
 
 	const auto buttons = topLevelWidget->findChildren<QAbstractButton *>();
 	for( auto button : buttons )
 	{
-		button->setText( button->text().replace( appName, VeyonCore::applicationName() ) );
+		button->setText( brandText(button->text()) );
 	}
 
 	const auto groupBoxes = topLevelWidget->findChildren<QGroupBox *>();
 	for( auto groupBox : groupBoxes )
 	{
-		groupBox->setTitle( groupBox->title().replace( appName, VeyonCore::applicationName() ) );
+		groupBox->setTitle( brandText(groupBox->title()) );
 	}
 
 	const auto actions = topLevelWidget->findChildren<QAction *>();
 	for( auto action : actions )
 	{
-		action->setText( action->text().replace( appName, VeyonCore::applicationName() ) );
+		action->setText( brandText(action->text()) );
 	}
 
 	const auto widgets = topLevelWidget->findChildren<QWidget *>();
 	for( auto widget : widgets )
 	{
-		widget->setWindowTitle( widget->windowTitle().replace( appName, VeyonCore::applicationName() ) );
+		widget->setWindowTitle( brandText(widget->windowTitle()) );
+		widget->setToolTip( brandText(widget->toolTip()) );
 	}
 
-	topLevelWidget->setWindowTitle( topLevelWidget->windowTitle().replace( appName, VeyonCore::applicationName() ) );
+	topLevelWidget->setWindowTitle( brandText(topLevelWidget->windowTitle()) );
 }
 
 

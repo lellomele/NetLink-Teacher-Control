@@ -68,6 +68,19 @@ ComputerMonitoringWidget::ComputerMonitoringWidget( QWidget *parent ) :
 
 
 
+void ComputerMonitoringWidget::refreshAppearance()
+{
+	const auto background = VeyonCore::config().computerMonitoringBackgroundColor();
+	const auto text = VeyonCore::config().computerMonitoringTextColor();
+	// Preserve explicitly configured legacy thumbnail colors; theme the defaults.
+	if(background != QColor(Qt::white) || text != QColor(Qt::black))
+		setColors(background, text);
+	else
+		setColors(qApp->palette().color(QPalette::Window), qApp->palette().color(QPalette::WindowText));
+	viewport()->update();
+}
+
+
 ComputerControlInterfaceList ComputerMonitoringWidget::selectedComputerControlInterfaces() const
 {
 	ComputerControlInterfaceList computerControlInterfaces;

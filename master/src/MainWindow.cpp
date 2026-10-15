@@ -28,6 +28,7 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QSplitter>
+#include <QStyle>
 
 #include "AboutDialog.h"
 #include "AccessControlProvider.h"
@@ -48,6 +49,7 @@
 #include "VeyonConfiguration.h"
 #include "VeyonMaster.h"
 #include "UserConfig.h"
+#include "NetLinkAppearance.h"
 
 #include "ui_MainWindow.h"
 
@@ -59,6 +61,15 @@ MainWindow::MainWindow( VeyonMaster &masterCore, QWidget* parent ) :
 	m_modeGroup( new QButtonGroup( this ) )
 {
 	ui->setupUi( this );
+	auto appearance = NetLinkAppearance::install();
+	auto appearanceButton = new QToolButton(this);
+	appearanceButton->setText(QStringLiteral("Aspetto"));
+	appearanceButton->setToolTip(QStringLiteral("Tema e colori personali di NetLink"));
+	appearanceButton->setIcon(style()->standardIcon(QStyle::SP_DesktopIcon));
+	appearanceButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+	connect(appearanceButton, &QToolButton::clicked, this, [this, appearance] { appearance->showSettings(this); });
+	connect(appearance, &NetLinkAppearance::changed, ui->computerMonitoringWidget, &ComputerMonitoringWidget::refreshAppearance);
+	ui->computerMonitoringWidget->refreshAppearance();
 
 	setWindowTitle( QStringLiteral( "%1 Master" ).arg( VeyonCore::applicationName() ) );
 
@@ -79,6 +90,7 @@ MainWindow::MainWindow( VeyonMaster &masterCore, QWidget* parent ) :
 	ui->statusBar->addWidget( ui->alignComputersButton );
 	ui->statusBar->addWidget( ui->spacerLabel4 );
 	ui->statusBar->addWidget( ui->aboutButton );
+	ui->statusBar->addPermanentWidget(appearanceButton);
 
 	// create all views
 	auto mainSplitter = new QSplitter( Qt::Horizontal, ui->centralWidget );
@@ -133,7 +145,7 @@ MainWindow::MainWindow( VeyonMaster &masterCore, QWidget* parent ) :
 	for( auto* splitter : { slideshowSpotlightSplitter, monitoringSplitter, mainSplitter } )
 	{
 		splitter->setHandleWidth( 7 );
-		splitter->setStyleSheet( QStringLiteral("QSplitter::handle:hover{background-color:#66a0b3;}") );
+		splitter->setStyleSheet( QStringLiteral("QSplitter::handle:hover{background-color:palette(highlight);}") );
 
 		splitter->installEventFilter( this );
 

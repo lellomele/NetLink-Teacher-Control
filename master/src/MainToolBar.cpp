@@ -36,10 +36,6 @@ MainToolBar::MainToolBar( QWidget* parent ) :
 	QToolBar( tr( "Configuration" ), parent ),
 	m_mainWindow( dynamic_cast<MainWindow *>( parent ) )
 {
-	QPalette pal = palette();
-	pal.setBrush( QPalette::Window, QPixmap( QStringLiteral(":/core/toolbar-background.png") ) );
-	setPalette( pal );
-
 	ToolButton::setToolTipsDisabled( m_mainWindow->masterCore().userConfig().noToolTips() );
 	ToolButton::setIconOnlyMode( m_mainWindow, m_mainWindow->masterCore().userConfig().toolButtonIconOnlyMode() );
 }
@@ -78,7 +74,7 @@ void MainToolBar::contextMenuEvent( QContextMenuEvent* event )
 void MainToolBar::paintEvent( QPaintEvent* event )
 {
 	QPainter p( this );
-	p.setPen( QColor( 48, 48, 48 ) );
+	p.setPen( palette().color(QPalette::Mid) );
 	p.fillRect( event->rect(), palette().brush( QPalette::Window ) );
 	p.drawLine( 0, 0, width(), 0 );
 	p.drawLine( 0, height()-1, width(), height()-1 );

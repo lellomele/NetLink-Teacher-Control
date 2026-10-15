@@ -17,7 +17,7 @@ SchoolConfigurationPage::SchoolConfigurationPage(VeyonConfiguration& configurati
     m_master(new QLineEdit(this)), m_resources(new QTextEdit(this)),
     m_enabled(new QCheckBox("Abilita WS-Discovery", this))
 {
-    setWindowTitle("Veyon School");
+    setWindowTitle("NetLink");
     setWindowIcon(QIcon(":/core/veyon.png"));
     m_master->setObjectName("schoolDiscoveryMaster");
     m_resources->setObjectName("schoolResources");
@@ -90,7 +90,7 @@ bool SchoolConfigurationPage::validateConfiguration()
 {
     const auto error = validationError();
     if(error.isEmpty()) return true;
-    QMessageBox::warning(this, "Veyon School", error);
+    QMessageBox::warning(this, "NetLink", error);
     return false;
 }
 

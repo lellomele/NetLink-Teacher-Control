@@ -19,10 +19,10 @@ public:
     ~SchoolFeatures() override;
     Plugin::Uid uid() const override { return QUuid(QStringLiteral("fa8146e2-bec1-4bdb-a620-c46335d27137")); }
     QVersionNumber version() const override { return QVersionNumber(0,1,0); }
-    QString name() const override { return QStringLiteral("Veyon School"); }
+    QString name() const override { return QStringLiteral("NetLink"); }
     QString description() const override { return QStringLiteral("InternetGuard WFP, Appello, WS-Discovery"); }
-    QString vendor() const override { return QStringLiteral("Veyon School community"); }
-    QString copyright() const override { return QStringLiteral("2026 Veyon School contributors"); }
+    QString vendor() const override { return QStringLiteral("prof. Ing. Raffaele Mele"); }
+    QString copyright() const override { return QString::fromUtf8("Copyright © 2025-26 prof. Ing. Raffaele Mele"); }
     const FeatureList& featureList() const override { return m_features; }
     ConfigurationPage* createConfigurationPage() override;
     bool controlFeature(Feature::Uid, Operation, const QVariantMap&, const ComputerControlInterfaceList&) override;
@@ -31,7 +31,7 @@ public:
     bool handleFeatureMessage(VeyonServerInterface&, const MessageContext&, const FeatureMessage&) override;
     bool handleFeatureMessage(VeyonWorkerInterface&, const FeatureMessage&) override;
     QString commandLineModuleName() const override {return QStringLiteral("school");}
-    QString commandLineModuleHelp() const override {return QStringLiteral("Veyon School discovery firewall");}
+    QString commandLineModuleHelp() const override {return QStringLiteral("NetLink discovery firewall");}
     QStringList commands() const override {return {QStringLiteral("firewall_setup"),QStringLiteral("firewall_remove"),QStringLiteral("selftest")};}
     QString commandHelp(const QString& command) const override {return command;}
 public Q_SLOTS:

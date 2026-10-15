@@ -16,12 +16,12 @@ BEGIN
     //language ID = U.S. English, charset = Windows, Multilingual
     BEGIN
       VALUE "Comments",		"Virtual Eye On Networks (https://veyon.io)\0"
-      VALUE "CompanyName",	"Veyon Solutions\0"
-      VALUE "ProductName",	"Veyon\0"
+      VALUE "CompanyName",	"prof. Ing. Raffaele Mele\0"
+      VALUE "ProductName",	"NetLink\0"
       VALUE "ProductVersion",	"@VERSION_STRING@\0"
-      VALUE "FileDescription",	"Veyon Configurator\0"
+      VALUE "FileDescription",	"NetLink Configurator\0"
       VALUE "FileVersion",	"@VERSION_STRING@\0"
-      VALUE "LegalCopyright",	"Copyright (c) 2017-2022 Veyon Solutions / Tobias Junghans\0"
+      VALUE "LegalCopyright",	"Copyright (c) 2025-26 prof. Ing. Raffaele Mele; Veyon (c) Tobias Junghans / Veyon Solutions e contributori\0"
       VALUE "OriginalFilename",	"veyon-configurator.exe\0"
     END
   END

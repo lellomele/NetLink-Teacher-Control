@@ -64,5 +64,5 @@ QString VeyonServiceControl::filePath()
 
 QString VeyonServiceControl::displayName()
 {
-	return tr( "Veyon School Service" );
+	return tr( "NetLink Service" );
 }

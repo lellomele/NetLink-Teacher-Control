@@ -249,7 +249,7 @@ bool SchoolFeatures::handleFeatureMessage(VeyonWorkerInterface& worker,const Fea
     if(message.featureUid()!=m_attendanceUid || message.command()!=AskName) return false;
     if(m_studentDialog) delete m_studentDialog;
     auto dialog=new QDialog;dialog->setAttribute(Qt::WA_DeleteOnClose);m_studentDialog=dialog;
-    dialog->setWindowTitle("Appello — Veyon School");dialog->setWindowIcon(QIcon(":/core/veyon.png"));
+    dialog->setWindowTitle("Appello — NetLink");dialog->setWindowIcon(QIcon(":/core/veyon.png"));
     auto layout=new QVBoxLayout(dialog);auto label=new QLabel("Inserisci il tuo nome e cognome per l’appello del docente.",dialog);label->setTextFormat(Qt::PlainText);layout->addWidget(label);
     auto name=new QLineEdit(dialog);name->setMaxLength(120);layout->addWidget(name);
     auto buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,dialog);layout->addWidget(buttons);

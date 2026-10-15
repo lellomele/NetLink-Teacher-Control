@@ -1,11 +1,11 @@
-# Veyon School
+# NetLink
 
 Fork di **Veyon 4.7.5** per aule Windows: visualizzazione e controllo dei PC,
 InternetGuard basato su Windows Filtering Platform, Appello con il nome dichiarato
 dallo studente sulle miniature e ricerca dei client tramite WS-Discovery 1.1.
 Le funzioni sono integrate: non occorre installare un plugin esterno.
 
-**Versione preliminare 0.1.0-alpha.2: destinata a PC di prova, non al laboratorio in uso.**
+**Versione preliminare 0.1.0-alpha.3: destinata a PC di prova, non al laboratorio in uso.**
 
 ## Installazione
 
@@ -30,6 +30,10 @@ docenti. Non distribuire la chiave privata ai client.
 
 ## Uso
 
+- **Aspetto:** temi Sistema, Chiaro e Scuro; palette Oceano, Bosco, Prugna o colore
+  personalizzato. Il pulsante Aspetto nel Master e il menu Aspetto nel Configurator
+  salvano preferenze personali, senza elevazione o riavvio del servizio.
+  Eventuali colori delle miniature già personalizzati nel Configurator restano prioritari.
 - **InternetGuard:** selezionare i PC, aprire InternetGuard e scegliere Blocca,
   Sblocca o Verifica stato. La console mostra conferme, errori e richieste senza risposta.
   Il blocco è rinnovato ogni 20 secondi e scade dopo 90 secondi senza rinnovo.
@@ -42,7 +46,7 @@ docenti. Non distribuire la chiave privata ai client.
 
 ## Configurazione aggiuntiva
 
-Pagina **Veyon School** del Configurator:
+Pagina **NetLink** del Configurator:
 
 - Stessa subnet: discovery multicast su UDP 3702, senza indirizzi da inserire.
 - Subnet diverse: indicare sui client il nome/IP del docente in `DiscoveryMaster`.
@@ -82,7 +86,7 @@ Limiti: 256 client per operazione, 255 destinazioni totali, 128 risorse aggiunti
 Non sono inclusi Interception né la DLL binaria DeskDupEngine. Si usa l’acquisizione
 schermo software: verificare fluidità e carico CPU sui PC di destinazione. Il blocco
 degli input non ha la stessa forza della modalità con driver Interception.
-Le nuove funzioni richiedono Veyon School sui client.
+Le nuove funzioni richiedono il fork NetLink (già Veyon School) sui client.
 
 ## Compilazione
 
@@ -93,7 +97,8 @@ LZO, libjpeg-turbo, libpng, zlib e NSIS. Le istruzioni complete sono in
 
 ## Copyright e licenza
 
-Veyon © Tobias Junghans, Veyon Solutions e contributori; Veyon School © 2026 i
-contributori del fork. Non è una release ufficiale del progetto Veyon.
+NetLink: Copyright © 2025-26 prof. Ing. Raffaele Mele, per le modifiche del fork.
+Veyon © Tobias Junghans, Veyon Solutions e contributori. Non è una release
+ufficiale del progetto Veyon. Copyright e attribuzioni originali sono conservati.
 Il codice Veyon è GPL-2.0-or-later; le licenze delle librerie sono conservate.
 Vedere [COPYING](COPYING) e [DEPENDENCIES.md](docs/DEPENDENCIES.md).

@@ -171,38 +171,11 @@ void ToolButton::paintEvent( QPaintEvent* )
 	painter.setRenderHint(QPainter::Antialiasing);
 	painter.setPen(Qt::NoPen);
 
-	QLinearGradient outlinebrush(0, 0, 0, height());
-	QLinearGradient brush(0, 0, 0, height());
-
-	brush.setSpread(QLinearGradient::PadSpread);
-	QColor highlight(255, 255, 255, 70);
-	QColor shadow(0, 0, 0, 70);
-	QColor sunken(220, 220, 220, 30);
-	QColor normal1(255, 255, 245, 60);
-	QColor normal2(255, 255, 235, 10);
-
-	if( active )
-	{
-		outlinebrush.setColorAt( 0.0, shadow );
-		outlinebrush.setColorAt( 1.0, highlight );
-		brush.setColorAt( 0.0, sunken );
-		painter.setPen(Qt::NoPen);
-	}
-	else
-	{
-		outlinebrush.setColorAt( 1.0, shadow );
-		outlinebrush.setColorAt( 0.0, highlight );
-		brush.setColorAt( 0.0, normal1 );
-		if( m_mouseOver == false )
-		{
-			brush.setColorAt( 1.0, normal2 );
-		}
-		painter.setPen(QPen(outlinebrush, 1));
-	}
-
-	painter.setBrush(brush);
-
-	painter.drawRoundedRect( rect(), roundness(), roundness() );
+	const auto group = isEnabled() ? QPalette::Active : QPalette::Disabled;
+	painter.setPen(QPen(palette().color(group, active ? QPalette::Highlight : QPalette::Mid), 1));
+	painter.setBrush(palette().brush(group, active ? QPalette::Highlight : m_mouseOver ? QPalette::Midlight : QPalette::Button));
+	painter.drawRoundedRect(rect().adjusted(1,1,-1,-1), 6, 6);
+	if(!isEnabled()) painter.setOpacity(.5);
 
 	const int delta = active ? 1 : 0;
 	QPoint pixmapPos( ( width() - m_pixmap.width() ) / 2 + delta, margin() / 2 + delta );
@@ -217,12 +190,7 @@ void ToolButton::paintEvent( QPaintEvent* )
 		const auto label = ( isChecked() && m_altLabel.isEmpty() == false ) ? m_altLabel : m_label;
 		const int labelX = 1 + ( width() - painter.fontMetrics().boundingRect( label ).width() ) / 2;
 		const int deltaNormal = delta - 1;
-		const int deltaShadow = deltaNormal + 1;
-
-		painter.setPen( Qt::black );
-		painter.drawText( labelX + deltaShadow, height() - margin() / 2 + deltaShadow, label );
-
-		painter.setPen( Qt::white );
+		painter.setPen(palette().color(group, active ? QPalette::HighlightedText : QPalette::ButtonText));
 		painter.drawText( labelX + deltaNormal, height() - margin() / 2 + deltaNormal, label );
 	}
 }
@@ -328,7 +296,7 @@ void ToolButtonTip::paintEvent( QPaintEvent* )
 
 void ToolButtonTip::resizeEvent( QResizeEvent * _re )
 {
-	const QColor color_frame = QColor( 48, 48, 48 );
+	const QColor color_frame = palette().color(QPalette::Mid);
 	m_bg = QImage( size(), QImage::Format_ARGB32 );
 	m_bg.fill( color_frame.rgba() );
 	QPainter p( &m_bg );
@@ -337,12 +305,9 @@ void ToolButtonTip::resizeEvent( QResizeEvent * _re )
 	pen.setWidthF( 1.5 );
 	p.setPen( pen );
 	QLinearGradient grad( 0, 0, 0, height() );
-	const QColor color_top = palette().color( QPalette::Active,
-											  QPalette::Window ).lighter( 120 );
+	const QColor color_top = palette().color(QPalette::ToolTipBase);
 	grad.setColorAt( 0, color_top );
-	grad.setColorAt( 1, palette().color( QPalette::Active,
-										 QPalette::Window ).
-					 lighter( 80 ) );
+	grad.setColorAt(1, color_top);
 	p.setBrush( grad );
 	p.drawRoundedRect( 0, 0, width() - 1, height() - 1, ROUNDED / width(), ROUNDED / height() );
 
@@ -363,7 +328,7 @@ void ToolButtonTip::resizeEvent( QResizeEvent * _re )
 			p.drawImage( dx, 0, m_bg.copy( 0, 10, 1, 10-dx*2 ) );
 		}
 	}
-	p.setPen( Qt::black );
+	p.setPen(palette().color(QPalette::ToolTipText));
 
 	p.drawPixmap( margin(), margin(), m_pixmap );
 	QFont f = p.font();

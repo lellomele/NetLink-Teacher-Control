@@ -3,13 +3,13 @@ Unicode true
 !include "LogicLib.nsh"
 !include "x64.nsh"
 !include "FileFunc.nsh"
-Name "Veyon School 0.1.0 alpha.2"
-OutFile "${OUTPUT}\VeyonSchool-0.1.0-alpha.2-win64-setup.exe"
+Name "NetLink 0.1.0 alpha.3"
+OutFile "${OUTPUT}\NetLink-0.1.0-alpha.3-win64-setup.exe"
 InstallDir "$PROGRAMFILES64\Veyon School"
 RequestExecutionLevel admin
 SetCompressor /SOLID lzma
-!define MUI_ICON "${REPOROOT}\branding\veyon-school.ico"
-!define MUI_UNICON "${REPOROOT}\branding\veyon-school.ico"
+!define MUI_ICON "${REPOROOT}\branding\netlink.ico"
+!define MUI_UNICON "${REPOROOT}\branding\netlink.ico"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "${REPOROOT}\COPYING.GPL3"
 !insertmacro MUI_PAGE_INSTFILES
@@ -17,11 +17,11 @@ SetCompressor /SOLID lzma
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "Italian"
-VIProductVersion "4.7.5.2"
-VIAddVersionKey /LANG=1040 "ProductName" "Veyon School"
-VIAddVersionKey /LANG=1040 "FileDescription" "Veyon School installer (pre-release)"
-VIAddVersionKey /LANG=1040 "FileVersion" "0.1.0-alpha.2"
-VIAddVersionKey /LANG=1040 "LegalCopyright" "Veyon and Veyon School contributors"
+VIProductVersion "4.7.5.3"
+VIAddVersionKey /LANG=1040 "ProductName" "NetLink"
+VIAddVersionKey /LANG=1040 "FileDescription" "NetLink installer (pre-release)"
+VIAddVersionKey /LANG=1040 "FileVersion" "0.1.0-alpha.3"
+VIAddVersionKey /LANG=1040 "LegalCopyright" "Copyright (c) 2025-26 prof. Ing. Raffaele Mele; Veyon e contributori"
 Function .onInit
  ${IfNot} ${RunningX64}
    MessageBox MB_ICONSTOP "Questa build richiede Windows a 64 bit."
@@ -33,7 +33,7 @@ Function .onInit
  ReadRegStr $0 HKLM "SYSTEM\CurrentControlSet\Services\VeyonService" "ImagePath"
  ${If} $0 != ""
    IfSilent refuse_legacy
-   MessageBox MB_YESNO|MB_ICONEXCLAMATION "Veyon originale è presente. Fermare il suo servizio e disabilitarne l’avvio automatico per evitare conflitti? Installazione e configurazione saranno conservate; il tipo di avvio potrà essere ripristinato disinstallando Veyon School. Versione preliminare: usare PC di prova." IDYES stop_legacy
+   MessageBox MB_YESNO|MB_ICONEXCLAMATION "Veyon originale è presente. Fermare il suo servizio e disabilitarne l’avvio automatico per evitare conflitti? Installazione e configurazione saranno conservate; il tipo di avvio potrà essere ripristinato disinstallando NetLink. Versione preliminare: usare PC di prova." IDYES stop_legacy
    refuse_legacy:
    Abort "Il servizio Veyon originale deve essere fermato prima dell’installazione."
    stop_legacy:
@@ -54,7 +54,7 @@ FunctionEnd
 Function un.onInit
  StrCpy $INSTDIR "$PROGRAMFILES64\Veyon School"
 FunctionEnd
-Section "Veyon School"
+Section "NetLink"
  SetShellVarContext all
  SetOutPath "$INSTDIR"
  CreateDirectory "$INSTDIR\Backups"
@@ -82,7 +82,7 @@ Section "Veyon School"
  File /r "${PAYLOAD}\*"
  ; Keep recovery available even if later configuration or service startup fails.
  WriteUninstaller "$INSTDIR\Uninstall.exe"
- WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "DisplayName" "Veyon School (installazione incompleta)"
+ WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "DisplayName" "NetLink (installazione incompleta)"
  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "UninstallString" '"$INSTDIR\Uninstall.exe"'
  IfFileExists "$INSTDIR\Backups\configuration-original.json" backup_done
  ExecWait '"$INSTDIR\veyon-wcli.exe" config export "$INSTDIR\Backups\configuration-original.json"' $0
@@ -119,10 +119,14 @@ Section "Veyon School"
    MessageBox MB_ICONSTOP "Avvio servizio non riuscito. Verifica nel Configurator."
    Abort
  ${EndIf}
- CreateDirectory "$SMPROGRAMS\Veyon School"
- CreateShortcut "$SMPROGRAMS\Veyon School\Master.lnk" "$INSTDIR\veyon-master.exe"
- CreateShortcut "$SMPROGRAMS\Veyon School\Configurator.lnk" "$INSTDIR\veyon-configurator.exe"
- WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "DisplayName" "Veyon School 0.1.0 alpha.2"
+ ; Preserve installation path/service identity for compatibility with existing keys and WFP trust checks.
+ CreateDirectory "$SMPROGRAMS\NetLink"
+ CreateShortcut "$SMPROGRAMS\NetLink\Console docente.lnk" "$INSTDIR\veyon-master.exe"
+ CreateShortcut "$SMPROGRAMS\NetLink\Configurator.lnk" "$INSTDIR\veyon-configurator.exe"
+ Delete "$SMPROGRAMS\Veyon School\Master.lnk"
+ Delete "$SMPROGRAMS\Veyon School\Configurator.lnk"
+ RMDir "$SMPROGRAMS\Veyon School"
+ WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "DisplayName" "NetLink 0.1.0 alpha.3"
  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "UninstallString" '"$INSTDIR\Uninstall.exe"'
  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "DisplayIcon" "$INSTDIR\veyon-master.exe"
 SectionEnd
@@ -137,6 +141,9 @@ Section "Uninstall"
  Delete "$INSTDIR\Uninstall.exe"
  Delete "$SMPROGRAMS\Veyon School\Master.lnk"
  Delete "$SMPROGRAMS\Veyon School\Configurator.lnk"
+ Delete "$SMPROGRAMS\NetLink\Console docente.lnk"
+ Delete "$SMPROGRAMS\NetLink\Configurator.lnk"
+ RMDir "$SMPROGRAMS\NetLink"
  RMDir "$SMPROGRAMS\Veyon School"
  ReadRegStr $1 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "OriginalServiceImage"
  ReadRegStr $2 HKLM "SYSTEM\CurrentControlSet\Services\VeyonService" "ImagePath"

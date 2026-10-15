@@ -1,4 +1,4 @@
-# Audit and release gates — 0.1.0-alpha.2
+# Audit and release gates — NetLink 0.1.0-alpha.3
 
 Status: **partial audit and preliminary implementation, not a completed security
 audit, certified WS-Discovery implementation or production-ready release**.
@@ -14,6 +14,13 @@ HTTP discovery on loopback, fixture export and 10,000 malformed XML inputs.
 edits, persistence/reopen with JSON and the real LocalStore/QSettings code on an
 isolated INI backend, reset/discard and pre-save resource validation. The latter
 tests use offscreen Qt widgets and never write live registry/configuration keys.
+Eight appearance Qt passes (six scenarios plus setup/cleanup) cover isolated user
+preference persistence/reopen, invalid input fallback, light/dark/system palettes,
+black/white foreground contrast over 4,096 accent colors, preview cancellation and
+dialog Save. Windows high-contrast switching, mixed-DPI monitors and full classroom
+UI usability still require interactive verification. These are not a full
+accessibility certification. NetLink preserves internal service, IPC, settings and
+installation identities for compatibility; this is a public-facing rebrand.
 All six discovery message forms pass the independent .NET validator using the
 official OASIS/W3C XML schemas. XML validity is not full protocol conformance.
 Packaged CLI loading is checked with only Windows system directories in PATH.

@@ -24,6 +24,16 @@ this removes developer plugin search paths and runtime test hooks.
 Generate icons if the vector design changes:
 `powershell -NoProfile -ExecutionPolicy Bypass -File branding/render-icon.ps1`.
 The icon rasterizer uses built-in Windows drawing APIs; the original SVG is retained.
+The generated `netlink.ico` is embedded in all Windows executables and the
+installer. Public names are NetLink; the protected `Veyon School` installation
+directory, binary filenames and `VeyonSchoolService` identity remain unchanged
+for compatibility with installed clients and WFP image-path trust checks.
+
+Appearance preferences are separate per-user values under
+`HKCU\Software\Veyon\NetLinkAppearance`, never authentication/system settings.
+The offscreen appearance tests accept `NETLINK_APPEARANCE_SCREENSHOTS` for PNG
+output; on Windows offscreen rendering, set `QT_QPA_FONTDIR=C:\Windows\Fonts`
+to make system fonts available. Neither variable is needed by the installed GUI.
 
 Package from a fresh `dist` payload directory:
 `powershell -NoProfile -ExecutionPolicy Bypass -File packaging/build-package.ps1 -Build build-release`.

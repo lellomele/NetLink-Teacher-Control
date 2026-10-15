@@ -54,6 +54,7 @@ public:
 	}
 
 	void resetIgnoreNumberOfMouseEvents( );
+	void refreshAppearance();
 
 	QTimer m_mousePressAndHold;
 

@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
- <rect width="256" height="256" rx="48" fill="#17345d"/>
- <path d="M44 80H212V182H44Z" fill="#f4f8ff"/>
- <path d="M54 90H202V156H54Z" fill="#20b6aa"/>
- <path d="M128 180V204M90 206H166" fill="none" stroke="#f4f8ff" stroke-width="12" stroke-linecap="round"/>
- <path d="M128 48L176 66V110C176 141 152 162 128 174C104 162 80 141 80 110V66Z" fill="#ffc857" stroke="#17345d" stroke-width="8"/>
- <path d="M105 110L121 126L151 93" fill="none" stroke="#17345d" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+ <title>NetLink</title>
+ <desc>Copyright © 2025-26 prof. Ing. Raffaele Mele</desc>
+ <rect width="256" height="256" rx="48" fill="#2563eb"/>
+ <path d="M70 180V76L186 180V76" fill="none" stroke="#ffffff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+ <circle cx="70" cy="76" r="19" fill="#34d399"/>
+ <circle cx="186" cy="180" r="19" fill="#34d399"/>
 </svg>

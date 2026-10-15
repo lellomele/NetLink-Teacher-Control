@@ -42,6 +42,8 @@
 #include "VeyonConfiguration.h"
 #include "MainWindow.h"
 #include "PluginManager.h"
+#include "NetLinkAppearance.h"
+#include <QMenuBar>
 
 #include "ui_MainWindow.h"
 
@@ -52,6 +54,9 @@ MainWindow::MainWindow( QWidget* parent ) :
 	m_configChanged( false )
 {
 	ui->setupUi( this );
+	auto appearance = NetLinkAppearance::install();
+	auto appearanceAction = menuBar()->addAction(QStringLiteral("Aspetto"));
+	connect(appearanceAction, &QAction::triggered, this, [this, appearance] { appearance->showSettings(this); });
 
 	setWindowTitle( tr( "%1 Configurator %2" ).arg( VeyonCore::applicationName(), VeyonCore::versionString() ) );
 
