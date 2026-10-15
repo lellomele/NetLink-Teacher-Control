@@ -3,8 +3,8 @@ Unicode true
 !include "LogicLib.nsh"
 !include "x64.nsh"
 !include "FileFunc.nsh"
-Name "NetLink 0.1.0 alpha.3"
-OutFile "${OUTPUT}\NetLink-0.1.0-alpha.3-win64-setup.exe"
+Name "NetLink 0.1.0 alpha.4"
+OutFile "${OUTPUT}\NetLink-0.1.0-alpha.4-win64-setup.exe"
 InstallDir "$PROGRAMFILES64\Veyon School"
 RequestExecutionLevel admin
 SetCompressor /SOLID lzma
@@ -17,10 +17,10 @@ SetCompressor /SOLID lzma
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "Italian"
-VIProductVersion "4.7.5.3"
+VIProductVersion "4.7.5.4"
 VIAddVersionKey /LANG=1040 "ProductName" "NetLink"
 VIAddVersionKey /LANG=1040 "FileDescription" "NetLink installer (pre-release)"
-VIAddVersionKey /LANG=1040 "FileVersion" "0.1.0-alpha.3"
+VIAddVersionKey /LANG=1040 "FileVersion" "0.1.0-alpha.4"
 VIAddVersionKey /LANG=1040 "LegalCopyright" "Copyright (c) 2025-26 prof. Ing. Raffaele Mele; Veyon e contributori"
 Function .onInit
  ${IfNot} ${RunningX64}
@@ -123,10 +123,11 @@ Section "NetLink"
  CreateDirectory "$SMPROGRAMS\NetLink"
  CreateShortcut "$SMPROGRAMS\NetLink\Console docente.lnk" "$INSTDIR\veyon-master.exe"
  CreateShortcut "$SMPROGRAMS\NetLink\Configurator.lnk" "$INSTDIR\veyon-configurator.exe"
+ CreateShortcut "$SMPROGRAMS\NetLink\Companion.lnk" "$INSTDIR\netlink-companion.exe"
  Delete "$SMPROGRAMS\Veyon School\Master.lnk"
  Delete "$SMPROGRAMS\Veyon School\Configurator.lnk"
  RMDir "$SMPROGRAMS\Veyon School"
- WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "DisplayName" "NetLink 0.1.0 alpha.3"
+ WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "DisplayName" "NetLink 0.1.0 alpha.4"
  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "UninstallString" '"$INSTDIR\Uninstall.exe"'
  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "DisplayIcon" "$INSTDIR\veyon-master.exe"
 SectionEnd
@@ -143,6 +144,7 @@ Section "Uninstall"
  Delete "$SMPROGRAMS\Veyon School\Configurator.lnk"
  Delete "$SMPROGRAMS\NetLink\Console docente.lnk"
  Delete "$SMPROGRAMS\NetLink\Configurator.lnk"
+ Delete "$SMPROGRAMS\NetLink\Companion.lnk"
  RMDir "$SMPROGRAMS\NetLink"
  RMDir "$SMPROGRAMS\Veyon School"
  ReadRegStr $1 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "OriginalServiceImage"

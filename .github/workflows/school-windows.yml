@@ -42,6 +42,7 @@ jobs:
           cat build-school/tests/school-tests-results.txt
           cat build-school/tests/school-configuration-tests-results.txt
           cat build-school/tests/netlink-appearance-tests-results.txt
+          cat build-school/tests/netlink-companion-tests-results.txt
       - name: Official XML schema validation
         shell: pwsh
         run: ./tests/validate-discovery.ps1 -Fixtures build-school/schema-fixtures

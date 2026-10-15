@@ -3,11 +3,12 @@ $ErrorActionPreference='Stop'
 $repoRoot=Split-Path $PSScriptRoot
 $buildRoot=(Resolve-Path (Join-Path $repoRoot $Build)).Path
 $distRoot=Join-Path $repoRoot 'dist'
-$packageRoot=Join-Path $distRoot 'NetLink-0.1.0-alpha.3-win64'
+$packageRoot=Join-Path $distRoot 'NetLink-0.1.0-alpha.4-win64'
 if(Test-Path -LiteralPath $packageRoot){throw "Use a fresh package directory; existing files will not be overwritten: $packageRoot"}
 New-Item -ItemType Directory -Path $packageRoot | Out-Null
 foreach($dir in @('plugins','platforms','imageformats','crypto','translations','licenses')){New-Item -ItemType Directory -Path (Join-Path $packageRoot $dir) | Out-Null}
 Get-ChildItem -LiteralPath $buildRoot -Recurse -File -Filter 'veyon-*.exe' | ForEach-Object {Copy-Item -LiteralPath $_.FullName -Destination $packageRoot}
+Copy-Item -LiteralPath (Join-Path $buildRoot 'companion/netlink-companion.exe') -Destination $packageRoot
 Copy-Item -LiteralPath (Join-Path $buildRoot 'core/veyon-core.dll') -Destination $packageRoot
 Get-ChildItem -LiteralPath (Join-Path $buildRoot 'plugins') -Recurse -File -Filter '*.dll' | ForEach-Object {
     $destination=if($_.Name.StartsWith('lib') -or $_.Name-eq'vnchooks.dll'){$packageRoot}else{Join-Path $packageRoot 'plugins'}

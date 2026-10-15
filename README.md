@@ -5,7 +5,7 @@ InternetGuard basato su Windows Filtering Platform, Appello con il nome dichiara
 dallo studente sulle miniature e ricerca dei client tramite WS-Discovery 1.1.
 Le funzioni sono integrate: non occorre installare un plugin esterno.
 
-**Versione preliminare 0.1.0-alpha.3: destinata a PC di prova, non al laboratorio in uso.**
+**Versione preliminare 0.1.0-alpha.4: destinata a PC di prova, non al laboratorio in uso.**
 
 ## Installazione
 
@@ -45,6 +45,36 @@ docenti. Non distribuire la chiave privata ai client.
   del Master. Non modifica automaticamente le chiavi o le autorizzazioni.
 
 ## Configurazione aggiuntiva
+
+### NetLink Companion
+
+Il terzo programma della suite si apre da **Start → NetLink → Companion**.
+Raccoglie localmente le informazioni utili per configurare la comunicazione:
+Windows, account e gruppi del processo, schede/IP/prefissi, DNS/DHCP/gateway,
+servizi, porte TCP, profili firewall, regole discovery del fork, impostazioni
+NetLink e PC già inseriti nel Configurator. Delle chiavi private legge soltanto
+nomi, percorsi e permessi, mai il contenuto; calcola l'impronta dei soli file pubblici.
+
+Eseguirlo prima con lo stesso account e livello di privilegi del Master. Il pulsante
+**Apri come amministratore** è facoltativo: i suoi risultati non provano i permessi
+dell'utente docente non elevato. Companion non cambia rete, servizi, firewall,
+chiavi o autorizzazioni; non scansiona automaticamente la rete.
+
+Selezionare il ruolo docente/client. Per confrontare due PC, esportare su ciascuno
+un rapporto JSON completo selezionando **Includi identificativi…**; aprire il rapporto
+dell'altro PC con **Confronta con altro PC**. Senza questa opzione il rapporto è ridotto
+e omette identificativi, indirizzi e chiavi. Il rapporto completo contiene dati
+personali e della rete: conservarlo e condividerlo solo quando necessario.
+
+**Verifica TCP** apre una sola connessione al nome/IP e alla porta scelti, per massimo
+8 secondi. Non verifica autenticazione, multicast UDP o navigazione. Sul servizio
+NetLink/Veyon questa prova può provocare una notifica di autenticazione incompleta.
+Le impronte uguali attestano file pubblici uguali, non la validità della coppia
+con la chiave privata. I rapporti non sono firmati e non vengono importati come
+configurazione fidata. Routing, ACL, isolamento Wi-Fi e autenticazione vanno
+confermati con una connessione reale dal Master.
+
+### Configurator
 
 Pagina **NetLink** del Configurator:
 
@@ -86,6 +116,8 @@ Limiti: 256 client per operazione, 255 destinazioni totali, 128 risorse aggiunti
 Non sono inclusi Interception né la DLL binaria DeskDupEngine. Si usa l’acquisizione
 schermo software: verificare fluidità e carico CPU sui PC di destinazione. Il blocco
 degli input non ha la stessa forza della modalità con driver Interception.
+Interception è il filtro di tastiera/mouse che rafforza il blocco degli input,
+incluse combinazioni speciali; non serve per rete, autenticazione o InternetGuard.
 Le nuove funzioni richiedono il fork NetLink (già Veyon School) sui client.
 
 ## Compilazione

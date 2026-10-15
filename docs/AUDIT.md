@@ -1,4 +1,4 @@
-# Audit and release gates — NetLink 0.1.0-alpha.3
+# Audit and release gates — NetLink 0.1.0-alpha.4
 
 Status: **partial audit and preliminary implementation, not a completed security
 audit, certified WS-Discovery implementation or production-ready release**.
@@ -21,6 +21,18 @@ dialog Save. Windows high-contrast switching, mixed-DPI monitors and full classr
 UI usability still require interactive verification. These are not a full
 accessibility certification. NetLink preserves internal service, IPC, settings and
 installation identities for compatibility; this is a public-facing rebrand.
+Companion has dedicated fixture tests for report parsing/bounds, invalid targets,
+identifier omission by whitelist projection, HTML escaping, static comparison,
+elevated-token warnings, asymmetric masks, GUI rendering and a TCP probe against
+an isolated loopback fixture only. No private key contents are read; no privileged
+configuration writes are implemented. Native collection and permission results
+have passed one read-only local Windows smoke check, retaining the report only in
+memory and displaying counts rather than identifiers. Collection/permission results
+still need validation under standard teacher, student and alternate-admin accounts,
+domain policies, RDP, IPv6 and multiple adapters. Firewall rule inventory is partial,
+not an effective-policy proof. Reports are unsigned snapshots, not trusted identity
+or configuration. TCP reachability is not authentication. Collection runs in a
+bounded child process for responsiveness, not a security sandbox or privilege boundary.
 All six discovery message forms pass the independent .NET validator using the
 official OASIS/W3C XML schemas. XML validity is not full protocol conformance.
 Packaged CLI loading is checked with only Windows system directories in PATH.

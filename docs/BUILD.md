@@ -35,6 +35,16 @@ The offscreen appearance tests accept `NETLINK_APPEARANCE_SCREENSHOTS` for PNG
 output; on Windows offscreen rendering, set `QT_QPA_FONTDIR=C:\Windows\Fonts`
 to make system fonts available. Neither variable is needed by the installed GUI.
 
+`branding/render-companion-icon.ps1` generates the Companion icon from the retained
+`companion.svg` design using Windows drawing APIs. Companion is built as
+`companion/netlink-companion.exe`, with existing Qt/core runtime dependencies and
+Windows system APIs only. The installer adds a third Start-menu shortcut.
+Its collector runs in a separate, read-only child process, bounded by the GUI to
+30 seconds/2 MiB; no VeyonCore instance or service/plugin initialization is used.
+The `--collect` switch emits a full local report to standard output, including
+identifiers: do not redirect/share it without appropriate data handling.
+`--version` emits the application version without collecting any information.
+
 Package from a fresh `dist` payload directory:
 `powershell -NoProfile -ExecutionPolicy Bypass -File packaging/build-package.ps1 -Build build-release`.
 This compiles existing translations without modifying TS sources, resolves DLL
