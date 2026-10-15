@@ -7,11 +7,14 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QProcess>
+#include <QTcpServer>
 #include <QTableWidget>
 #include "SchoolFeatures.h"
 #include "SchoolPolicyResolver.h"
 #include "VeyonMasterInterface.h"
 #include "VeyonWorkerInterface.h"
+#include "../worker/src/FeatureWorkerManagerConnection.h"
 
 class IsolatedSchoolMaster : public VeyonMasterInterface {
 public:
@@ -31,6 +34,8 @@ class IsolatedSchoolWorker : public QObject, public VeyonWorkerInterface {
 public:
     explicit IsolatedSchoolWorker(int& count) : replies(count) {}
     bool sendFeatureMessageReply(const FeatureMessage&) override { ++replies; return true; }
+    void finishAfterReplies() override {++finishes;}
+    int finishes=0;
     int& replies;
 };
 
@@ -38,6 +43,24 @@ public:
 // configuration, real keys, service, network listener or remote PC is touched.
 class SchoolLifecycleTests : public QObject {
     Q_OBJECT
+public:
+    static int attendanceChild(quint16 port,bool accept) {
+        class Worker : public QObject,public VeyonWorkerInterface {
+        public:
+            FeatureWorkerManagerConnection* connection=nullptr;
+            bool sendFeatureMessageReply(const FeatureMessage& message) override {return connection->sendMessage(message);}
+            void finishAfterReplies() override {connection->finishAfterReplies();}
+        } worker;
+        SchoolFeatures features(nullptr,false);
+        worker.connection=new FeatureWorkerManagerConnection(worker,features.m_attendanceUid,port,&worker);
+        QTimer::singleShot(100,&worker,[&] {
+            if(!features.handleFeatureMessage(worker,FeatureMessage(features.m_attendanceUid,SchoolFeatures::AskName).addArgument(0,QUuid::createUuid().toString(QUuid::WithoutBraces)))) {qApp->exit(2);return;}
+            QTimer::singleShot(50,&worker,[&] {features.m_studentDialog->findChild<QLineEdit*>()->setText("Anna Rossi");if(accept) features.m_studentDialog->accept();else features.m_studentDialog->reject();});
+        });
+        QTimer::singleShot(4000,qApp,[]{qApp->exit(3);});
+        return qApp->exec();
+    }
+private:
     using Callback = std::function<void(const QHostInfo&)>;
     struct FakeDns {
         QHash<int,Callback> callbacks;
@@ -53,6 +76,15 @@ class SchoolLifecycleTests : public QObject {
         return ComputerControlInterface::Pointer::create(Computer({},"PC selezionato",host,{},{}));
     }
 private Q_SLOTS:
+    void attendanceLastWindowDeliversReplyBeforeWorkerExits_data() {QTest::addColumn<bool>("accept");QTest::newRow("confirmed")<<true;QTest::newRow("cancelled")<<false;}
+    void attendanceLastWindowDeliversReplyBeforeWorkerExits() {
+        QFETCH(bool,accept);QTcpServer server;QVERIFY(server.listen(QHostAddress::LocalHost,0));QList<FeatureMessage> messages;
+        connect(&server,&QTcpServer::newConnection,this,[&] {auto socket=server.nextPendingConnection();connect(socket,&QTcpSocket::readyRead,&server,[&,socket] {FeatureMessage message;while(message.isReadyForReceive(socket)) {if(!message.receive(socket)) break;messages.append(message);}});});
+        QProcess child;child.start(QCoreApplication::applicationFilePath(),{"--attendance-child",QString::number(server.serverPort()),accept?"accept":"cancel"});
+        QTRY_COMPARE_WITH_TIMEOUT(child.state(),QProcess::NotRunning,6500);QCOMPARE(child.exitStatus(),QProcess::NormalExit);QCOMPARE(child.exitCode(),0);
+        QTRY_VERIFY_WITH_TIMEOUT(messages.size()>=2,1000);QCOMPARE(messages.last().command(),int(SchoolFeatures::NameReply));QCOMPARE(messages.last().argument(1).toString(),accept?QString("Anna Rossi"):QString{});
+        const auto ci=client();ci->setProperty("schoolAttendanceRequest",messages.last().argument(0));SchoolFeatures features(nullptr,false);QVERIFY(features.handleFeatureMessage(ci,messages.last()));QCOMPARE(ci->studentName(),accept?QString("Anna Rossi"):QString{});
+    }
     void dialogCyclesReturnImmediatelyAndRemainIdempotent() {
         IsolatedSchoolMaster master;
         const auto ci=client();master.clients={ci};
@@ -155,9 +187,9 @@ private Q_SLOTS:
         QVERIFY(features.handleFeatureMessage(worker,FeatureMessage(features.m_attendanceUid,SchoolFeatures::AskName).addArgument(0,"invalid")));QVERIFY(!features.m_studentDialog);
         const auto id=QUuid::createUuid().toString(QUuid::WithoutBraces);
         QVERIFY(features.handleFeatureMessage(worker,FeatureMessage(features.m_attendanceUid,SchoolFeatures::AskName).addArgument(0,id)));
-        const auto dialog=features.m_studentDialog;dialog->findChild<QLineEdit*>()->setText("Anna Rossi");
+        const auto dialog=features.m_studentDialog;QVERIFY(!dialog->testAttribute(Qt::WA_QuitOnClose));dialog->findChild<QLineEdit*>()->setText("Anna Rossi");
         QVERIFY(features.handleFeatureMessage(worker,FeatureMessage(features.m_attendanceUid,SchoolFeatures::AskName).addArgument(0,id)));QCOMPARE(features.m_studentDialog,dialog);QCOMPARE(dialog->findChild<QLineEdit*>()->text(),QString("Anna Rossi"));
-        dialog->accept();QCOMPARE(replies,1);
+        dialog->accept();QCOMPARE(replies,1);QCOMPARE(worker.finishes,1);
         QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);QVERIFY(!features.m_studentDialog);
     }
     void attendanceRejectsEmptyAndReplayedReplies() {
@@ -187,5 +219,9 @@ private Q_SLOTS:
         dialog->reject();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);QVERIFY(!dialog);QTest::qWait(20);
     }
 };
-QTEST_MAIN(SchoolLifecycleTests)
+int main(int argc,char** argv) {
+    QApplication app(argc,argv);const auto arguments=app.arguments();
+    if(arguments.size()==4 && arguments[1]=="--attendance-child") return SchoolLifecycleTests::attendanceChild(arguments[2].toUShort(),arguments[3]=="accept");
+    SchoolLifecycleTests tests;return QTest::qExec(&tests,argc,argv);
+}
 #include "SchoolLifecycleTests.moc"

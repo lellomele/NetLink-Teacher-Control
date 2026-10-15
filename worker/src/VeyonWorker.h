@@ -37,6 +37,7 @@ public:
 	~VeyonWorker() override;
 
 	bool sendFeatureMessageReply( const FeatureMessage& reply ) override;
+	void finishAfterReplies() override;
 
 	VeyonCore& core()
 	{

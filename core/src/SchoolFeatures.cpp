@@ -329,7 +329,10 @@ bool SchoolFeatures::handleFeatureMessage(VeyonWorkerInterface& worker,const Fea
     if(!workerObject) {qWarning("NetLink attendance worker has no guarded QObject lifetime");return true;}
     if(m_studentDialog && m_studentDialog->property("schoolAttendanceRequest").toString()==request && bringForward(m_studentDialog)) return true;
     if(m_studentDialog) delete m_studentDialog;
-    auto dialog=new QDialog;dialog->setAttribute(Qt::WA_DeleteOnClose);m_studentDialog=dialog;
+    auto dialog=new QDialog;dialog->setAttribute(Qt::WA_DeleteOnClose);
+    // Closing this one-shot UI must not terminate the event loop before the
+    // worker's TCP reply reaches the service. The worker owns bounded shutdown.
+    dialog->setAttribute(Qt::WA_QuitOnClose,false);m_studentDialog=dialog;
     dialog->setProperty("schoolAttendanceRequest",request);
     dialog->setWindowTitle("Appello — NetLink");dialog->setWindowIcon(QIcon(":/core/veyon.png"));
     auto layout=new QVBoxLayout(dialog);auto label=new QLabel("Inserisci il tuo nome e cognome per l’appello del docente.",dialog);label->setTextFormat(Qt::PlainText);layout->addWidget(label);
@@ -340,7 +343,12 @@ bool SchoolFeatures::handleFeatureMessage(VeyonWorkerInterface& worker,const Fea
     QPointer<QObject> guardedWorker(workerObject);
     connect(workerObject,&QObject::destroyed,dialog,&QObject::deleteLater);
     connect(dialog,&QDialog::finished,this,[this,guardedWorker,name,request](int result) {
-        if(auto live=dynamic_cast<VeyonWorkerInterface*>(guardedWorker.data())) live->sendFeatureMessageReply(FeatureMessage(m_attendanceUid,NameReply).addArgument(0,request).addArgument(1,result==QDialog::Accepted ? cleanName(name->text()) : QString{}));
+        if(auto live=dynamic_cast<VeyonWorkerInterface*>(guardedWorker.data())) {
+            if(!live->sendFeatureMessageReply(FeatureMessage(m_attendanceUid,NameReply).addArgument(0,request).addArgument(1,result==QDialog::Accepted ? cleanName(name->text()) : QString{})))
+                qWarning("NetLink attendance reply could not be queued");
+            // A transport implementation may synchronously destroy its owner.
+            if(auto remaining=dynamic_cast<VeyonWorkerInterface*>(guardedWorker.data())) remaining->finishAfterReplies();
+        }
     });
     QTimer::singleShot(180000,dialog,&QDialog::reject);
     dialog->show();dialog->raise();dialog->activateWindow();name->setFocus();return true;

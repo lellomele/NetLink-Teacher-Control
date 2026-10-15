@@ -16,6 +16,7 @@
 #include <QTimer>
 #include <QtEndian>
 #include <functional>
+#include <algorithm>
 #include <openssl/crypto.h>
 #include <openssl/ec.h>
 #include <openssl/evp.h>
@@ -222,11 +223,48 @@ void DiagnosticLink::postReportSent() {
     QTimer::singleShot(0,this,[this,generation]{if(d->generation==generation) Q_EMIT reportSent();});
 }
 QString DiagnosticLink::pairingCode() const {return d->code;}
-bool DiagnosticLink::decodeCode(const QString& code,Endpoint& endpoint) {
+QString DiagnosticLink::encodeCode(const Endpoint& endpoint) {
+    if(!unicast(endpoint.address) || !endpoint.port || endpoint.pin.size()!=32 || endpoint.token.size()!=32) return {};
+    QByteArray bytes;bytes.append(endpoint.address.protocol()==QAbstractSocket::IPv4Protocol?char(4):char(6));
+    const auto port=qToBigEndian<quint16>(endpoint.port);bytes.append(reinterpret_cast<const char*>(&port),2);
+    if(endpoint.address.protocol()==QAbstractSocket::IPv4Protocol) {
+        const auto ip=qToBigEndian<quint32>(endpoint.address.toIPv4Address());bytes.append(reinterpret_cast<const char*>(&ip),4);
+    } else {
+        const auto ip=endpoint.address.toIPv6Address();bytes.append(reinterpret_cast<const char*>(ip.c),16);
+        const auto scope=endpoint.address.scopeId().toUtf8();if(scope.size()>32) return {};
+        bytes.append(char(scope.size()));bytes.append(scope);
+    }
+    // Binary packing avoids the JSON + nested Base64 overhead. Keep the full
+    // 256-bit certificate pin AND independent 256-bit one-shot secret intact.
+    bytes+=endpoint.pin;bytes+=endpoint.token;
+    bytes+=QCryptographicHash::hash(bytes,QCryptographicHash::Sha256).left(4);
+    return "NL2."+QString::fromLatin1(b64(bytes));
+}
+bool DiagnosticLink::decodeCode(const QString& input,Endpoint& endpoint) {
     endpoint=Endpoint{};
-    if(code.size()>1024 || !code.startsWith("NL1.")) return false;
+    if(input.size()>2048) return false;
+    QString code;code.reserve(input.size());for(const auto character:input) if(!character.isSpace()) code+=character;
+    if(code.size()>1024 || (!code.startsWith("NL1.") && !code.startsWith("NL2."))) return false;
     const auto encoded=code.mid(4).toLatin1();const auto bytes=QByteArray::fromBase64(encoded,QByteArray::Base64UrlEncoding);
     if(b64(bytes)!=encoded || bytes.size()>768) return false;
+    if(code.startsWith("NL2.")) {
+        if(bytes.size()<75 || QCryptographicHash::hash(bytes.left(bytes.size()-4),QCryptographicHash::Sha256).left(4)!=bytes.right(4)) return false;
+        Endpoint decoded;decoded.port=qFromBigEndian<quint16>(reinterpret_cast<const uchar*>(bytes.constData()+1));
+        int offset=3;
+        if(bytes[0]==char(4)) {
+            if(bytes.size()!=75) return false;
+            decoded.address=QHostAddress(qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(bytes.constData()+offset)));offset+=4;
+        } else if(bytes[0]==char(6)) {
+            if(bytes.size()<88) return false;
+            Q_IPV6ADDR ip;std::copy(bytes.constData()+offset,bytes.constData()+offset+16,reinterpret_cast<char*>(ip.c));offset+=16;
+            decoded.address=QHostAddress(ip);const auto scopeSize=quint8(bytes[offset++]);
+            if(scopeSize>32 || bytes.size()!=88+scopeSize) return false;
+            const auto scope=bytes.mid(offset,scopeSize);if(QString::fromUtf8(scope).toUtf8()!=scope || scope.contains('\0')) return false;
+            decoded.address.setScopeId(QString::fromUtf8(scope));offset+=scopeSize;
+        } else return false;
+        if(!unicast(decoded.address) || !decoded.port) return false;
+        decoded.pin=bytes.mid(offset,32);decoded.token=bytes.mid(offset+32,32);endpoint=decoded;return true;
+    }
     const auto object=QJsonDocument::fromJson(bytes).object();const auto port=object["port"].toInt();
     endpoint.address=QHostAddress(object["ip"].toString());
     if(!unicast(endpoint.address) || port<1 || port>65535 ||
@@ -243,9 +281,8 @@ bool DiagnosticLink::receiveOnce(const QHostAddress& address,quint16 port,int li
     }
     if(!d->listener.listen(address,port)) {d->token.clear();Q_EMIT failed("Porta diagnostica non disponibile: "+d->listener.errorString());return false;}
     d->attempts=0;
-    const QJsonObject object{{"ip",address.toString()},{"port",d->listener.serverPort()},
-        {"pin",QString::fromLatin1(b64(d->certificate.digest(QCryptographicHash::Sha256)))},{"token",QString::fromLatin1(b64(d->token))}};
-    d->code="NL1."+QString::fromLatin1(b64(QJsonDocument(object).toJson(QJsonDocument::Compact)));
+    d->code=encodeCode({address,d->listener.serverPort(),d->certificate.digest(QCryptographicHash::Sha256),d->token});
+    if(d->code.isEmpty()) {stop();if(alive) Q_EMIT failed("Indirizzo non rappresentabile nel codice di abbinamento.");return false;}
     d->lifetime.start(qBound(1,lifetimeMs,300000));return true;
 }
 bool DiagnosticLink::sendReport(const QString& code,const QJsonObject& report) {

@@ -18,6 +18,7 @@ public:
     bool sendReport(const QString& code, const QJsonObject& report);
     void stop();
     QString pairingCode() const;
+    static QString encodeCode(const Endpoint& endpoint);
     static bool decodeCode(const QString& code, Endpoint& endpoint);
 Q_SIGNALS:
     void reportReceived(const QJsonObject& report);

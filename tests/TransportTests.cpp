@@ -25,6 +25,11 @@ struct ExactLengthInput {
 class TransportTests : public QObject {
     Q_OBJECT
 private Q_SLOTS:
+    void featureDiagnosticsDoNotLogPayloads() {
+        const auto uid=QUuid::createUuid();FeatureMessage message(uid,6);message.addArgument(0,"NEVER_LOG_TOKEN").addArgument(1,"Anna Rossi");
+        QString rendered;{QDebug debug(&rendered);debug<<message;}
+        QVERIFY(!rendered.contains("NEVER_LOG_TOKEN"));QVERIFY(!rendered.contains("Anna Rossi"));QVERIFY(rendered.contains(uid.toString()));QVERIFY(rendered.contains("command=6"));QVERIFY(rendered.contains("arguments=2"));
+    }
     void authenticationTypesOnActualAdapter() {
         QBuffer output;output.open(QIODevice::ReadWrite);
         QVERIFY(VariantArrayMessage(&output).write(1).write(int(RfbVeyonAuth::KeyFile)).send());

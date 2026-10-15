@@ -59,6 +59,10 @@ public:
 	bool isWorkerRunning( Feature::Uid featureUid );
 
 private:
+	friend class WorkerLifecycleTests;
+	FeatureWorkerManager(VeyonServerInterface& server, QObject* parent, bool initializeRuntime);
+	void watchStartup(Feature::Uid featureUid, const QString& token);
+	void expireStartup(Feature::Uid featureUid, const QString& token);
 	void acceptConnection();
 	void processConnection( QTcpSocket* socket );
 	void closeConnection( QTcpSocket* socket );

@@ -1,7 +1,53 @@
-# Audit and release gates — NetLink 0.1.0-alpha.6
+# Audit and release gates — NetLink 0.1.0-alpha.7
 
 Status: **partial audit and preliminary implementation, not a completed security
 audit, certified WS-Discovery implementation or production-ready release**.
+
+## Alpha 7 focused changes
+
+Attendance uses a non-quitting student dialog and an explicit one-shot worker
+shutdown: Qt drains the queued TCP reply before disconnect, with a two-second
+deadline instead of a blocking wait or arbitrary sleep. An isolated child-process
+regression test exercises the real student dialog, FeatureMessage framing and
+worker IPC transport with normal last-window behavior, both confirmation and
+cancellation, and checks the resulting Master-side student name.
+
+Worker launch success is no longer treated as indefinite evidence of liveness:
+an unauthenticated startup expires after ten seconds, and stale deadlines cannot
+remove a replacement or an authenticated worker. The tray feature retries a
+missing worker every fifteen seconds using its cached tooltip, without DNS or
+network polling. Startup failures log the feature identifier and queue count,
+not the authentication nonce. Windows launch logs now omit argument/environment
+values and worker reply logs omit student names. This addresses missed login/desktop readiness and
+pre-IPC launch failure paths; the reported MATEBOOK tray symptom still requires
+interactive confirmation after installing this version. Companion now inventories
+suite process names/PIDs/sessions and the local worker IPC listener, without
+collecting command lines or tokens, and distinguishes configured hiding/manual
+service startup from a missing session worker.
+
+Companion separates teacher-to-client control, client-to-teacher direct discovery
+and custom TCP checks, supplies direction-specific guidance and saves at most
+twenty session results in full reports. Reduced reports exclude these records
+and the process inventory. A positive TCP check is not authentication, a complete
+discovery exchange or UDP multicast verification.
+
+The protected diagnostic link has separate receive/send views, role guidance,
+ordered steps, cancellation, countdown and optional invitation files. NL2 packs
+the address/port, complete SHA-256 certificate pin and independent 256-bit random
+token into a bounded binary representation; IPv4 invitations are 104 characters
+instead of approximately 188. The four-byte checksum detects copying mistakes;
+it is not authentication, which remains TLS pinning plus the one-shot token.
+No cryptographic material is shortened and no new runtime dependency is added.
+IPv6 including bounded scope IDs and legacy NL1 decoding are retained. Expiry,
+one-shot claiming, attempt limits and data-only permissions remain unchanged.
+An invitation file is sensitive and does not extend its five-minute validity.
+
+Focused tests cover the worker startup/replacement/disconnect/queue lifecycle,
+the real attendance worker exit, probe directions and history privacy, UI role
+switching, compact/legacy invitation round trips, corruption/truncation and TLS
+pin/token rejection. They do not establish end-to-end classroom stability,
+successful tray rendering after login, cross-subnet discovery or effective WFP
+isolation. Installation and those checks remain guided two-PC pilot gates.
 
 ## Verified locally
 

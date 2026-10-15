@@ -40,10 +40,16 @@
 // clazy:excludeall=detaching-member
 
 FeatureWorkerManager::FeatureWorkerManager( VeyonServerInterface& server, QObject* parent ) :
+	FeatureWorkerManager(server,parent,true)
+{
+}
+
+FeatureWorkerManager::FeatureWorkerManager(VeyonServerInterface& server, QObject* parent, bool initializeRuntime) :
 	QObject( parent ),
 	m_server( server ),
 	m_tcpServer( this )
 {
+	if(!initializeRuntime) return; // isolated lifecycle fixtures, no live configuration/listener
 	connect( &m_tcpServer, &QTcpServer::newConnection,
 			 this, &FeatureWorkerManager::acceptConnection );
 
@@ -118,6 +124,7 @@ bool FeatureWorkerManager::startManagedSystemWorker( Feature::Uid featureUid )
 	m_workersMutex.lock();
 	m_workers[featureUid] = worker;
 	m_workersMutex.unlock();
+	watchStartup(featureUid,worker.token);
 
 	return true;
 }
@@ -159,20 +166,38 @@ bool FeatureWorkerManager::startUnmanagedSessionWorker( Feature::Uid featureUid 
 	m_workersMutex.lock();
 	m_workers[featureUid] = worker;
 	m_workersMutex.unlock();
+	watchStartup(featureUid,worker.token);
 
 	return true;
+}
+
+void FeatureWorkerManager::watchStartup(Feature::Uid featureUid, const QString& token)
+{
+	QTimer::singleShot(10000,this,[this,featureUid,token] {expireStartup(featureUid,token);});
+}
+
+void FeatureWorkerManager::expireStartup(Feature::Uid featureUid, const QString& token)
+{
+	QMutexLocker locker(&m_workersMutex);
+	const auto it=m_workers.constFind(featureUid);
+	// A launch API succeeding does not mean the process loaded its DLLs or
+	// authenticated its IPC connection. Never leave a phantom worker forever.
+	if(it==m_workers.cend() || it->token!=token || it->socket) return;
+	vWarning() << "Worker startup deadline expired before authenticated IPC; feature" << featureUid
+		<< "queued messages" << it->pendingMessages.size();
+	stopWorker(featureUid);
 }
 
 
 
 bool FeatureWorkerManager::stopWorker( Feature::Uid featureUid )
 {
-	m_retryGenerations.remove(featureUid);
 	if( thread() != QThread::currentThread() )
 	{
 		vCritical() << "thread mismatch for feature" << featureUid;
 		return false;
 	}
+	m_retryGenerations.remove(featureUid);
 
 	QMutexLocker locker( &m_workersMutex );
 
@@ -193,12 +218,16 @@ bool FeatureWorkerManager::stopWorker( Feature::Uid featureUid )
 
 		if( worker.process )
 		{
+			if(worker.process->state()==QProcess::NotRunning) {
+				worker.process->deleteLater();
+			} else {
 			auto killTimer = new QTimer( worker.process );
 			killTimer->setSingleShot( true );
 			connect( killTimer, &QTimer::timeout, worker.process, &QProcess::terminate );
 			connect( killTimer, &QTimer::timeout, worker.process, &QProcess::kill );
 			connect( killTimer, &QTimer::timeout, killTimer, &QTimer::deleteLater );
 			killTimer->start( 5000 );
+			}
 		}
 
 		m_workers.remove( featureUid );

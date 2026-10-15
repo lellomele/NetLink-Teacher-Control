@@ -27,6 +27,7 @@
 #include <QPainter>
 #include <QPixmap>
 #include <QSystemTrayIcon>
+#include <QTimer>
 
 #include "SystemTrayIcon.h"
 #include "FeatureWorkerManager.h"
@@ -53,6 +54,18 @@ void SystemTrayIcon::setToolTip( const QString& toolTipText,
 {
 	if (m_hidden == false)
 	{
+		m_workerManager=&featureWorkerManager;
+		m_lastToolTip=toolTipText;
+		if(!m_recoveryTimer) {
+			m_recoveryTimer=new QTimer(this);
+			connect(m_recoveryTimer,&QTimer::timeout,this,[this] {
+				// Login/desktop readiness and a failed pre-IPC process launch
+				// must not permanently suppress the icon until the next client connects.
+				if(m_workerManager && !m_workerManager->isWorkerRunning(m_systemTrayIconFeature.uid()))
+					setToolTip(m_lastToolTip,*m_workerManager);
+			});
+			m_recoveryTimer->start(15000);
+		}
 		FeatureMessage featureMessage(m_systemTrayIconFeature.uid(), SetToolTipCommand);
 		featureMessage.addArgument(Argument::ToolTipText, toolTipText);
 

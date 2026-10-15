@@ -43,8 +43,11 @@ public:
 
 
 	bool sendMessage( const FeatureMessage& message );
+	void finishAfterReplies();
 
 private:
+	friend class SchoolLifecycleTests;
+	FeatureWorkerManagerConnection(VeyonWorkerInterface& worker, Feature::Uid featureUid, int port, QObject* parent);
 	static constexpr auto ConnectTimeout = 3000;
 
 	void tryConnection();
@@ -56,5 +59,6 @@ private:
 	QTcpSocket m_socket;
 	Feature::Uid m_featureUid;
 	QTimer m_connectTimer{this};
+	bool m_finishing = false;
 
 } ;

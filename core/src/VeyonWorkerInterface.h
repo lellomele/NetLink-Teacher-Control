@@ -34,4 +34,8 @@ public:
 
 	virtual bool sendFeatureMessageReply( const FeatureMessage& reply ) = 0;
 
+	// One-shot features finish only after their queued replies have drained.
+	// Persistent features (tray, remote control, etc.) never call this method.
+	virtual void finishAfterReplies() {}
+
 };

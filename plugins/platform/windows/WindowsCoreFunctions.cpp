@@ -301,7 +301,8 @@ bool WindowsCoreFunctions::runProgramAsUser( const QString& program,
 											 const QString& username,
 											 const QString& desktop )
 {
-	vDebug() << program << parameters << username << desktop;
+	// Worker parameters include a one-shot IPC authentication nonce.
+	vDebug() << program << "argument count" << parameters.size() << username << desktop;
 
 	const auto baseProcessId = WtsSessionManager::findUserProcessId( username );
 	if( baseProcessId == WtsSessionManager::InvalidProcess )
@@ -480,7 +481,8 @@ HANDLE WindowsCoreFunctions::runProgramInSession( const QString& program,
 												  DWORD baseProcessId,
 												  const QString& desktop )
 {
-	vDebug() << program << parameters << extraEnvironment << baseProcessId;
+	vDebug() << program << "argument count" << parameters.size()
+		<< "environment entry count" << extraEnvironment.size() << baseProcessId;
 
 	enablePrivilege( SE_ASSIGNPRIMARYTOKEN_NAME, true );
 	enablePrivilege( SE_INCREASE_QUOTA_NAME, true );

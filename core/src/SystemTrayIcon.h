@@ -25,9 +25,11 @@
 #pragma once
 
 #include "FeatureProviderInterface.h"
+#include <QPointer>
 
 class QSystemTrayIcon;
 class FeatureWorkerManager;
+class QTimer;
 
 class VEYON_CORE_EXPORT SystemTrayIcon : public QObject, public FeatureProviderInterface, public PluginInterface
 {
@@ -129,5 +131,8 @@ private:
 
 	QSystemTrayIcon* m_systemTrayIcon = nullptr;
 	bool m_hidden = false;
+	QTimer* m_recoveryTimer = nullptr;
+	QPointer<FeatureWorkerManager> m_workerManager;
+	QString m_lastToolTip;
 
 };

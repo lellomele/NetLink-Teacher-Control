@@ -5,7 +5,7 @@ InternetGuard basato su Windows Filtering Platform, Appello con il nome dichiara
 dallo studente sulle miniature e ricerca dei client tramite WS-Discovery 1.1.
 Le funzioni sono integrate: non occorre installare un plugin esterno.
 
-**Versione preliminare 0.1.0-alpha.6: destinata a PC di prova, non al laboratorio in uso.**
+**Versione preliminare 0.1.0-alpha.7: destinata a PC di prova, non al laboratorio in uso.**
 
 ## Installazione
 
@@ -83,26 +83,55 @@ dell'altro PC con **Confronta con altro PC**. Senza questa opzione il rapporto �
 e omette identificativi, indirizzi e chiavi. Il rapporto completo contiene dati
 personali e della rete: conservarlo e condividerlo solo quando necessario.
 
-**Verifica TCP** apre una sola connessione al nome/IP e alla porta scelti, per massimo
-8 secondi. Gli esiti hanno testo e sfondo distinti. È possibile verificare anche
-la risposta iniziale RFB, distinguendo una porta aperta da un servizio che risponde.
-Non verifica autenticazione, multicast UDP o navigazione. Sul servizio
-NetLink/Veyon questa prova può provocare una notifica di autenticazione incompleta.
+Le **Prove di comunicazione** distinguono tre casi, senza scansioni della rete:
+
+- **Controllo remoto:** dal docente al client, abitualmente TCP 11100. Sul client
+  deve essere attivo il servizio NetLink. È possibile verificare anche la risposta
+  iniziale RFB. Il collegamento inverso client → docente non è necessario per
+  controllare il client.
+- **Discovery diretto:** dal client al docente su TCP 3702, con la Console docente
+  aperta. Verifica solo l'apertura della porta degli annunci diretti, non il
+  multicast WS-Discovery su UDP 3702 o lo scambio di un annuncio applicativo.
+- **TCP personalizzato:** nome/IP e porta scelti esplicitamente per una diagnosi
+  avanzata, anche su 127.0.0.1 per confrontare accesso locale e remoto.
+
+Ogni prova dura al massimo 8 secondi e mostra l'indirizzo effettivo quando connessa.
+Il rapporto completo conserva fino a 20 esiti della sessione, con orari, direzione,
+destinatario e porta; quello ridotto li omette. Gli esiti hanno testo e sfondo
+distinti. Nessuna di queste prove verifica autenticazione o navigazione. Sul servizio
+NetLink/Veyon una prova può provocare una notifica di autenticazione incompleta.
 Le impronte uguali attestano file pubblici uguali, non la validità della coppia
 con la chiave privata. I rapporti non sono firmati e non vengono importati come
 configurazione fidata. Routing, ACL, isolamento Wi-Fi e autenticazione vanno
 confermati con una connessione reale dal Master.
 
-La scheda **Collegamento protetto** consente di trasferire direttamente un rapporto
-tra due Companion, anche quando il servizio NetLink non è raggiungibile. Sul PC
-ricevente scegliere ruolo, interfaccia e porta separata (predefinita TCP 11110,
-oppure 0 per una porta automatica), quindi **Ricevi un rapporto**. Incollare il
-codice nell'altro Companion e confermare l'invio dei dati completi. Il ricevente
-confronta automaticamente il rapporto ricevuto con quello locale.
+La scheda **Collegamento protetto** trasferisce un rapporto fra due Companion,
+anche quando il servizio NetLink non è raggiungibile. La Console docente può
+restare chiusa; i due programmi vanno aggiornati alla stessa alpha.
+
+1. Sul **docente**, eseguire **Analizza PC** e scegliere il ruolo docente. Nella
+   scheda Collegamento protetto scegliere **Ricevo il rapporto**, l'interfaccia
+   della rete utilizzata e la porta separata (TCP 11110, oppure 0 per automatica).
+   Premere **Genera invito e attendi**.
+2. Trasferire l'invito riservato al client con **Copia invito** oppure **Salva
+   invito su file**. Su IPv4 l'invito compatto contiene 104 caratteri: non è una
+   chiave di autenticazione Veyon e non deve essere importato nel Configurator.
+3. Sul **client**, eseguire **Analizza PC**, scegliere ruolo client e **Invio il
+   mio rapporto**. Incollare l'invito oppure aprire il file `.netlink-invite`.
+   Premere **Verifica destinatario e invia il mio rapporto** e confermare i dati
+   personali da condividere.
+4. Attendere **CONSEGNATO** sul client, poi tornare sul docente: **RICEVUTO** indica
+   che il confronto automatico è disponibile sotto il pannello. Lo scambio è
+   monodirezionale; per inviare anche nell'altra direzione occorre un nuovo invito
+   a ruoli invertiti. **Annulla collegamento** chiude la ricezione temporanea.
 
 Il canale usa TLS 1.2 o successivo, certificato temporaneo verificato mediante
-l'impronta nel codice e un segreto casuale monouso. Il codice scade entro 5 minuti;
-la ricezione termina dopo un rapporto. Trattare il codice come riservato. Non
+l'impronta nel codice e un segreto casuale monouso. Il formato compatto conserva
+l'impronta e il segreto completi a 256 bit; non usa un PIN breve facilmente
+indovinabile. Accetta anche i precedenti inviti NL1, ma le alpha vecchie non
+leggono i nuovi inviti NL2. Il conto alla rovescia indica la scadenza entro 5 minuti;
+la ricezione termina dopo un rapporto. File e codice sono riservati; un file
+salvato non prolunga la validità. Non
 vengono aperte porte all'avvio né modificate regole firewall: se il traffico è
 filtrato serve un'autorizzazione locale mirata sul ricevente. Non è un canale di
 amministrazione remota, non esegue riparazioni e non usa le chiavi Veyon. I rapporti

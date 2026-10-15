@@ -81,3 +81,8 @@ bool VeyonWorker::sendFeatureMessageReply( const FeatureMessage& reply )
 	return m_workerManagerConnection &&
 			m_workerManagerConnection->sendMessage( reply );
 }
+
+void VeyonWorker::finishAfterReplies()
+{
+	if(m_workerManagerConnection) m_workerManagerConnection->finishAfterReplies();
+}

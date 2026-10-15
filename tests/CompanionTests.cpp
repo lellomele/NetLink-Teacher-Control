@@ -18,6 +18,27 @@ class CompanionTests : public QObject {
             {"keys",QJsonArray{QJsonObject{{"type","public"},{"name","docente"},{"sha256","abc"}}}},{"services",QJsonArray{QJsonObject{{"name","VeyonSchoolService"},{"state","running"}}}},{"errors",QJsonArray{}}};
     }
 private Q_SLOTS:
+    void roleSpecificTestsAndProtectedLinkInstructions() {
+        auto report=fixture();report["configuredComputers"]=QJsonArray{QJsonObject{{"address","192.0.2.25"},{"name","PC client"}}};CompanionWindow window(report,false);
+        window.m_role->setCurrentIndex(1);QCOMPARE(window.m_testType->currentData().toString(),QString("control"));QCOMPARE(window.m_target->currentText(),QString("192.0.2.25"));QCOMPARE(window.m_port->value(),11100);QVERIFY(window.m_probeGuide->text().contains("Sul DOCENTE"));QCOMPARE(window.m_linkAction->currentIndex(),0);QVERIFY(window.m_sendBox->isHidden());
+        window.m_role->setCurrentIndex(2);QCOMPARE(window.m_testType->currentData().toString(),QString("discovery"));QCOMPARE(window.m_target->currentText(),QString("192.0.2.10"));QCOMPARE(window.m_port->value(),3702);QVERIFY(!window.m_protocol->isEnabled());QVERIFY(window.m_probeGuide->text().contains("UDP 3702"));QCOMPARE(window.m_linkAction->currentIndex(),1);QVERIFY(window.m_receiveBox->isHidden());QCOMPARE(window.m_linkRole->currentIndex(),2);
+        window.m_testType->setCurrentIndex(0);QVERIFY(window.m_probeGuide->text().contains("ATTENZIONE"));window.m_testType->setCurrentIndex(2);QVERIFY(window.m_protocol->isEnabled());QVERIFY(!window.m_port->isReadOnly());
+        QVERIFY(window.findChild<QLabel*>("companionLinkGuide")->text().contains("Torna sul DOCENTE"));QVERIFY(!window.m_stopLink->isEnabled());QVERIFY(!window.m_copyCode->isEnabled());window.close();
+    }
+    void discoveryProbeIsNotReportedAsAuthenticationAndIsSaved() {
+        QTcpServer server;QVERIFY(server.listen(QHostAddress::LocalHost,0));CompanionWindow window(fixture(),false);window.m_role->setCurrentIndex(2);
+        window.m_target->setEditText("127.0.0.1");window.m_port->setValue(server.serverPort());window.m_probe->click();QVERIFY(!window.m_testType->isEnabled());
+        QTRY_VERIFY_WITH_TIMEOUT(window.m_probe->isEnabled(),3000);QVERIFY(window.m_probeResult->text().contains("Discovery diretto"));QVERIFY(window.m_probeResult->text().contains("multicast UDP NON verificati"));
+        const auto tests=window.m_report["connectionTests"].toArray();QCOMPARE(tests.size(),1);const auto test=tests[0].toObject();QCOMPARE(test["kind"].toString(),QString("discovery"));QCOMPARE(test["target"].toString(),QString("127.0.0.1"));QCOMPARE(test["port"].toInt(),int(server.serverPort()));QVERIFY(test["tcpReachable"].toBool());QVERIFY(!test["authenticationVerified"].toBool());QVERIFY(!test["multicastVerified"].toBool());QVERIFY(!test["actualEndpoint"].toString().isEmpty());
+        QVERIFY(!Companion::publicReport(window.m_report,false).contains("connectionTests"));window.close();
+    }
+    void trayAndManualServiceDiagnosticsAreExplicit() {
+        auto report=fixture();report["identity"]=QJsonObject{{"sessionId",1}};report["processes"]=QJsonArray{QJsonObject{{"application","veyon-server.exe"},{"sessionId",1}}};
+        report["services"]=QJsonArray{QJsonObject{{"name","VeyonSchoolService"},{"state","running"},{"startType",3}}};
+        const auto advice=Companion::recommendations(report,"teacher").join('\n');QVERIFY(advice.contains("nessun processo worker"));QVERIFY(advice.contains("avvio manuale"));
+        auto settings=report["settings"].toObject();settings["Service/HideTrayIcon"]=true;report["settings"]=settings;QVERIFY(Companion::recommendations(report,"teacher").join('\n').contains("nascosta dalla configurazione"));
+        const auto filtered=Companion::publicReport(report,false);QVERIFY(!filtered.contains("processes"));
+    }
     void validTargets() {
         for(const auto& value:{"PC-DOCENTE","pc.aula.local","192.0.2.10","2001:db8::1","127.0.0.1"}) QVERIFY(Companion::validTarget(value));
         for(const auto& value:{"","0.0.0.0","::","224.0.0.1","255.255.255.255","999.2.3.4","http://pc","pc:11100","192.0.2.0/24"," pc","pc;whoami","a..b","-pc","pc-"}) QVERIFY(!Companion::validTarget(value));

@@ -8,6 +8,7 @@
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QHostAddress>
@@ -29,6 +30,7 @@
 #include <lm.h>
 #include <initguid.h>
 #include <netfw.h>
+#include <tlhelp32.h>
 #endif
 
 namespace Companion {
@@ -57,6 +59,7 @@ bool safeTree(const QJsonValue& value,int depth,int& nodes) {
 }
 QString label(const QString& key) {
     static const QMap<QString,QString> labels{
+        {"startedUtc","Inizio prova UTC"},{"finishedUtc","Fine prova UTC"},{"sourceRole","Ruolo sorgente"},{"target","Destinatario richiesto"},{"actualEndpoint","Collegamento effettivo"},{"tcpReachable","Porta TCP raggiungibile"},{"authenticationVerified","Autenticazione verificata"},{"multicastVerified","Multicast verificato"},{"result","Esito e indicazioni"},{"application","Applicazione"},{"Service/HideTrayIcon","Nascondi icona di notifica"},{"Service/Autostart","Avvio automatico configurato"},{"Network/FeatureWorkerManagerPort","Porta locale comunicazione worker"},
         {"os","Sistema operativo"},{"architecture","Architettura"},{"computer","Nome PC"},{"dnsDomain","Dominio DNS"},{"windowsBuild","Build Windows"},{"windowsVersion","Versione Windows"},{"companionVersion","Versione Companion"},{"uptimeSeconds","Secondi dall'avvio"},{"manufacturer","Produttore"},{"model","Modello"},{"joinType","Appartenenza"},{"joinName","Dominio / gruppo di lavoro"},
         {"user","Account del processo"},{"domain","Dominio account (ambiente)"},{"sid","SID account"},{"elevated","Eseguito come amministratore"},{"consoleUser","Utente della console locale"},{"sessionId","Sessione del processo"},{"enabled","Abilitato"},{"denyOnly","Solo negazione"},
         {"name","Nome"},{"description","Descrizione"},{"up","Connessa"},{"loopback","Interfaccia locale loopback"},{"tunnel","Tunnel"},{"index","Indice scheda"},{"dhcp","DHCP IPv4"},{"dhcpServer","Server DHCP IPv4"},{"dnsSuffix","Suffisso DNS"},{"mac","Indirizzo MAC"},{"addresses","Indirizzi / prefissi"},{"address","Indirizzo"},{"dns","Server DNS"},{"gateways","Gateway"},
@@ -143,7 +146,22 @@ QJsonArray interfaces(QJsonObject& report) {
     return result;
 }
 QString imagePath(DWORD pid) {auto handle=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,pid);if(!handle) return {};wchar_t buffer[32768]{};DWORD count=32768;const bool success=QueryFullProcessImageNameW(handle,0,buffer,&count);CloseHandle(handle);return success?QString::fromWCharArray(buffer,int(count)):QString();}
-QJsonArray listeners(int port,QJsonObject& report) {
+QJsonArray suiteProcesses(QJsonObject& report) {
+    QJsonArray result;const auto snapshot=CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
+    if(snapshot==INVALID_HANDLE_VALUE) {error(report,"Inventario processi NetLink non disponibile.");return result;}
+    PROCESSENTRY32W entry{};entry.dwSize=sizeof(entry);QElapsedTimer elapsed;elapsed.start();int scanned=0;
+    if(Process32FirstW(snapshot,&entry)) do {
+        const auto name=QString::fromWCharArray(entry.szExeFile).toLower();
+        if(name=="veyon-service.exe" || name=="veyon-server.exe" || name=="veyon-worker.exe" || name=="veyon-master.exe" || name=="netlink-companion.exe") {
+            QJsonObject item{{"application",name},{"pid",int(entry.th32ProcessID)},{"image",imagePath(entry.th32ProcessID)}};DWORD session=0;
+            if(ProcessIdToSessionId(entry.th32ProcessID,&session)) item["sessionId"]=int(session);
+            result.append(item);
+        }
+        if(++scanned>=10000 || elapsed.elapsed()>750 || result.size()>=128) {error(report,"Inventario processi NetLink parziale: raggiunto il limite di raccolta.");break;}
+    } while(Process32NextW(snapshot,&entry));
+    CloseHandle(snapshot);return result;
+}
+QJsonArray listeners(int port,int workerPort,QJsonObject& report) {
     QJsonArray result;
     for(const auto family:{AF_INET,AF_INET6}) {
         ULONG size=0;GetExtendedTcpTable(nullptr,&size,FALSE,family,TCP_TABLE_OWNER_PID_LISTENER,0);
@@ -156,7 +174,7 @@ QJsonArray listeners(int port,QJsonObject& report) {
             DWORD localPort=0,pid=0;QString address;
             if(family==AF_INET) {const auto entry=reinterpret_cast<MIB_TCPTABLE_OWNER_PID*>(buffer.data())->table[i];localPort=ntohs(static_cast<u_short>(entry.dwLocalPort));pid=entry.dwOwningPid;address=QHostAddress(ntohl(entry.dwLocalAddr)).toString();}
             else {const auto entry=reinterpret_cast<MIB_TCP6TABLE_OWNER_PID*>(buffer.data())->table[i];localPort=ntohs(static_cast<u_short>(entry.dwLocalPort));pid=entry.dwOwningPid;Q_IPV6ADDR ip{};memcpy(ip.c,entry.ucLocalAddr,16);address=QHostAddress(ip).toString();}
-            if(int(localPort)!=port && localPort!=3702) continue;
+            if(int(localPort)!=port && localPort!=3702 && int(localPort)!=workerPort) continue;
             result.append(QJsonObject{{"address",address},{"port",int(localPort)},{"pid",int(pid)},{"image",imagePath(pid)}});
         }
     }
@@ -257,7 +275,7 @@ QJsonObject collect() {
         {"Authentication/Method",0},{"Authentication/PrivateKeyBaseDir","%GLOBALAPPDATA%/keys/private"},{"Authentication/PublicKeyBaseDir","%GLOBALAPPDATA%/keys/public"},
         {"AccessControl/AccessRestrictedToUserGroups",false},{"AccessControl/AuthorizedUserGroups",QStringList{}},{"AccessControl/AccessControlRulesProcessingEnabled",false},
         {"Network/VeyonServerPort",11100},{"Network/DemoServerPort",11400},{"Network/LocalConnectOnly",false},{"Network/FirewallExceptionEnabled",true},
-        {"School/DiscoveryEnabled",true},{"School/DiscoveryMaster",""},{"Service/MultiSession",false},{"Windows/UseInterceptionDriver",false}
+        {"School/DiscoveryEnabled",true},{"School/DiscoveryMaster",""},{"Service/MultiSession",false},{"Service/HideTrayIcon",false},{"Service/Autostart",true},{"Network/FeatureWorkerManagerPort",11300},{"Windows/UseInterceptionDriver",false}
     };
     for(const auto& entry:allowed) {
         auto value=config.value(entry.first,entry.second);
@@ -274,7 +292,8 @@ QJsonObject collect() {
     auto keyList=keys(settings["Authentication/PublicKeyBaseDir"].toString(),"public",report,privateBase);for(const auto& key:keys(privateBase,"private",report)) keyList.append(key);report["keys"]=keyList;
     QJsonArray services;auto manager=OpenSCManagerW(nullptr,nullptr,SC_MANAGER_CONNECT);
     if(manager) {for(const auto name:{L"VeyonSchoolService",L"VeyonService",L"BFE",L"MpsSvc"}) services.append(service(manager,name));CloseServiceHandle(manager);}else error(report,QString("Servizi non leggibili (Windows %1).").arg(GetLastError()));report["services"]=services;
-    report["listeners"]=listeners(settings["Network/VeyonServerPort"].toInt(11100),report);report["firewall"]=firewall();
+    const auto sessionOffset=settings["Service/MultiSession"].toBool()?report["identity"].toObject()["sessionId"].toInt():0;
+    report["listeners"]=listeners(settings["Network/VeyonServerPort"].toInt(11100)+sessionOffset,settings["Network/FeatureWorkerManagerPort"].toInt(11300)+sessionOffset,report);report["firewall"]=firewall();report["processes"]=suiteProcesses(report);
     report["health"]=collectHealth();
 #else
     error(report,"Questa prima versione della diagnostica è per Windows 10 x64.");
@@ -318,6 +337,13 @@ QStringList recommendations(const QJsonObject& report,const QString& role) {
     for(const auto& value:health["applications"].toArray()) if(value.toObject()["notResponding"].toBool()) result<<"ATTENZIONE: una finestra NetLink risulta non rispondente a Windows in questo istante. Conservare il rapporto; la causa (grafica, I/O o blocco) non è ancora accertata. Companion non forza la chiusura.";
     if(!report["errors"].toArray().isEmpty()) result<<"Raccolta parziale: leggere le informazioni non disponibili; non equivale a una configurazione corretta.";
     if(!running(services,"VeyonSchoolService")) result<<"Il servizio NetLink non risulta in esecuzione o non è stato possibile verificarlo. Controllare nel Configurator prima di provarne l'accesso.";
+    if(settings["Service/HideTrayIcon"].toBool()) result<<"L'icona nell'area di notifica è nascosta dalla configurazione (Servizio → Nascondi icona). Non indica da sola un servizio fermo.";
+    else if(report.contains("processes")) {
+        bool server=false,worker=false;const auto currentSession=report["identity"].toObject()["sessionId"].toInt(-1);
+        for(const auto& value:report["processes"].toArray()) {const auto process=value.toObject();if(process["sessionId"].toInt(-2)!=currentSession) continue;if(process["application"]=="veyon-server.exe") server=true;if(process["application"]=="veyon-worker.exe") worker=true;}
+        if(server && !worker) result<<"Nella sessione attuale è presente il server ma nessun processo worker per l'icona. Dalla nuova alpha il servizio ritenta automaticamente dopo un avvio incompleto: attendere circa 30 secondi e ripetere l'analisi. Un worker presente può appartenere ad altre funzioni: non prova da solo che l'icona sia visibile. Controllare anche le icone nascoste di Windows.";
+    }
+    for(const auto& value:services) {const auto service=value.toObject();if(service["name"]=="VeyonSchoolService" && service["startType"].toInt()==3) result<<"Il servizio NetLink è configurato con avvio manuale: dopo un riavvio potrebbe non partire da solo. Verificare Avvio automatico nel Configurator; non viene cambiato da Companion.";}
     if(running(services,"VeyonSchoolService") && running(services,"VeyonService")) result<<"Sono attivi sia NetLink sia Veyon originale: possibile conflitto di porte. Non fermarli automaticamente durante una lezione.";
     if(!running(services,"BFE")) result<<"Il servizio motore di filtraggio Windows (BFE) non risulta attivo o non è verificabile: controllarlo prima del collaudo InternetGuard.";
     if(settings["Network/LocalConnectOnly"].toBool()) result<<"L'accesso è limitato al computer locale: i collegamenti da altri PC possono essere rifiutati.";
@@ -390,6 +416,8 @@ QString html(const QJsonObject& report,const QString& role) {
     auto identity=report["identity"].toObject();const auto groups=identity.take("groups").toArray();result+="<h2>Account che esegue Companion</h2>"+table(identity)+"<p>I gruppi sono identificati dal SID; i gruppi denyOnly non concedono accesso nel token attuale.</p>";
     result+="<h2>Rete</h2>";for(const auto& value:report["interfaces"].toArray()) {auto iface=value.toObject();QStringList ips;for(const auto& entry:iface.take("addresses").toArray()) ips<<entry.toObject()["address"].toString()+"/"+QString::number(entry.toObject()["prefix"].toInt());iface["addresses"]=ips.join(", ");iface["dns"]=list(iface["dns"].toArray());iface["gateways"]=list(iface["gateways"].toArray());result+=table(iface);}
     result+="<h2>Servizi e porte TCP in ascolto</h2>";for(const auto& value:report["services"].toArray()) result+=table(value.toObject());for(const auto& value:report["listeners"].toArray()) result+=table(value.toObject());
+    if(report.contains("processes")) {result+="<h2>Processi della suite e sessioni Windows</h2><p>Non vengono raccolti argomenti dei processi, token o contenuti delle chiavi.</p>";for(const auto& value:report["processes"].toArray()) result+=table(value.toObject());}
+    if(!report["connectionTests"].toArray().isEmpty()) {result+="<h2>Prove di comunicazione eseguite in questa sessione</h2>";for(const auto& value:report["connectionTests"].toArray()) result+=table(value.toObject());}
     auto firewall=report["firewall"].toObject();const auto profiles=firewall.take("profiles").toArray(),rules=firewall.take("discoveryRules").toArray(),serviceRules=firewall.take("serviceRules").toArray();
     result+="<h2>Firewall Windows</h2>"+table(firewall)+"<p>Inventario parziale delle regole del fork, non una simulazione della policy effettiva: criteri di dominio e altri prodotti possono prevalere.</p>";
     for(const auto& value:profiles) result+=table(value.toObject());

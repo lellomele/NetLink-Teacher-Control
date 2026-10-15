@@ -17,12 +17,23 @@ class DiagnosticLinkTests : public QObject {
             {"interfaces",QJsonArray{}},{"services",QJsonArray{}},{"keys",QJsonArray{}}};
     }
     QString changed(const QString& code,const QString& field) {
-        auto object=QJsonDocument::fromJson(QByteArray::fromBase64(code.mid(4).toLatin1(),QByteArray::Base64UrlEncoding)).object();
-        object[field]=QString::fromLatin1(QByteArray(32,'x').toBase64(QByteArray::Base64UrlEncoding|QByteArray::OmitTrailingEquals));
-        return "NL1."+QString::fromLatin1(QJsonDocument(object).toJson(QJsonDocument::Compact).toBase64(QByteArray::Base64UrlEncoding|QByteArray::OmitTrailingEquals));
+        Companion::DiagnosticLink::Endpoint endpoint;if(!Companion::DiagnosticLink::decodeCode(code,endpoint)) return {};
+        if(field=="pin") endpoint.pin=QByteArray(32,'x');else endpoint.token=QByteArray(32,'x');return Companion::DiagnosticLink::encodeCode(endpoint);
     }
 private Q_SLOTS:
     void initTestCase() {QVERIFY2(QSslSocket::supportsSsl(),"TLS runtime is required for the diagnostic channel");}
+    void compactCodeRetainsSecretsAndLegacyCompatibility() {
+        for(const auto& address:{QString("192.0.2.25"),QString("2001:db8::25"),QString("fe80::25%12")}) {
+            Companion::DiagnosticLink::Endpoint original{QHostAddress(address),11110,QByteArray(32,'p'),QByteArray(32,'t')},decoded;
+            const auto compact=Companion::DiagnosticLink::encodeCode(original);QVERIFY(compact.startsWith("NL2."));if(original.address.protocol()==QAbstractSocket::IPv4Protocol) QCOMPARE(compact.size(),104);
+            QVERIFY(Companion::DiagnosticLink::decodeCode(" \n"+compact.left(30)+"\r\n"+compact.mid(30)+" ",decoded));QCOMPARE(decoded.address,original.address);QCOMPARE(decoded.port,original.port);QCOMPARE(decoded.pin,original.pin);QCOMPARE(decoded.token,original.token);
+            const auto base64=[](const QByteArray& bytes) {return QString::fromLatin1(bytes.toBase64(QByteArray::Base64UrlEncoding|QByteArray::OmitTrailingEquals));};
+            const auto legacy="NL1."+base64(QJsonDocument(QJsonObject{{"ip",address},{"port",11110},{"pin",base64(original.pin)},{"token",base64(original.token)}}).toJson(QJsonDocument::Compact));
+            QVERIFY(compact.size()*10<legacy.size()*7);QVERIFY(Companion::DiagnosticLink::decodeCode(legacy,decoded));QCOMPARE(decoded.pin,original.pin);QCOMPARE(decoded.token,original.token);
+            auto damaged=compact;damaged[20]=damaged[20]=='x'?'y':'x';QVERIFY(!Companion::DiagnosticLink::decodeCode(damaged,decoded));QVERIFY(decoded.token.isEmpty());
+            for(int n=4;n<compact.size();++n) QVERIFY(!Companion::DiagnosticLink::decodeCode(compact.left(n),decoded));
+        }
+    }
     void invalidCodesAndReports() {
         Companion::DiagnosticLink link;Companion::DiagnosticLink::Endpoint endpoint;
         for(const auto& value:{QString(),QString("NL1.bad"),QString(1025,'x'),QString("http://host")}) QVERIFY(!Companion::DiagnosticLink::decodeCode(value,endpoint));

@@ -33,9 +33,14 @@
 FeatureWorkerManagerConnection::FeatureWorkerManagerConnection( VeyonWorkerInterface& worker,
 																Feature::Uid featureUid,
 																QObject* parent ) :
+	FeatureWorkerManagerConnection(worker,featureUid,VeyonCore::config().featureWorkerManagerPort()+VeyonCore::sessionId(),parent)
+{
+}
+
+FeatureWorkerManagerConnection::FeatureWorkerManagerConnection(VeyonWorkerInterface& worker, Feature::Uid featureUid, int port, QObject* parent) :
 	QObject( parent ),
 	m_worker( worker ),
-	m_port(VeyonCore::config().featureWorkerManagerPort() + VeyonCore::sessionId()),
+	m_port(port),
 	m_socket( this ),
 	m_featureUid( featureUid )
 {
@@ -60,16 +65,38 @@ FeatureWorkerManagerConnection::FeatureWorkerManagerConnection( VeyonWorkerInter
 
 bool FeatureWorkerManagerConnection::sendMessage( const FeatureMessage& message )
 {
-	vDebug() << message;
+	// Attendance replies can contain a student's real name. Log routing only.
+	vDebug() << message.featureUid() << "command" << message.command();
 
 	return message.send( &m_socket );
+}
+
+void FeatureWorkerManagerConnection::finishAfterReplies()
+{
+	if(m_finishing) return;
+	m_finishing=true;
+	m_connectTimer.stop();
+	// Qt drains its write queue before closing. Never block the GUI thread or
+	// quit merely because the student's last window has closed.
+	if(m_socket.state()==QAbstractSocket::UnconnectedState) {
+		QCoreApplication::exit(1);
+		return;
+	}
+	m_socket.disconnectFromHost();
+	QTimer::singleShot(2000,this,[this] {
+		if(m_socket.state()!=QAbstractSocket::UnconnectedState) {
+			vWarning() << "One-shot worker reply drain timed out; pending bytes" << m_socket.bytesToWrite();
+			m_socket.abort();
+			QCoreApplication::exit(1);
+		}
+	});
 }
 
 
 
 void FeatureWorkerManagerConnection::tryConnection()
 {
-	if( m_socket.state() != QTcpSocket::ConnectedState )
+	if( !m_finishing && m_socket.state() != QTcpSocket::ConnectedState )
 	{
 		vDebug() << "connecting to FeatureWorkerManager at port" << m_port;
 

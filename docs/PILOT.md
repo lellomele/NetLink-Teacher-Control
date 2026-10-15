@@ -114,6 +114,37 @@ Riportare passaggio, passato/non passato ed errore testuale, senza credenziali.
 Prima della stabile servono anche carico prolungato su una classe e chiusura
 dei punti ancora aperti in AUDIT.md.
 
+## Appello icona e Companion
+
+Aggiornare entrambi i PC alla stessa alpha, chiudendo prima le applicazioni della
+suite. Non rigenerare le chiavi che già consentono il controllo remoto.
+
+1. Dal docente richiedere Appello al client, inserire nome e cognome sul client e
+   confermare. Verificare nome sulla miniatura e nel suggerimento al passaggio
+   del mouse. Ripetere con un nome diverso, annullare una richiesta e terminare
+   l'appello: nessun nome precedente deve ricomparire da una risposta tardiva.
+2. Sul docente, con icona non nascosta nel Configurator, attendere circa 30 secondi
+   dopo l'avvio del servizio/accesso Windows. Controllare anche le icone nascoste
+   dell'area di notifica. Se manca, raccogliere un rapporto completo Companion:
+   impostazione HideTrayIcon, processi/sessioni, porta IPC locale e registri
+   distinguono nascondimento da un worker non avviato; un processo worker presente
+   può appartenere a un'altra funzione e non dimostra da solo l'icona visibile.
+3. In Companion sul docente scegliere ruolo docente e **Controllo remoto** verso
+   il client: normalmente TCP 11100. Sul client scegliere ruolo client e
+   **Discovery diretto** verso il docente: TCP 3702, con Console docente aperta.
+   Non confrontare questi esiti come se fossero la stessa direzione/porta.
+   Esportare i rapporti completi dopo le prove: ora includono gli esiti della
+   sessione. Nessun risultato TCP certifica autenticazione o multicast.
+4. Sul docente aprire **Collegamento protetto → Ricevo il rapporto**, generare un
+   invito, copiarlo o salvarlo su file. Sul client scegliere **Invio il mio
+   rapporto**, incollare/aprire l'invito e confermare il destinatario. Verificare
+   CONSEGNATO sul client e RICEVUTO/confronto sul docente. La Console può restare
+   chiusa. Non disabilitare il firewall: l'eventuale autorizzazione deve riguardare
+   solo Companion, la porta temporanea e i PC/rete di prova fidati.
+5. Provare annullamento e scadenza dell'invito, rigenerarlo e ripetere. Un invito
+   già utilizzato o scaduto non deve trasferire un secondo rapporto; un file
+   salvato non prolunga la sua validità. Nessun invito sostituisce le chiavi Veyon.
+
 ## Recupero in caso di errore
 
 Non proseguire un’installazione segnalata come incompleta. Conservare il messaggio

@@ -87,9 +87,11 @@ bool FeatureMessage::receive( QIODevice* ioDevice )
 
 QDebug operator<<(QDebug stream, const FeatureMessage& message)
 {
-	stream << QStringLiteral("FeatureMessage(%1,%2,%3)")
-				  .arg(VeyonCore::featureManager().feature(message.featureUid()).name())
+	// Arguments may contain names, credentials or single-use authentication
+	// tokens. Diagnostic routing/counts are useful; payloads do not belong in logs.
+	stream << QStringLiteral("FeatureMessage(%1,command=%2,arguments=%3)")
+				  .arg(message.featureUid().toString())
 				  .arg(message.command())
-				  .arg(VeyonCore::stringify(message.arguments())).toUtf8().constData();
+				  .arg(message.arguments().size()).toUtf8().constData();
 	return stream;
 }
