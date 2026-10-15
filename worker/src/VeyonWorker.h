@@ -29,7 +29,7 @@
 
 class FeatureWorkerManagerConnection;
 
-class VeyonWorker : public QObject, VeyonWorkerInterface
+class VeyonWorker : public QObject, public VeyonWorkerInterface
 {
 	Q_OBJECT
 public:

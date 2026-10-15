@@ -74,7 +74,8 @@ class Listener : public QTcpServer {
 public:
     std::function<void(qintptr)> accept;
     void incomingConnection(qintptr descriptor) override {
-        if(accept) accept(descriptor);
+        const auto callback=accept;
+        if(callback) callback(descriptor);
         else {QTcpSocket rejected;rejected.setSocketDescriptor(descriptor);rejected.abort();}
     }
 };
@@ -101,8 +102,10 @@ public:
     void fail(const QString& message) {
         if(stage==Done) return;
         stage=Done;deadline.stop();socket.abort();
-        if(error) error(message);
+        const auto notify=error;
         deleteLater();
+        // The receiver may synchronously destroy the link (and this peer).
+        if(notify) notify(message);
     }
     bool write(const QByteArray& data) {
         if(stage==Done || data.size()>MaximumReportBytes) return false;
@@ -125,7 +128,10 @@ public:
         }
         buffer+=socket.read(qint64(length)-buffer.size());if(buffer.size()<int(length)) return;
         const auto bytes=buffer;buffer.clear();length=0;
-        if(frame) frame(bytes);
+        const QPointer<Peer> alive(this);
+        const auto deliver=frame;
+        if(deliver) deliver(bytes);
+        if(!alive) return;
         if(stage!=Done && socket.bytesAvailable()) QTimer::singleShot(0,this,[this]{read();});
     }
 };
@@ -141,21 +147,25 @@ struct DiagnosticLink::Impl {
     QString code;
     QSet<Peer*> peers;
     int attempts=0;
+    quint64 generation=0;
     explicit Impl(DiagnosticLink* parent):owner(parent) {
         lifetime.setSingleShot(true);
-        QObject::connect(&lifetime,&QTimer::timeout,owner,[this]{owner->stop();Q_EMIT owner->failed("Abbinamento scaduto dopo il tempo previsto. Generare un nuovo codice.");});
+        QObject::connect(&lifetime,&QTimer::timeout,owner,[this]{QPointer<DiagnosticLink> alive(owner);const auto expired=generation;owner->stop();if(alive && alive->d->generation==expired+1) alive->postFailure("Abbinamento scaduto dopo il tempo previsto. Generare un nuovo codice.");});
         listener.accept=[this](qintptr descriptor){accept(descriptor);};
     }
     Peer* peer() {
         auto result=new Peer(owner);peers.insert(result);
         QObject::connect(result,&QObject::destroyed,owner,[this,result]{peers.remove(result);});
-        result->error=[this](const QString& message){Q_EMIT owner->failed(message);};
+        result->error=[this](const QString& message){
+            // Do not run arbitrary UI teardown inside a QSslSocket callback.
+            owner->postFailure(message);
+        };
         return result;
     }
     void accept(qintptr descriptor) {
         if(peers.size()>=2 || ++attempts>8 || token.isEmpty()) {
             QTcpSocket rejected;rejected.setSocketDescriptor(descriptor);rejected.abort();
-            if(attempts>8) {owner->stop();Q_EMIT owner->failed("Troppi tentativi: ricezione terminata. Generare un nuovo abbinamento.");}
+            if(attempts>8) {QPointer<DiagnosticLink> alive(owner);const auto rejected=generation;owner->stop();if(alive && alive->d->generation==rejected+1) alive->postFailure("Troppi tentativi: ricezione terminata. Generare un nuovo abbinamento.");}
             return;
         }
         auto session=peer();session->socket.setLocalCertificate(certificate);session->socket.setPrivateKey(key);
@@ -180,7 +190,7 @@ struct DiagnosticLink::Impl {
             session->stage=Peer::Done;session->deadline.stop();
             session->socket.disconnectFromHost();
             QTimer::singleShot(3000,session,[session]{session->close();});
-            Q_EMIT owner->reportReceived(report);
+            owner->postReportReceived(report);
         };
         if(!session->socket.setSocketDescriptor(descriptor)) {session->fail("Impossibile accettare il collegamento TLS.");return;}
         session->socket.startServerEncryption();
@@ -194,9 +204,22 @@ DiagnosticLink::~DiagnosticLink() {
     blockSignals(true);stop();
 }
 void DiagnosticLink::stop() {
+    ++d->generation;
     d->listener.close();d->lifetime.stop();d->token.clear();d->code.clear();d->key=QSslKey{};d->certificate=QSslCertificate{};
     const auto peers=d->peers;d->peers.clear();for(auto peer:peers) {QObject::disconnect(peer,nullptr,this,nullptr);peer->close();}
     Q_EMIT stopped();
+}
+void DiagnosticLink::postFailure(const QString& message) {
+    const auto generation=d->generation;
+    QTimer::singleShot(0,this,[this,generation,message]{if(d->generation==generation) Q_EMIT failed(message);});
+}
+void DiagnosticLink::postReportReceived(const QJsonObject& report) {
+    const auto generation=d->generation;
+    QTimer::singleShot(0,this,[this,generation,report]{if(d->generation==generation) Q_EMIT reportReceived(report);});
+}
+void DiagnosticLink::postReportSent() {
+    const auto generation=d->generation;
+    QTimer::singleShot(0,this,[this,generation]{if(d->generation==generation) Q_EMIT reportSent();});
 }
 QString DiagnosticLink::pairingCode() const {return d->code;}
 bool DiagnosticLink::decodeCode(const QString& code,Endpoint& endpoint) {
@@ -211,7 +234,10 @@ bool DiagnosticLink::decodeCode(const QString& code,Endpoint& endpoint) {
     endpoint.port=quint16(port);return true;
 }
 bool DiagnosticLink::receiveOnce(const QHostAddress& address,quint16 port,int lifetimeMs) {
+    const QPointer<DiagnosticLink> alive(this);
+    const auto previous=d->generation;
     stop();
+    if(!alive || d->generation!=previous+1) return false;
     if(!unicast(address) || !QSslSocket::supportsSsl() || !identity(d->certificate,d->key,d->token)) {
         Q_EMIT failed("Ricezione non disponibile: indirizzo locale o supporto TLS non valido.");return false;
     }
@@ -223,7 +249,9 @@ bool DiagnosticLink::receiveOnce(const QHostAddress& address,quint16 port,int li
     d->lifetime.start(qBound(1,lifetimeMs,300000));return true;
 }
 bool DiagnosticLink::sendReport(const QString& code,const QJsonObject& report) {
-    stop();Endpoint endpoint;QJsonObject checked;QString error;
+    const QPointer<DiagnosticLink> alive(this);
+    const auto previous=d->generation;
+    stop();if(!alive || d->generation!=previous+1) return false;Endpoint endpoint;QJsonObject checked;QString error;
     const auto bytes=QJsonDocument(report).toJson(QJsonDocument::Compact);
     if(!decodeCode(code,endpoint) || !QSslSocket::supportsSsl() || !parseReport(bytes,checked,error)) {
         Q_EMIT failed("Codice di abbinamento, rapporto o supporto TLS non valido.");return false;
@@ -251,7 +279,7 @@ bool DiagnosticLink::sendReport(const QString& code,const QJsonObject& report) {
         if(session->stage!=Peer::Acknowledgement || status!="received") {session->fail("Conferma remota non valida: rapporto non confermato.");return;}
         session->stage=Peer::Done;session->deadline.stop();session->socket.disconnectFromHost();
         QTimer::singleShot(3000,session,[session]{session->close();});
-        Q_EMIT reportSent();
+        postReportSent();
     };
     session->socket.connectToHostEncrypted(endpoint.address.toString(),endpoint.port);return true;
 }

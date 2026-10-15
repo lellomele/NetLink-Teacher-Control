@@ -3,6 +3,7 @@
 #undef QT_USE_QSTRINGBUILDER
 #include "SchoolFeatures.h"
 #include "SchoolNetworkPolicy.h"
+#include "SchoolPolicyResolver.h"
 #include "SchoolConfigurationPage.h"
 #include "ConfigurationPage.h"
 #include "Configuration/LocalStore.h"
@@ -20,6 +21,7 @@
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QFutureWatcher>
+#include <QHeaderView>
 #include <QSet>
 #include <QHostInfo>
 #include <QInputDialog>
@@ -34,6 +36,7 @@
 #include <QTextEdit>
 #include <QTcpSocket>
 #include <QVBoxLayout>
+#include <algorithm>
 
 namespace {
 class SchoolServiceThread : public QThread {
@@ -41,14 +44,16 @@ public:
     SchoolServiceThread(const QString& bootstrap,int port,bool discovery,QObject* parent)
         : QThread(parent),m_bootstrap(bootstrap),m_port(port),m_discovery(discovery) {}
     void run() override {
+        if(isInterruptionRequested()) return;
         QObject root;
         SchoolNetwork::PolicyDaemon policy(&root);
         if(m_discovery) new SchoolDiscovery::Agent(false,m_bootstrap,m_port,&root);
-        exec();
+        if(!isInterruptionRequested()) exec();
     }
 private:QString m_bootstrap;int m_port;bool m_discovery;
 };
 QString cleanName(const QString& input) {
+    if(input.size()>1024) return {};
     QString name=input.simplified();
     if(name.size()>120) return {};
     for(const auto c:name) if(c.category()==QChar::Other_Control || c.category()==QChar::Other_Format) return {};
@@ -61,23 +66,41 @@ QString addressText(QHostAddress address) {
     address.setScopeId({}); return address.toString();
 }
 QString humanStatus(const QJsonObject& result) {
-    const auto status=result.value("status").toString();
+    const auto status=result.value("status").toString().left(160);
     if(status=="blocked" && result.value("ok").toBool()) return "filtri attivi";
     if(status=="allowed" && result.value("ok").toBool()) return "libero";
     // WFP HRESULT values can exceed signed int; preserve the actual DWORD code.
     const auto code=result.value("code");
     return "errore: "+status+" ("+(code.isDouble() ? QString::number(code.toDouble(),'f',0) : "?")+")";
 }
+bool bringForward(QPointer<QDialog> dialog) {
+    if(!dialog || !dialog->isVisible()) return false;
+    dialog->raise(); dialog->activateWindow(); return true;
 }
-SchoolFeatures::SchoolFeatures(QObject* parent) : QObject(parent),
+void prepareDialog(QDialog* dialog, const QString& objectName) {
+    dialog->setObjectName(objectName);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setWindowModality(Qt::NonModal);
+    dialog->setWindowIcon(QIcon(":/core/veyon.png"));
+}
+void notify(QWidget* parent, QMessageBox::Icon icon, const QString& title, const QString& text) {
+    auto box=new QMessageBox(icon,title,text,QMessageBox::Ok,parent);
+    box->setTextFormat(Qt::PlainText);box->setAttribute(Qt::WA_DeleteOnClose);box->open();
+}
+}
+SchoolFeatures::SchoolFeatures(QObject* parent) : SchoolFeatures(parent,true) {}
+SchoolFeatures::SchoolFeatures(QObject* parent,bool initializeRuntime) : QObject(parent),
     m_guardUid("9509a4cc-f39e-4857-a3fc-8e288f1d577f"),
     m_attendanceUid("b74ef197-1db8-4f5b-b3aa-dc9e6eae843d"),
-    m_discoveryUid("d0b09b52-c8ae-452b-b5a9-b5e2d612f89f"),m_timer(this) {
+    m_discoveryUid("d0b09b52-c8ae-452b-b5a9-b5e2d612f89f"),m_timer(this),m_attendanceTimer(this) {
     const auto flags=Feature::Flag::Action|Feature::Flag::Master|Feature::Flag::Service|Feature::Flag::Worker|Feature::Flag::Builtin;
     m_features={Feature("InternetGuard",flags,m_guardUid,{},"InternetGuard","InternetGuard","Controllo WFP con feedback",":/core/veyon.png"),
         Feature("Appello",flags,m_attendanceUid,{},"Appello","Appello","Nomi dichiarati dagli studenti",":/core/veyon.png"),
         Feature("Discovery",Feature::Flag::Action|Feature::Flag::Master|Feature::Flag::Builtin,m_discoveryUid,{},"Trova client","Trova client","WS-Discovery 1.1",":/core/veyon.png")};
     m_clock.start();
+    m_attendanceTimer.setSingleShot(true);m_attendanceTimer.setInterval(180000);
+    connect(&m_attendanceTimer,&QTimer::timeout,this,[this] {m_attendanceRequest.clear();m_attendanceContext=MessageContext{};});
+    if(!initializeRuntime) return;
     if(VeyonCore::component()==VeyonCore::Component::Service) {
         // The inherited Windows service dispatcher has no Qt main-thread event loop.
         m_serviceThread=new SchoolServiceThread(VeyonCore::config().schoolDiscoveryMaster(),VeyonCore::config().veyonServerPort(),VeyonCore::config().schoolDiscoveryEnabled(),this);
@@ -91,7 +114,19 @@ SchoolFeatures::SchoolFeatures(QObject* parent) : QObject(parent),
 SchoolFeatures::~SchoolFeatures() {
     // The service lease, not GUI shutdown, is the recovery guarantee.
     if(m_studentDialog) delete m_studentDialog;
-    if(m_serviceThread) {m_serviceThread->quit();m_serviceThread->wait();}
+    if(m_guardDialog) delete m_guardDialog;
+    if(m_attendanceDialog) delete m_attendanceDialog;
+    if(m_discoveryDialog) delete m_discoveryDialog;
+    if(m_resolution) {m_resolution->cancel();delete m_resolution;}
+    if(m_serviceThread) {
+        m_serviceThread->requestInterruption();m_serviceThread->quit();
+        // Never terminate a WFP transaction or destroy a running QThread. Native
+        // RPC teardown can still be slow; record it instead of hiding the stall.
+        if(!m_serviceThread->wait(5000)) {
+            qCritical("NetLink school service shutdown exceeded 5 seconds; waiting for safe native cleanup");
+            m_serviceThread->wait();
+        }
+    }
 }
 ConfigurationPage* SchoolFeatures::createConfigurationPage() {return new SchoolConfigurationPage(VeyonCore::config());}
 CommandLinePluginInterface::RunResult SchoolFeatures::handle_firewall_setup(const QStringList&) {return SchoolNetwork::configureDiscoveryFirewall(true) ? CommandLinePluginInterface::Successful : CommandLinePluginInterface::Failed;}
@@ -109,79 +144,85 @@ bool SchoolFeatures::startFeature(VeyonMasterInterface& master,const Feature& fe
     if(feature.uid()==m_attendanceUid) {attendance(master,clients);return true;}
     if(feature.uid()==m_discoveryUid) {discovery(master);return true;}
     if(feature.uid()!=m_guardUid) return false;
-    QDialog dialog(master.mainWindow());dialog.setWindowTitle("InternetGuard WFP");dialog.resize(760,400);
-    auto layout=new QVBoxLayout(&dialog);
+    if(bringForward(m_guardDialog)) return true;
+    auto dialog=new QDialog(master.mainWindow());m_guardDialog=dialog;
+    prepareDialog(dialog,"schoolInternetGuardDialog");dialog->setWindowTitle("InternetGuard WFP");dialog->resize(760,400);
+    auto layout=new QVBoxLayout(dialog);
     auto label=new QLabel("WFP applicato ai client selezionati. I filtri scadono dopo 90 secondi senza rinnovo.\n"
-        "Il feedback conferma i filtri installati, non una prova di navigazione Internet.",&dialog);
+        "Il feedback conferma i filtri installati, non una prova di navigazione Internet.",dialog);
     label->setWordWrap(true);label->setTextFormat(Qt::PlainText);layout->addWidget(label);
-    auto table=new QTableWidget(clients.size(),2,&dialog);table->setHorizontalHeaderLabels({"PC","Stato"});layout->addWidget(table);
-    auto refresh=[table,clients]{for(int i=0;i<clients.size();++i){table->setItem(i,0,new QTableWidgetItem(clients[i]->computer().name()));table->setItem(i,1,new QTableWidgetItem(clients[i]->networkPolicyStatus()));}};
-    QTimer timer;connect(&timer,&QTimer::timeout,&dialog,refresh);timer.start(1000);refresh();
-    auto buttons=new QDialogButtonBox(&dialog);layout->addWidget(buttons);
+    auto table=new QTableWidget(clients.size(),2,dialog);table->setHorizontalHeaderLabels({"PC selezionati all’apertura","Stato"});layout->addWidget(table);
+    for(int i=0;i<clients.size();++i) {
+        const auto ci=clients[i];
+        table->setItem(i,0,new QTableWidgetItem(ci ? ci->computer().name() : QString{}));
+        auto status=new QTableWidgetItem(ci ? ci->networkPolicyStatus() : QString("non disponibile"));table->setItem(i,1,status);
+        if(ci) connect(ci.data(),&ComputerControlInterface::userChanged,dialog,[ci,status] {status->setText(ci->networkPolicyStatus());});
+    }
+    table->setEditTriggers(QAbstractItemView::NoEditTriggers);table->horizontalHeader()->setStretchLastSection(true);
+    auto buttons=new QDialogButtonBox(dialog);layout->addWidget(buttons);
     auto block=buttons->addButton("Blocca Internet",QDialogButtonBox::ActionRole);
     auto release=buttons->addButton("Sblocca",QDialogButtonBox::ActionRole);
     auto query=buttons->addButton("Verifica stato",QDialogButtonBox::ActionRole);
-    connect(block,&QPushButton::clicked,&dialog,[this,clients]{policy(clients,true);});
-    connect(release,&QPushButton::clicked,&dialog,[this,clients]{policy(clients,false);});
-    connect(query,&QPushButton::clicked,&dialog,[this,clients]{for(const auto& ci:clients) sendPolicy(ci.data(),Status,{});});
-    auto close=buttons->addButton(QDialogButtonBox::Close);connect(close,&QPushButton::clicked,&dialog,&QDialog::accept);
-    dialog.exec();return true;
+    connect(block,&QPushButton::clicked,dialog,[this,clients]{policy(clients,true);});
+    connect(release,&QPushButton::clicked,dialog,[this,clients]{policy(clients,false);});
+    connect(query,&QPushButton::clicked,dialog,[this,clients]{for(const auto& ci:clients) sendPolicy(ci.data(),Status,{});});
+    auto close=buttons->addButton(QDialogButtonBox::Close);connect(close,&QPushButton::clicked,dialog,&QDialog::accept);
+    // Closing this monitor never releases a policy: its authenticated explicit
+    // Release command and service-side lease remain the only recovery paths.
+    dialog->show();return true;
 }
 void SchoolFeatures::policy(const ComputerControlInterfaceList& clients,bool block) {
-    const auto generation=++m_resolutionGeneration;
     if(!block) {
+        bool overlaps=false;
+        for(const auto& ci:clients) if(m_resolutionClients.contains(ci)) overlaps=true;
+        if(overlaps && m_resolution) {
+            m_resolution->cancel();m_resolution->deleteLater();m_resolution=nullptr;
+            for(const auto& ci:m_resolutionClients) if(ci) ci->setNetworkPolicyStatus("risoluzione annullata; nessun nuovo filtro applicato");
+            m_resolutionClients.clear();
+        }
         for(const auto& ci:clients) {for(int i=m_guardTargets.size()-1;i>=0;--i) if(m_guardTargets[i].control==ci.data()) m_guardTargets.removeAt(i);sendPolicy(ci.data(),Release,{});}
         return;
     }
-    if(m_resolving || clients.size()>256) return;
-    m_resolving=true;
-    QStringList hosts;
-    for(const auto& ci:clients) hosts.append(ci->computer().hostAddress());
-    const auto extras=VeyonCore::config().schoolResources();
-    for(const auto& ci:clients) ci->setNetworkPolicyStatus("risoluzione PC...");
-    auto resolver=new QObject(this);
-    auto addresses=QSharedPointer<QStringList>::create(extras);
-    auto outstanding=QSharedPointer<QSet<int>>::create();
-    auto completed=QSharedPointer<bool>::create(false);
-    auto finish=[this,resolver,addresses,outstanding,completed,clients,generation] {
-        if(*completed) return;
-        *completed=true;
-        for(int id:*outstanding) QHostInfo::abortHostLookup(id);
-        resolver->deleteLater();m_resolving=false;
-        if(generation!=m_resolutionGeneration) return;
-        addresses->removeDuplicates();
-        if(!outstanding->isEmpty() || addresses->isEmpty() || addresses->size()>255) {for(const auto& ci:clients) ci->setNetworkPolicyStatus("errore: risoluzione incompleta o lista non valida");return;}
-        for(const auto& ci:clients) {
-            bool found=false;for(auto& target:m_guardTargets) if(target.control==ci.data()) {target.addresses=*addresses;target.sent=m_clock.elapsed();found=true;}
-            if(!found && m_guardTargets.size()<256) m_guardTargets.append({ci.data(),*addresses,m_clock.elapsed()});
-            sendPolicy(ci.data(),Apply,*addresses);
-        }
-    };
-    hosts.removeDuplicates();
-    for(const auto& host:hosts) {
-        QHostAddress address(host);
-        if(!address.isNull()) {if(SchoolNetwork::validAddress(addressText(address))) addresses->append(addressText(address));}
-        else {
-            const int id=QHostInfo::lookupHost(host,resolver,[addresses,outstanding,completed,finish](const QHostInfo& info) {
-                if(*completed) return;
-                outstanding->remove(info.lookupId());
-                for(const auto& address:info.addresses()) if(SchoolNetwork::validAddress(addressText(address))) addresses->append(addressText(address));
-                if(outstanding->isEmpty()) finish();
-            });
-            outstanding->insert(id);
-        }
-    }
-    if(outstanding->isEmpty()) finish();
-    else QTimer::singleShot(5000,resolver,finish);
+    // A second press must not invalidate the batch already in flight.
+    if(m_resolution) {qWarning("NetLink policy DNS request already in progress");return;}
+    beginPolicyResolution(clients,VeyonCore::config().schoolResources());
 }
-void SchoolFeatures::sendPolicy(ComputerControlInterface* ci,int command,const QStringList& addresses) {
+void SchoolFeatures::beginPolicyResolution(const ComputerControlInterfaceList& clients,const QStringList& resources) {
+    if(m_resolution || clients.isEmpty() || clients.size()>256) return;
+    QStringList hosts;
+    for(const auto& ci:clients) {if(!ci) return;hosts.append(ci->computer().hostAddress());}
+    auto resolver=new SchoolPolicyResolver(hosts,resources,this);m_resolution=resolver;m_resolutionClients=clients;
+    for(const auto& ci:clients) ci->setNetworkPolicyStatus("risoluzione PC...");
+    connect(resolver,&SchoolPolicyResolver::finished,this,[this,resolver,clients](bool complete,const QStringList& addresses) {
+        resolver->deleteLater();
+        if(m_resolution!=resolver) return;
+        m_resolution=nullptr;m_resolutionClients.clear();
+        if(!complete) {for(const auto& ci:clients) ci->setNetworkPolicyStatus("errore: risoluzione incompleta o lista non valida");return;}
+        for(const auto& ci:clients) {
+            if(ci->state()!=ComputerControlInterface::State::Connected) {ci->setNetworkPolicyStatus("non connesso; nessun nuovo filtro applicato");continue;}
+            bool found=false;for(auto& target:m_guardTargets) if(target.control==ci.data()) {target.addresses=addresses;target.sent=m_clock.elapsed();found=true;}
+            if(!found) {
+                if(m_guardTargets.size()>=256) {ci->setNetworkPolicyStatus("limite di client InternetGuard raggiunto");continue;}
+                m_guardTargets.append({ci.data(),addresses,m_clock.elapsed()});
+            }
+            sendPolicy(ci.data(),Apply,addresses);
+        }
+    });
+    resolver->start();
+}
+void SchoolFeatures::sendPolicy(ComputerControlInterface* ci,int command,const QStringList& addresses,int retry) {
     if(!ci) return;
     if(ci->state()!=ComputerControlInterface::State::Connected) {ci->setNetworkPolicyStatus("non connesso");return;}
+    if(command==Status && ci->property("schoolPolicyDeadline").toLongLong()>m_clock.elapsed()) return;
     const auto id=newId();ci->setProperty("schoolPolicyRequest",id);ci->setProperty("schoolPolicyDeadline",m_clock.elapsed()+8000);
+    ci->setProperty("schoolPolicyCommand",command);ci->setProperty("schoolPolicyRetry",retry);
     ci->setNetworkPolicyStatus("in attesa...");
     ci->sendFeatureMessage(FeatureMessage(m_guardUid,command).addArgument(0,id).addArgument(1,addresses));
     QPointer<ComputerControlInterface> guarded(ci);
-    QTimer::singleShot(8000,this,[guarded,id] {if(guarded && guarded->property("schoolPolicyRequest").toString()==id && guarded->property("schoolPolicyDeadline").toLongLong()>0){guarded->setProperty("schoolPolicyDeadline",0);guarded->setNetworkPolicyStatus("nessuna conferma");}});
+    auto deadline=ci->findChild<QTimer*>("schoolPolicyDeadlineTimer",Qt::FindDirectChildrenOnly);
+    if(!deadline) {deadline=new QTimer(ci);deadline->setObjectName("schoolPolicyDeadlineTimer");deadline->setSingleShot(true);}
+    disconnect(deadline,nullptr,this,nullptr);
+    connect(deadline,&QTimer::timeout,this,[guarded,id] {if(guarded && guarded->property("schoolPolicyRequest").toString()==id && guarded->property("schoolPolicyDeadline").toLongLong()>0){guarded->setProperty("schoolPolicyDeadline",0);guarded->setNetworkPolicyStatus("nessuna conferma");}});deadline->start(8000);
 }
 void SchoolFeatures::tick() {
     for(int i=m_guardTargets.size()-1;i>=0;--i) {
@@ -193,13 +234,27 @@ void SchoolFeatures::tick() {
     }
 }
 bool SchoolFeatures::handleFeatureMessage(ComputerControlInterface::Pointer ci,const FeatureMessage& message) {
+    if(!ci) return false;
     if(message.featureUid()==m_guardUid && message.command()==Reply) {
-        if(message.argument(0).toString()!=ci->property("schoolPolicyRequest").toString()) return true;
+        const auto request=ci->property("schoolPolicyRequest").toString();
+        if(request.isEmpty() || message.argument(0).toString()!=request) return true;
+        const auto data=message.argument(1).toByteArray();
+        if(data.isEmpty() || data.size()>32768) {ci->setNetworkPolicyStatus("risposta InternetGuard non valida");return true;}
+        QJsonParseError error;
+        const auto document=QJsonDocument::fromJson(data,&error);
+        if(error.error!=QJsonParseError::NoError || !document.isObject()) {ci->setNetworkPolicyStatus("risposta InternetGuard non valida");return true;}
+        const auto result=document.object();
         ci->setProperty("schoolPolicyDeadline",0);
-        ci->setNetworkPolicyStatus(humanStatus(QJsonDocument::fromJson(message.argument(1).toByteArray()).object()));return true;
+        if(result.value("status").toString()=="busy" && ci->property("schoolPolicyCommand").toInt()==Release && ci->property("schoolPolicyRetry").toInt()<2) {
+            const auto id=message.argument(0).toString();const int retry=ci->property("schoolPolicyRetry").toInt()+1;
+            ci->setNetworkPolicyStatus("servizio occupato; nuovo tentativo di sblocco...");
+            QTimer::singleShot(750,this,[this,ci,id,retry] {if(ci->property("schoolPolicyRequest").toString()==id) sendPolicy(ci.data(),Release,{},retry);});
+        } else ci->setNetworkPolicyStatus(humanStatus(result));return true;
     }
     if(message.featureUid()==m_attendanceUid && message.command()==NameReply) {
-        if(message.argument(0).toString()!=ci->property("schoolAttendanceRequest").toString()) return true;
+        const auto request=ci->property("schoolAttendanceRequest").toString();
+        if(request.isEmpty() || message.argument(0).toString()!=request) return true;
+        ci->setProperty("schoolAttendanceRequest",QString{});
         ci->setStudentName(cleanName(message.argument(1).toString()));return true;
     }
     return false;
@@ -207,23 +262,42 @@ bool SchoolFeatures::handleFeatureMessage(ComputerControlInterface::Pointer ci,c
 bool SchoolFeatures::handleFeatureMessage(VeyonServerInterface& server,const MessageContext& context,const FeatureMessage& message) {
     if(message.featureUid()==m_guardUid) {
         if(!context.connection() || !context.ioDevice() || message.command()<Apply || message.command()>Status) return true;
-        if(context.ioDevice()->property("schoolPolicyBusy").toBool()) return true;
         const auto id=message.argument(0).toString();if(QUuid(id).isNull() || id.size()!=36) return true;
+        if(context.ioDevice()->property("schoolPolicyBusy").toBool()) {
+            // Preserve only the newest explicit Release while this authenticated
+            // connection is applying a policy. Never queue attacker-sized work.
+            if(message.command()==Release) context.ioDevice()->setProperty("schoolPolicyPendingRelease",id);
+            else server.sendFeatureMessageReply(context,FeatureMessage(m_guardUid,Reply).addArgument(0,id).addArgument(1,QJsonDocument(QJsonObject{{"ok",false},{"status","busy"}}).toJson(QJsonDocument::Compact)));
+            return true;
+        }
+        if(m_policyInFlight>=8) {
+            server.sendFeatureMessageReply(context,FeatureMessage(m_guardUid,Reply).addArgument(0,id).addArgument(1,QJsonDocument(QJsonObject{{"ok",false},{"status","busy"}}).toJson(QJsonDocument::Compact)));return true;
+        }
         QJsonObject command;command["op"]=message.command()==Apply ? "apply" : message.command()==Release ? "release" : "status";
         auto owner=context.ioDevice()->property("schoolPolicyOwner").toString();
         if(owner.isEmpty()) {owner=newId();context.ioDevice()->setProperty("schoolPolicyOwner",owner);}
         command["owner"]=owner;
-        auto addresses=message.argument(1).toStringList();
+        auto addresses=message.command()==Apply ? message.argument(1).toStringList() : QStringList{};
+        if(addresses.size()>255 || std::any_of(addresses.cbegin(),addresses.cend(),[](const QString& address) {return address.size()>128;})) {
+            server.sendFeatureMessageReply(context,FeatureMessage(m_guardUid,Reply).addArgument(0,id).addArgument(1,QJsonDocument(QJsonObject{{"ok",false},{"status","invalid-request"}}).toJson(QJsonDocument::Compact)));return true;
+        }
         const auto socket=qobject_cast<QTcpSocket*>(context.ioDevice());
         if(!socket) return true;
         // Preserve the authenticated connection's actual peer, not a guessed LAN subnet.
         addresses.append(addressText(socket->peerAddress()));addresses.removeDuplicates();command["addresses"]=QJsonArray::fromStringList(addresses);
         context.ioDevice()->setProperty("schoolPolicyBusy",true);
+        ++m_policyInFlight;
         auto watcher=new QFutureWatcher<QJsonObject>(this);QPointer<VeyonServerInterface> guardedServer(&server);
         connect(watcher,&QFutureWatcher<QJsonObject>::finished,this,[this,watcher,context,guardedServer,id] {
             const auto result=watcher->result();watcher->deleteLater();
+            --m_policyInFlight;
             if(context.ioDevice()) context.ioDevice()->setProperty("schoolPolicyBusy",false);
             if(guardedServer && context.ioDevice()) guardedServer->sendFeatureMessageReply(context,FeatureMessage(m_guardUid,Reply).addArgument(0,id).addArgument(1,QJsonDocument(result).toJson(QJsonDocument::Compact)));
+            if(guardedServer && context.ioDevice() && context.connection()) {
+                const auto releaseId=context.ioDevice()->property("schoolPolicyPendingRelease").toString();
+                context.ioDevice()->setProperty("schoolPolicyPendingRelease",QString{});
+                if(!releaseId.isEmpty()) handleFeatureMessage(*guardedServer,context,FeatureMessage(m_guardUid,Release).addArgument(0,releaseId));
+            }
         });
         watcher->setFuture(QtConcurrent::run([command]{return SchoolNetwork::request(command);}));return true;
     }
@@ -231,7 +305,7 @@ bool SchoolFeatures::handleFeatureMessage(VeyonServerInterface& server,const Mes
     if(message.command()==NameReply && !context.connection()) {
         if(message.argument(0).toString()!=m_attendanceRequest || m_attendanceRequest.isEmpty()) return true;
         if(m_attendanceContext.ioDevice()) server.sendFeatureMessageReply(m_attendanceContext,FeatureMessage(m_attendanceUid,NameReply).addArgument(0,m_attendanceRequest).addArgument(1,cleanName(message.argument(1).toString())));
-        m_attendanceRequest.clear();m_attendanceContext=MessageContext{};return true;
+        m_attendanceTimer.stop();m_attendanceRequest.clear();m_attendanceContext=MessageContext{};return true;
     }
     if(!context.connection() || !context.ioDevice()) return true;
     if(message.command()==AskName) {
@@ -239,70 +313,123 @@ bool SchoolFeatures::handleFeatureMessage(VeyonServerInterface& server,const Mes
         if(m_attendanceContext.ioDevice() && m_attendanceContext.ioDevice()!=context.ioDevice()) return true;
         m_attendanceRequest=request;m_attendanceContext=context;
         server.featureWorkerManager().sendMessageToUnmanagedSessionWorker(message);
-        QTimer::singleShot(180000,this,[this,request] {if(m_attendanceRequest==request){m_attendanceRequest.clear();m_attendanceContext=MessageContext{};}});
+        m_attendanceTimer.start();
     } else if(message.command()==EndAttendance && (!m_attendanceContext.ioDevice() || m_attendanceContext.ioDevice()==context.ioDevice())) {
-        m_attendanceRequest.clear();m_attendanceContext=MessageContext{};server.featureWorkerManager().stopWorker(m_attendanceUid);
+        m_attendanceTimer.stop();m_attendanceRequest.clear();m_attendanceContext=MessageContext{};server.featureWorkerManager().stopWorker(m_attendanceUid);
     }
     return true;
 }
 bool SchoolFeatures::handleFeatureMessage(VeyonWorkerInterface& worker,const FeatureMessage& message) {
     if(message.featureUid()!=m_attendanceUid || message.command()!=AskName) return false;
+    const auto request=message.argument(0).toString();
+    if(request.size()!=36 || QUuid(request).isNull()) return true;
+    // A worker is QObject-backed in production. Do not keep an unguarded
+    // reference across asynchronous dialog completion or worker teardown.
+    auto workerObject=dynamic_cast<QObject*>(&worker);
+    if(!workerObject) {qWarning("NetLink attendance worker has no guarded QObject lifetime");return true;}
+    if(m_studentDialog && m_studentDialog->property("schoolAttendanceRequest").toString()==request && bringForward(m_studentDialog)) return true;
     if(m_studentDialog) delete m_studentDialog;
     auto dialog=new QDialog;dialog->setAttribute(Qt::WA_DeleteOnClose);m_studentDialog=dialog;
+    dialog->setProperty("schoolAttendanceRequest",request);
     dialog->setWindowTitle("Appello — NetLink");dialog->setWindowIcon(QIcon(":/core/veyon.png"));
     auto layout=new QVBoxLayout(dialog);auto label=new QLabel("Inserisci il tuo nome e cognome per l’appello del docente.",dialog);label->setTextFormat(Qt::PlainText);layout->addWidget(label);
     auto name=new QLineEdit(dialog);name->setMaxLength(120);layout->addWidget(name);
     auto buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,dialog);layout->addWidget(buttons);
     connect(buttons,&QDialogButtonBox::accepted,dialog,[dialog,name] {if(!cleanName(name->text()).isEmpty()) dialog->accept();});
     connect(buttons,&QDialogButtonBox::rejected,dialog,&QDialog::reject);
-    const auto request=message.argument(0).toString();
-    connect(dialog,&QDialog::finished,this,[this,&worker,name,request](int result) {worker.sendFeatureMessageReply(FeatureMessage(m_attendanceUid,NameReply).addArgument(0,request).addArgument(1,result==QDialog::Accepted ? cleanName(name->text()) : QString{}));});
+    QPointer<QObject> guardedWorker(workerObject);
+    connect(workerObject,&QObject::destroyed,dialog,&QObject::deleteLater);
+    connect(dialog,&QDialog::finished,this,[this,guardedWorker,name,request](int result) {
+        if(auto live=dynamic_cast<VeyonWorkerInterface*>(guardedWorker.data())) live->sendFeatureMessageReply(FeatureMessage(m_attendanceUid,NameReply).addArgument(0,request).addArgument(1,result==QDialog::Accepted ? cleanName(name->text()) : QString{}));
+    });
+    QTimer::singleShot(180000,dialog,&QDialog::reject);
     dialog->show();dialog->raise();dialog->activateWindow();name->setFocus();return true;
 }
 void SchoolFeatures::attendance(VeyonMasterInterface& master,const ComputerControlInterfaceList& clients) {
-    QMessageBox box(QMessageBox::Question,"Appello","Il nome è dichiarato dallo studente, non verificato.\nScegli l’operazione per i PC selezionati.",QMessageBox::NoButton,master.mainWindow());box.setTextFormat(Qt::PlainText);
-    auto ask=box.addButton("Richiedi nome",QMessageBox::ActionRole);auto end=box.addButton("Termina e cancella nomi",QMessageBox::ActionRole);auto exportButton=box.addButton("Esporta CSV",QMessageBox::ActionRole);box.addButton(QMessageBox::Cancel);box.exec();
-    if(box.clickedButton()==ask) {
-        for(const auto& ci:clients) {const auto id=newId();ci->setProperty("schoolAttendanceRequest",id);ci->setStudentName({});ci->sendFeatureMessage(FeatureMessage(m_attendanceUid,AskName).addArgument(0,id));}
-    } else if(box.clickedButton()==end) {
-        for(const auto& ci:clients) {ci->setProperty("schoolAttendanceRequest",QString{});ci->setStudentName({});ci->sendFeatureMessage(FeatureMessage(m_attendanceUid,EndAttendance));}
-    } else if(box.clickedButton()==exportButton) {
-        const auto path=QFileDialog::getSaveFileName(master.mainWindow(),"Esporta appello",{},"CSV (*.csv)");if(path.isEmpty()) return;
-        auto quote=[](QString text){const auto trimmed=text.trimmed();if(!trimmed.isEmpty() && QString("=+-@").contains(trimmed.front())) text.prepend('\'');text.replace('"',"\"\"");return '"'+text+'"';};
-        QByteArray data("\xef\xbb\xbfPC;Studente;Connessione\r\n");
-        for(const auto& ci:clients) data+=(quote(ci->computer().name())+';'+quote(ci->studentName())+';'+quote(ci->state()==ComputerControlInterface::State::Connected ? "online" : "offline")+"\r\n").toUtf8();
-        QSaveFile file(path);if(!file.open(QIODevice::WriteOnly) || file.write(data)!=data.size() || !file.commit()) QMessageBox::warning(master.mainWindow(),"Appello","Esportazione non riuscita.");
-    }
+    if(bringForward(m_attendanceDialog)) return;
+    auto box=new QMessageBox(QMessageBox::Question,"Appello","Il nome è dichiarato dallo studente, non verificato.\nScegli l’operazione per i PC selezionati all’apertura.",QMessageBox::NoButton,master.mainWindow());
+    m_attendanceDialog=box;prepareDialog(box,"schoolAttendanceDialog");box->setTextFormat(Qt::PlainText);
+    auto ask=box->addButton("Richiedi nome",QMessageBox::ActionRole);auto end=box->addButton("Termina e cancella nomi",QMessageBox::ActionRole);auto exportButton=box->addButton("Esporta CSV",QMessageBox::ActionRole);box->addButton(QMessageBox::Cancel);
+    QPointer<QWidget> parent(master.mainWindow());
+    connect(box,&QMessageBox::buttonClicked,this,[this,box,ask,end,exportButton,clients,parent](QAbstractButton* clicked) {
+        if(clicked==ask) {
+            for(const auto& ci:clients) if(ci) {
+                if(ci->state()!=ComputerControlInterface::State::Connected) continue;
+                const auto id=newId();ci->setProperty("schoolAttendanceRequest",id);ci->setStudentName({});ci->sendFeatureMessage(FeatureMessage(m_attendanceUid,AskName).addArgument(0,id));
+                QPointer<ComputerControlInterface> guarded(ci.data());
+                auto deadline=ci->findChild<QTimer*>("schoolAttendanceDeadlineTimer",Qt::FindDirectChildrenOnly);
+                if(!deadline) {deadline=new QTimer(ci.data());deadline->setObjectName("schoolAttendanceDeadlineTimer");deadline->setSingleShot(true);}
+                disconnect(deadline,nullptr,this,nullptr);
+                connect(deadline,&QTimer::timeout,this,[guarded,id] {if(guarded && guarded->property("schoolAttendanceRequest").toString()==id) guarded->setProperty("schoolAttendanceRequest",QString{});});deadline->start(180000);
+            }
+        } else if(clicked==end) {
+            for(const auto& ci:clients) if(ci) {ci->setProperty("schoolAttendanceRequest",QString{});ci->setStudentName({});ci->sendFeatureMessage(FeatureMessage(m_attendanceUid,EndAttendance));}
+        } else if(clicked==exportButton && parent) {
+            auto chooser=new QFileDialog(parent,"Esporta appello",{},"CSV (*.csv)");
+            chooser->setAcceptMode(QFileDialog::AcceptSave);chooser->setDefaultSuffix("csv");chooser->setAttribute(Qt::WA_DeleteOnClose);
+            connect(chooser,&QFileDialog::fileSelected,this,[clients,parent](const QString& path) {
+                if(path.isEmpty()) return;
+                auto quote=[](QString text){const auto trimmed=text.trimmed();if(!trimmed.isEmpty() && QString("=+-@").contains(trimmed.front())) text.prepend('\'');text.replace('"',"\"\"");return '"'+text+'"';};
+                QByteArray data("\xef\xbb\xbfPC;Studente;Connessione\r\n");
+                for(const auto& ci:clients) if(ci) data+=(quote(ci->computer().name())+';'+quote(ci->studentName())+';'+quote(ci->state()==ComputerControlInterface::State::Connected ? "online" : "offline")+"\r\n").toUtf8();
+                QSaveFile file(path);if(!file.open(QIODevice::WriteOnly) || file.write(data)!=data.size() || !file.commit()) notify(parent,QMessageBox::Warning,"Appello","Esportazione non riuscita.");
+            });
+            chooser->open();
+        }
+        Q_UNUSED(box)
+    });
+    box->show();
 }
 void SchoolFeatures::discovery(VeyonMasterInterface& master) {
-    if(!m_discovery) {QMessageBox::information(master.mainWindow(),"WS-Discovery","Discovery disabilitato nel Configurator.");return;}
+    if(bringForward(m_discoveryDialog)) return;
+    if(!m_discovery) {
+        auto box=new QMessageBox(QMessageBox::Information,"WS-Discovery","Discovery disabilitato nel Configurator.",QMessageBox::Ok,master.mainWindow());
+        m_discoveryDialog=box;prepareDialog(box,"schoolDiscoveryDialog");box->setTextFormat(Qt::PlainText);box->show();return;
+    }
     m_discovery->probe();
-    QDialog dialog(master.mainWindow());dialog.setWindowTitle("Client trovati — WS-Discovery");dialog.resize(800,400);
-    auto layout=new QVBoxLayout(&dialog);auto help=new QLabel("Gli annunci non sono autenticati. Verifica i PC prima di importarli.\nPer altre subnet distribuisci School/DiscoveryMaster ai client. "+m_discovery->error(),&dialog);help->setWordWrap(true);help->setTextFormat(Qt::PlainText);layout->addWidget(help);
-    auto table=new QTableWidget(&dialog);table->setColumnCount(3);table->setHorizontalHeaderLabels({"Nome dichiarato dal PC","IP rilevato","Porta"});table->setSelectionBehavior(QAbstractItemView::SelectRows);layout->addWidget(table);
-    QList<SchoolDiscovery::Record> records;
-    auto refresh=[this,table,&records] {records=m_discovery->records();table->setRowCount(records.size());for(int i=0;i<records.size();++i){table->setItem(i,0,new QTableWidgetItem(records[i].name));table->setItem(i,1,new QTableWidgetItem(records[i].address));table->setItem(i,2,new QTableWidgetItem(QString::number(records[i].port)));}};
-    QTimer timer;connect(&timer,&QTimer::timeout,&dialog,refresh);timer.start(2000);refresh();
-    auto buttons=new QDialogButtonBox(QDialogButtonBox::Close,&dialog);layout->addWidget(buttons);
+    auto dialog=new QDialog(master.mainWindow());m_discoveryDialog=dialog;prepareDialog(dialog,"schoolDiscoveryDialog");dialog->setWindowTitle("Client trovati — WS-Discovery");dialog->resize(800,400);
+    auto layout=new QVBoxLayout(dialog);auto help=new QLabel("Gli annunci non sono autenticati. Verifica i PC prima di importarli.\nPer altre subnet distribuisci School/DiscoveryMaster ai client. "+m_discovery->error(),dialog);help->setWordWrap(true);help->setTextFormat(Qt::PlainText);layout->addWidget(help);
+    auto table=new QTableWidget(dialog);table->setColumnCount(3);table->setHorizontalHeaderLabels({"Nome dichiarato dal PC","IP rilevato","Porta"});table->setSelectionBehavior(QAbstractItemView::SelectRows);table->setSelectionMode(QAbstractItemView::SingleSelection);table->setEditTriggers(QAbstractItemView::NoEditTriggers);layout->addWidget(table);
+    auto records=QSharedPointer<QList<SchoolDiscovery::Record>>::create();
+    auto refresh=[this,table,records] {
+        auto updated=m_discovery->records();
+        std::sort(updated.begin(),updated.end(),[](const SchoolDiscovery::Record& a,const SchoolDiscovery::Record& b) {return a.endpoint<b.endpoint;});
+        bool changed=updated.size()!=records->size();
+        if(!changed) for(int i=0;i<updated.size();++i) {
+            const auto& a=updated[i];const auto& b=(*records)[i];
+            if(a.endpoint!=b.endpoint || a.name!=b.name || a.address!=b.address || a.port!=b.port) {changed=true;break;}
+        }
+        if(!changed) return;
+        const int selected=table->currentRow();const auto endpoint=selected>=0 && selected<records->size() ? (*records)[selected].endpoint : QString{};
+        *records=updated;table->setUpdatesEnabled(false);table->setRowCount(records->size());
+        for(int i=0;i<records->size();++i) {const auto& record=(*records)[i];table->setItem(i,0,new QTableWidgetItem(record.name));table->setItem(i,1,new QTableWidgetItem(record.address));table->setItem(i,2,new QTableWidgetItem(QString::number(record.port)));if(record.endpoint==endpoint) table->selectRow(i);}
+        table->setUpdatesEnabled(true);
+    };
+    auto timer=new QTimer(dialog);connect(timer,&QTimer::timeout,dialog,refresh);timer->start(2000);refresh();
+    auto buttons=new QDialogButtonBox(QDialogButtonBox::Close,dialog);layout->addWidget(buttons);
     auto import=buttons->addButton("Importa PC selezionato",QDialogButtonBox::ActionRole);
-    connect(import,&QPushButton::clicked,&dialog,[this,&dialog,table,&records] {
-        const int row=table->currentRow();if(row<0 || row>=records.size()) return;
-        const auto record=records[row];
-        if(record.port!=VeyonCore::config().veyonServerPort()) {QMessageBox::warning(&dialog,"Discovery","Porta diversa da quella configurata: aggiungi il PC manualmente.");return;}
-        if(QMessageBox::question(&dialog,"Importa PC",record.name+" — "+record.address+"\nConfermi che appartiene alla scuola?")!=QMessageBox::Yes) return;
+    connect(import,&QPushButton::clicked,dialog,[this,dialog,table,records,import] {
+        const int row=table->currentRow();if(row<0 || row>=records->size()) return;
+        const auto record=(*records)[row];
+        if(record.port!=VeyonCore::config().veyonServerPort()) {notify(dialog,QMessageBox::Warning,"Discovery","Porta diversa da quella configurata: aggiungi il PC manualmente.");return;}
+        auto confirmation=new QMessageBox(QMessageBox::Question,"Importa PC",record.name+" — "+record.address+"\nConfermi che appartiene alla scuola?",QMessageBox::Yes|QMessageBox::No,dialog);
+        confirmation->setTextFormat(Qt::PlainText);confirmation->setAttribute(Qt::WA_DeleteOnClose);import->setEnabled(false);
+        connect(confirmation,&QMessageBox::finished,dialog,[dialog,record,import](int answer) {
+        import->setEnabled(true);if(answer!=QMessageBox::Yes) return;
         auto& config=VeyonCore::config();
         if(!Configuration::LocalStore(Configuration::LocalStore::System).isWritable()) {
-            QMessageBox::warning(&dialog,"Discovery","Occorrono diritti amministrativi per importare un PC nella configurazione.");return;
+            notify(dialog,QMessageBox::Warning,"Discovery","Occorrono diritti amministrativi per importare un PC nella configurazione.");return;
         }
         auto objects=config.value("NetworkObjects","BuiltinDirectory",QJsonArray{}).toJsonArray();
         QUuid location;
-        for(const auto& value:objects) {const NetworkObject object(value.toObject());if(object.type()==NetworkObject::Type::Host && object.hostAddress()==record.address) {QMessageBox::information(&dialog,"Discovery","PC già configurato.");return;}if(object.type()==NetworkObject::Type::Location && location.isNull()) location=object.uid();}
+        for(const auto& value:objects) {const NetworkObject object(value.toObject());if(object.type()==NetworkObject::Type::Host && object.hostAddress()==record.address) {notify(dialog,QMessageBox::Information,"Discovery","PC già configurato.");return;}if(object.type()==NetworkObject::Type::Location && location.isNull()) location=object.uid();}
         if(location.isNull()) {location=QUuid::createUuid();objects.append(NetworkObject(NetworkObject::Type::Location,"Discovery",{},{},{},location).toJson());}
         objects.append(NetworkObject(NetworkObject::Type::Host,record.name.left(120),record.address,{},{},QUuid::createUuid(),location).toJson());
         config.setValue("NetworkObjects",objects,"BuiltinDirectory");
         ConfigurationManager manager;
-        if(!manager.saveConfiguration()) {QMessageBox::warning(&dialog,"Discovery",manager.errorString());return;}
-        QMessageBox::information(&dialog,"Discovery","PC importato. Riavvia il Master per visualizzarlo; l’autenticazione Veyon rimane necessaria.");
+        if(!manager.saveConfiguration()) {notify(dialog,QMessageBox::Warning,"Discovery",manager.errorString());return;}
+        notify(dialog,QMessageBox::Information,"Discovery","PC importato. Riavvia il Master per visualizzarlo; l’autenticazione Veyon rimane necessaria.");
+        });confirmation->open();
     });
-    connect(buttons,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);dialog.exec();
+    connect(buttons,&QDialogButtonBox::rejected,dialog,&QDialog::reject);dialog->show();
 }

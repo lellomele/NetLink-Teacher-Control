@@ -1,4 +1,4 @@
-param([string]$Package='dist/NetLink-0.1.0-alpha.5-win64',[string]$Manifest='dist/package-manifest.json')
+param([string]$Package='dist/NetLink-0.1.0-alpha.6-win64',[string]$Manifest='dist/package-manifest.json')
 $ErrorActionPreference='Stop'
 $repoRoot=Split-Path $PSScriptRoot
 $packageRoot=(Resolve-Path -LiteralPath (Join-Path $repoRoot $Package)).Path
@@ -22,6 +22,6 @@ foreach($file in $files) {
 }
 foreach($name in @('veyon-master.exe','veyon-configurator.exe','veyon-service.exe','veyon-server.exe','veyon-worker.exe','veyon-cli.exe','veyon-wcli.exe','netlink-companion.exe')) {
     $file=Get-Item -LiteralPath (Join-Path $packageRoot $name)
-    if($file.VersionInfo.FileVersion -ne '4.7.5-netlink.0.1.0-alpha.5'){throw "Wrong application version: $name"}
+    if($file.VersionInfo.FileVersion -ne '4.7.5-netlink.0.1.0-alpha.6'){throw "Wrong application version: $name"}
 }
 Write-Output "Verified $($files.Count) files, SHA-256 manifest, application versions and runtime exclusions."

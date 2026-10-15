@@ -166,6 +166,7 @@ private:
 	void ping();
 	void setMinimumFramebufferUpdateInterval();
 	void resetWatchdog();
+	void connectFramebufferSignals(VncConnection* transport);
 	void restartConnection();
 
 	void updateState();
@@ -199,6 +200,7 @@ private:
 	int m_timestamp{0};
 
 	VeyonConnection* m_connection{nullptr};
+	quint64 m_connectionGeneration{0};
 	QTimer m_pingTimer{this};
 	QTimer m_connectionWatchdogTimer{this};
 
@@ -206,6 +208,7 @@ private:
 	QTimer m_serverVersionQueryTimer{this};
 
 	QTimer m_statePollingTimer{this};
+	friend class ConnectionReliabilityTests;
 
 Q_SIGNALS:
 	void framebufferSizeChanged();

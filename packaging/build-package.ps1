@@ -3,7 +3,7 @@ $ErrorActionPreference='Stop'
 $repoRoot=Split-Path $PSScriptRoot
 $buildRoot=(Resolve-Path (Join-Path $repoRoot $Build)).Path
 $distRoot=Join-Path $repoRoot 'dist'
-$packageRoot=Join-Path $distRoot 'NetLink-0.1.0-alpha.5-win64'
+$packageRoot=Join-Path $distRoot 'NetLink-0.1.0-alpha.6-win64'
 if(Test-Path -LiteralPath $packageRoot){throw "Use a fresh package directory; existing files will not be overwritten: $packageRoot"}
 New-Item -ItemType Directory -Path $packageRoot | Out-Null
 foreach($dir in @('plugins','platforms','imageformats','crypto','translations','licenses')){New-Item -ItemType Directory -Path (Join-Path $packageRoot $dir) | Out-Null}
@@ -28,6 +28,7 @@ Copy-Item -LiteralPath (Join-Path $repoRoot 'COPYING.GPL3') -Destination (Join-P
 Copy-Item -LiteralPath (Join-Path $repoRoot 'COPYING') -Destination (Join-Path $packageRoot 'licenses/Veyon-GPL-2.0.txt')
 Copy-Item -LiteralPath (Join-Path $repoRoot 'COPYING.GPL3') -Destination (Join-Path $packageRoot 'licenses/GPL-3.0.txt')
 Copy-Item -LiteralPath (Join-Path $repoRoot 'README.md') -Destination (Join-Path $packageRoot 'README.txt')
+& (Join-Path $PSScriptRoot 'verify-hook.ps1') -HookPath (Join-Path $packageRoot 'vnchooks.dll') -Toolchain $Toolchain
 $translationTool=Join-Path $Toolchain 'bin/lrelease-qt5.exe'
 Get-ChildItem -LiteralPath (Join-Path $repoRoot 'translations') -Filter '*.ts' | ForEach-Object {
     & $translationTool $_.FullName '-qm' (Join-Path $packageRoot ('translations/'+$_.BaseName+'.qm')) | Out-Null

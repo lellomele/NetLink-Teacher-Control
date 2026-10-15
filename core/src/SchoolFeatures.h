@@ -10,6 +10,8 @@
 #include "CommandLinePluginInterface.h"
 #include "SchoolDiscovery.h"
 
+class SchoolPolicyResolver;
+
 class VEYON_CORE_EXPORT SchoolFeatures : public QObject, public PluginInterface,
     public FeatureProviderInterface, public ConfigurationPagePluginInterface, public CommandLinePluginInterface {
     Q_OBJECT
@@ -39,15 +41,19 @@ public Q_SLOTS:
     CommandLinePluginInterface::RunResult handle_firewall_remove(const QStringList&);
     CommandLinePluginInterface::RunResult handle_selftest(const QStringList&);
 private:
+    friend class SchoolLifecycleTests;
+    SchoolFeatures(QObject* parent, bool initializeRuntime);
     enum Command { Apply=1, Release=2, Status=3, Reply=4, AskName=5, NameReply=6, EndAttendance=7 };
     void policy(const ComputerControlInterfaceList&, bool block);
-    void sendPolicy(ComputerControlInterface*, int command, const QStringList& addresses);
+    void sendPolicy(ComputerControlInterface*, int command, const QStringList& addresses, int retry = 0);
     void tick();
     void attendance(VeyonMasterInterface&, const ComputerControlInterfaceList&);
     void discovery(VeyonMasterInterface&);
+    void beginPolicyResolution(const ComputerControlInterfaceList&, const QStringList& resources);
     FeatureList m_features;
     const QUuid m_guardUid, m_attendanceUid, m_discoveryUid;
     QTimer m_timer;
+    QTimer m_attendanceTimer;
     SchoolDiscovery::Agent* m_discovery = nullptr;
     QThread* m_serviceThread = nullptr;
     struct Target { QPointer<ComputerControlInterface> control; QStringList addresses; qint64 sent = 0; };
@@ -56,6 +62,8 @@ private:
     MessageContext m_attendanceContext;
     QString m_attendanceRequest;
     QPointer<QDialog> m_studentDialog;
-    bool m_resolving = false;
-    quint64 m_resolutionGeneration = 0;
+    QPointer<QDialog> m_guardDialog, m_attendanceDialog, m_discoveryDialog;
+    QPointer<SchoolPolicyResolver> m_resolution;
+    ComputerControlInterfaceList m_resolutionClients;
+    int m_policyInFlight = 0;
 };

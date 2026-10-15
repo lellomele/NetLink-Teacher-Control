@@ -47,7 +47,7 @@ public:
 
 	VncConnection::State state() const
 	{
-		return m_vncConnection->state();
+		return m_vncConnection ? m_vncConnection->state() : VncConnection::State::Disconnected;
 	}
 
 	bool isConnected() const
@@ -93,8 +93,6 @@ Q_SIGNALS:
 private:
 	~VeyonConnection() override;
 
-	void registerConnection();
-	void unregisterConnection();
 
 	// authentication
 	static int8_t handleSecTypeVeyon( rfbClient* client, uint32_t authScheme );

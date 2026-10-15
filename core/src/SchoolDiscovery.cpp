@@ -133,19 +133,24 @@ QByteArray encode(const Message& message) {
     return data;
 }
 Agent::Agent(bool master, const QString& bootstrap, int port, QObject* parent)
+    : Agent(master,bootstrap,port,parent,true) {}
+Agent::Agent(bool master, const QString& bootstrap, int port, QObject* parent, bool initializeSockets)
     : QObject(parent), m_master(master), m_bootstrap(bootstrap), m_port(port),
       m_udp4(this), m_udp6(this), m_probe4(this), m_probe6(this), m_http(this), m_network(this), m_timer(this),
       m_instance(quint64(QDateTime::currentSecsSinceEpoch())) {
+    m_clock.start();
     auto identity = QSysInfo::machineUniqueId();
     if (identity.isEmpty()) identity = QHostInfo::localHostName().toUtf8();
     identity+=master ? ":discovery-proxy" : ":client";
     m_endpoint = "urn:uuid:" + QUuid::fromRfc4122(QCryptographicHash::hash(identity,QCryptographicHash::Sha256).left(16)).toString(QUuid::WithoutBraces);
+    if(!initializeSockets) return;
+    m_interfaces=QNetworkInterface::allInterfaces();
     const auto flags = QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint;
     if (!m_udp4.bind(QHostAddress::AnyIPv4,3702,flags)) m_error = m_udp4.errorString();
     m_udp6.bind(QHostAddress::AnyIPv6,3702,flags);
     m_udp4.setSocketOption(QAbstractSocket::MulticastTtlOption,1);
     m_udp6.setSocketOption(QAbstractSocket::MulticastTtlOption,1);
-    for (const auto& interface : QNetworkInterface::allInterfaces()) {
+    for (const auto& interface : m_interfaces) {
         if (!(interface.flags() & QNetworkInterface::IsUp) || !(interface.flags() & QNetworkInterface::CanMulticast) || (interface.flags() & QNetworkInterface::IsLoopBack)) continue;
         m_udp4.joinMulticastGroup(QHostAddress("239.255.255.250"),interface);
         m_udp6.joinMulticastGroup(QHostAddress("ff02::c"),interface);
@@ -162,7 +167,9 @@ Agent::Agent(bool master, const QString& bootstrap, int port, QObject* parent)
     }
     connect(&m_timer,&QTimer::timeout,this,[this] {
         m_rate.clear();
-        const auto now = QDateTime::currentMSecsSinceEpoch();
+        m_overloadReported=false;
+        m_interfaces=QNetworkInterface::allInterfaces();
+        const auto now = m_clock.elapsed();
         for (auto it=m_records.begin();it!=m_records.end();) { if (now-it->seen > 95000) it=m_records.erase(it); else ++it; }
         for (auto it=m_seen.begin();it!=m_seen.end();) { if (now-it.value()>60000) it=m_seen.erase(it); else ++it; }
         for (auto it=m_queries.begin();it!=m_queries.end();) {if(now-it.value()>60000) it=m_queries.erase(it);else ++it;}
@@ -177,13 +184,18 @@ Message Agent::announcement(const QString& action) const {
     Message message; message.action=action; message.id=identifier(); message.instance=m_instance; message.sequence=m_sequence+1;
     Record record; record.endpoint=m_endpoint; record.name=QHostInfo::localHostName(); record.port=m_master ? 3702 : m_port;
     record.client=!m_master;record.proxy=m_master;
-    for(const auto& address:QNetworkInterface::allAddresses()) {
-        if(!address.isLoopback() && address.protocol()==QAbstractSocket::IPv4Protocol) {record.address=address.toString();break;}
+    for(const auto& interface:m_interfaces) {
+        if(!(interface.flags() & QNetworkInterface::IsUp) || (interface.flags() & QNetworkInterface::IsLoopBack)) continue;
+        for(const auto& entry:interface.addressEntries()) {
+            const auto address=entry.ip();
+            if(!address.isLoopback() && address.protocol()==QAbstractSocket::IPv4Protocol) {record.address=address.toString();break;}
+        }
+        if(!record.address.isEmpty()) break;
     }
     message.records.append(record); return message;
 }
 void Agent::multicast(const QByteArray& data) {
-    for (const auto& interface : QNetworkInterface::allInterfaces()) {
+    for (const auto& interface : m_interfaces) {
         if (!(interface.flags() & QNetworkInterface::IsUp) || !(interface.flags() & QNetworkInterface::CanMulticast) || (interface.flags() & QNetworkInterface::IsLoopBack)) continue;
         auto& udp4=m_master ? m_probe4 : m_udp4;
         auto& udp6=m_master ? m_probe6 : m_udp6;
@@ -206,24 +218,30 @@ void Agent::announce() {
     }
 }
 void Agent::probe() {
-    if(m_queries.size()>=128) return;
-    Message message;message.action="Probe";message.id=identifier();m_queries.insert(message.id,QDateTime::currentMSecsSinceEpoch());
+    const auto now=m_clock.elapsed();
+    if(!m_master || m_queries.size()>=128 || now-m_lastProbe<2000) return;
+    m_lastProbe=now;
+    Message message;message.action="Probe";message.id=identifier();m_queries.insert(message.id,now);
     const auto data=encode(message);multicast(data);
     QTimer::singleShot(200,this,[this,data]{multicast(data);});QTimer::singleShot(600,this,[this,data]{multicast(data);});
 }
 QByteArray Agent::process(const QByteArray& xml,const QHostAddress& source,bool http) {
     const auto key=source.toString();
-    if (source.isNull() || source.isMulticast() || m_rate.size()>1024 || ++m_rate[key]>32) return {};
+    if (source.isNull() || source.isMulticast()) return {};
+    if(m_rate.size()>1024 || ++m_rate[key]>32) {
+        if(!m_overloadReported) {m_overloadReported=true;qWarning("NetLink WS-Discovery input rate limited; further messages are temporarily ignored");}
+        return {};
+    }
     Message message; if(!decode(xml,message)) return {};
     if(m_seen.contains(message.id) || m_seen.size()>=4096) return {};
-    m_seen.insert(message.id,QDateTime::currentMSecsSinceEpoch());
+    m_seen.insert(message.id,m_clock.elapsed());
     const auto action=message.action.section('/',-1);
     if(action.endsWith("Matches") && m_master && !m_queries.contains(message.relatesTo)) return {};
     if(action=="Hello" || action=="ProbeMatches" || action=="ResolveMatches" || action=="Bye") {
         for(auto record : message.records) {
             if(action!="Bye" && !record.client) continue;
             // Never follow remote metadata URLs or accept an IP different from the sender.
-            record.address=source.toString(); record.seen=QDateTime::currentMSecsSinceEpoch();
+            record.address=source.toString(); record.seen=m_clock.elapsed();
             auto old=m_records.constFind(record.endpoint);
             if(old!=m_records.cend() && (old->instance>record.instance || (old->instance==record.instance && old->sequence>=record.sequence && !http))) continue;
             if(action=="Bye") m_records.remove(record.endpoint);
@@ -252,8 +270,9 @@ QByteArray Agent::process(const QByteArray& xml,const QHostAddress& source,bool 
     const auto data=encode(answer); return data.size()<=32768 ? data : QByteArray{};
 }
 void Agent::readUdp(QUdpSocket* socket) {
-    int budget=64;
-    while(socket->hasPendingDatagrams() && budget--) {
+    int budget=16;
+    QElapsedTimer slice;slice.start();
+    while(socket->hasPendingDatagrams() && budget-- && slice.elapsed()<3) {
         const auto datagram=socket->receiveDatagram(32769);
         if(datagram.data().size()>32768) continue;
         const auto answer=process(datagram.data(),datagram.senderAddress(),false);
@@ -262,7 +281,12 @@ void Agent::readUdp(QUdpSocket* socket) {
             QTimer::singleShot(int(QRandomGenerator::global()->bounded(500u)),this,[socket,address,port,answer]{socket->writeDatagram(answer,address,port);});
         }
     }
-    if(socket->hasPendingDatagrams()) QTimer::singleShot(0,this,[this,socket]{readUdp(socket);});
+    // Coalesce continuations: repeated readyRead signals must not multiply the
+    // queued drain callbacks under a multicast flood and starve the GUI.
+    if(socket->hasPendingDatagrams() && !m_udpDrainScheduled.contains(socket)) {
+        m_udpDrainScheduled.insert(socket);
+        QTimer::singleShot(0,this,[this,socket]{m_udpDrainScheduled.remove(socket);readUdp(socket);});
+    }
 }
 void Agent::acceptHttp() {
     while(auto socket=m_http.nextPendingConnection()) {

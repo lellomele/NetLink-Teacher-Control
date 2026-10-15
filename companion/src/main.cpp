@@ -5,6 +5,7 @@
 #include "Diagnostics.h"
 #include "DiagnosticLink.h"
 #include "NetLinkAppearance.h"
+#include "GuiLatencyMonitor.h"
 #include <veyonconfig.h>
 #include <QApplication>
 #include <QCheckBox>
@@ -220,6 +221,6 @@ int main(int argc,char** argv) {
         return std::fwrite(bytes.constData(),1,size_t(bytes.size()),stdout)==size_t(bytes.size())?0:3;
     }
     QApplication app(argc,argv);app.setOrganizationName("Veyon");app.setApplicationName("NetLinkCompanion");app.setApplicationDisplayName("NetLink Companion");app.setApplicationVersion(VEYON_VERSION);app.setWindowIcon(QIcon(":/companion/icon.png"));
-    NetLinkAppearance::install();CompanionWindow window;window.show();return app.exec();
+    NetLinkAppearance::install();CompanionWindow window;window.show();new GuiLatencyMonitor(&app);return app.exec();
 }
 #endif

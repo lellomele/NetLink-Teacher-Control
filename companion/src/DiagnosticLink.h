@@ -6,6 +6,7 @@
 #include <QJsonObject>
 #include <memory>
 
+class DiagnosticLinkTests;
 namespace Companion {
 class DiagnosticLink : public QObject {
     Q_OBJECT
@@ -24,6 +25,10 @@ Q_SIGNALS:
     void failed(const QString& message);
     void stopped();
 private:
+    friend class ::DiagnosticLinkTests;
+    void postFailure(const QString& message);
+    void postReportReceived(const QJsonObject& report);
+    void postReportSent();
     struct Impl;
     std::unique_ptr<Impl> d;
 };

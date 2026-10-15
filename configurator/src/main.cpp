@@ -30,6 +30,7 @@
 #include "MainWindow.h"
 #include "PlatformCoreFunctions.h"
 #include "Logger.h"
+#include "GuiLatencyMonitor.h"
 
 
 
@@ -73,6 +74,7 @@ int main( int argc, char **argv )
 	// now create the main window
 	auto mainWindow = new MainWindow;
 	mainWindow->show();
+	new GuiLatencyMonitor(&app);
 
 	return core.exec();
 }

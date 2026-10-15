@@ -60,6 +60,9 @@ Non pubblicare chiavi private, password o esportazioni di configurazione.
 
 ## Autenticazione e Companion
 
+Prima dei test aggiornare entrambi i PC con l'installer completo e riavviare
+Windows, per scaricare dai processi le librerie delle alpha precedenti.
+
 1. Aggiornare la suite completa sui due PC di prova. Avviare il Master con
    l'account docente normale; una miniatura aggiornata verifica uno scambio reale,
    mentre TCP raggiungibile o un banner RFB non provano l'autenticazione.
@@ -87,6 +90,27 @@ Non pubblicare chiavi private, password o esportazioni di configurazione.
    eventuali collegamenti dell'installazione Veyon originale siano conservati.
 
 Riportare passaggio, passato/non passato ed errore testuale, senza credenziali.
+
+## Stabilità della console
+
+1. Annotare l'orario di inizio della prova dopo il riavvio. In Companion aprire
+   Stabilità e arresti Windows: gli eventi antecedenti non sono nuovi errori.
+2. Aprire e chiudere InternetGuard, Appello e Trova client almeno 20 volte ciascuno,
+   anche con Annulla e senza comandi al client. Verificare assenza di nero sull'intero
+   schermo, blocchi e nuovi eventi `dwm.exe`/suite nel registro Windows.
+3. Tenere aperta una finestra School e verificare che console e miniature restino
+   utilizzabili. Un secondo clic deve riportare alla stessa finestra; i PC
+   destinatari rimangono quelli selezionati alla prima apertura.
+4. Eseguire Blocca, chiudere la finestra e riaprirla: il blocco non deve essere
+   rilasciato implicitamente. Sblocca durante una richiesta in corso deve ricevere
+   conferma o errore esplicito, mai un falso stato libero.
+5. Con il client di prova offline e poi riconnesso, verificare timeout e assenza
+   di riproduzione di vecchi comandi. Provare chiusura della console durante DNS,
+   appello e ricezione di risposte. Non interrompere il servizio del laboratorio.
+6. Raccogliere un nuovo rapporto Companion in caso di pause. Il controllo delle
+   finestre non rispondenti è un'osservazione istantanea; gli avvisi GUI nel log
+   registrano il ritardo solo dopo il recupero e possono includere sleep/resume.
+
 Prima della stabile servono anche carico prolungato su una classe e chiusura
 dei punti ancora aperti in AUDIT.md.
 

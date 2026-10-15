@@ -87,21 +87,28 @@ void ComputerControlInterface::start( QSize scaledFramebufferSize, UpdateMode up
 		vncConnection->setQuality( VncConnection::Quality::Thumbnail );
 		vncConnection->setScaledSize( m_scaledFramebufferSize );
 
-		connect( vncConnection, &VncConnection::framebufferUpdateComplete, this, &ComputerControlInterface::resetWatchdog );
-		connect( vncConnection, &VncConnection::framebufferUpdateComplete, this, &ComputerControlInterface::framebufferUpdated );
-
-		connect( vncConnection, &VncConnection::framebufferSizeChanged, this, &ComputerControlInterface::framebufferSizeChanged );
-
-		connect(vncConnection, &VncConnection::stateChanged, this, &ComputerControlInterface::setMinimumFramebufferUpdateInterval);
-		connect(vncConnection, &VncConnection::stateChanged, this, &ComputerControlInterface::updateServerVersion);
-		connect( vncConnection, &VncConnection::stateChanged, this, &ComputerControlInterface::updateState );
-		connect( vncConnection, &VncConnection::stateChanged, this, &ComputerControlInterface::updateUser );
-		connect( vncConnection, &VncConnection::stateChanged, this, &ComputerControlInterface::updateActiveFeatures );
-		connect( vncConnection, &VncConnection::stateChanged, this, &ComputerControlInterface::updateScreens );
-		connect( vncConnection, &VncConnection::stateChanged, this, &ComputerControlInterface::stateChanged );
-
-		connect( m_connection, &VeyonConnection::featureMessageReceived, this, &ComputerControlInterface::handleFeatureMessage );
-		connect( m_connection, &VeyonConnection::featureMessageReceived, this, &ComputerControlInterface::resetWatchdog );
+		// Disconnect does not retract already queued Qt signals. The generation
+		// also rejects callbacks from an old connection after stop()/start().
+		const auto generation = m_connectionGeneration;
+		connectFramebufferSignals(vncConnection);
+		connect(vncConnection, &VncConnection::framebufferSizeChanged, this, [this, generation]() {
+			if (generation == m_connectionGeneration) Q_EMIT framebufferSizeChanged();
+		});
+		connect(vncConnection, &VncConnection::stateChanged, this, [this, generation]() {
+			if (generation != m_connectionGeneration) return;
+			updateState();
+			setMinimumFramebufferUpdateInterval();
+			updateServerVersion();
+			updateUser();
+			updateActiveFeatures();
+			updateScreens();
+			Q_EMIT stateChanged();
+		});
+		connect(m_connection, &VeyonConnection::featureMessageReceived, this, [this, generation](const FeatureMessage& message) {
+			if (generation != m_connectionGeneration) return;
+			handleFeatureMessage(message);
+			resetWatchdog();
+		});
 
 		setUpdateMode( updateMode );
 
@@ -115,18 +122,39 @@ void ComputerControlInterface::start( QSize scaledFramebufferSize, UpdateMode up
 
 
 
+void ComputerControlInterface::connectFramebufferSignals(VncConnection* transport)
+{
+	const auto generation = m_connectionGeneration;
+	connect(transport, &VncConnection::framebufferUpdateComplete, this, [this, generation]() {
+		if (generation == m_connectionGeneration) resetWatchdog();
+	});
+	connect(transport, &VncConnection::imageUpdated, this, [this, generation]() {
+		if (generation == m_connectionGeneration) Q_EMIT framebufferUpdated();
+	});
+}
+
+
 void ComputerControlInterface::stop()
 {
+	++m_connectionGeneration;
 	if( m_connection )
 	{
+		if (auto oldTransport = m_connection->vncConnection())
+		{
+			disconnect(oldTransport, nullptr, this, nullptr);
+		}
+		disconnect(m_connection, nullptr, this, nullptr);
 		m_connection->stopAndDeleteLater();
 		m_connection = nullptr;
 	}
 
 	m_pingTimer.stop();
 	m_connectionWatchdogTimer.stop();
+	m_serverVersionQueryTimer.stop();
+	m_statePollingTimer.stop();
 
 	m_state = State::Disconnected;
+	m_serverVersion = VeyonCore::ApplicationVersion::Unknown;
 }
 
 
@@ -198,6 +226,7 @@ void ComputerControlInterface::setServerVersion(VeyonCore::ApplicationVersion ve
 		statePollingInterval <= 0)
 	{
 		m_statePollingTimer.stop();
+		if (vncConnection()) vncConnection()->setRequiresManualUpdateRateControl(false);
 
 		updateScreens();
 		setMinimumFramebufferUpdateInterval();
@@ -396,7 +425,7 @@ void ComputerControlInterface::updateServerVersion()
 {
 	lock();
 
-	if (vncConnection())
+	if (vncConnection() && vncConnection()->isConnected())
 	{
 		VeyonCore::builtinFeatures().monitoringMode().queryApplicationVersion({weakPointer()});
 		m_serverVersionQueryTimer.start();

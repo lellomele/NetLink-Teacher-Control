@@ -3,6 +3,7 @@
 #undef QT_NO_CAST_FROM_ASCII
 #undef QT_USE_QSTRINGBUILDER
 #include "Diagnostics.h"
+#include "HealthDiagnostics.h"
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -59,6 +60,7 @@ QString label(const QString& key) {
         {"os","Sistema operativo"},{"architecture","Architettura"},{"computer","Nome PC"},{"dnsDomain","Dominio DNS"},{"windowsBuild","Build Windows"},{"windowsVersion","Versione Windows"},{"companionVersion","Versione Companion"},{"uptimeSeconds","Secondi dall'avvio"},{"manufacturer","Produttore"},{"model","Modello"},{"joinType","Appartenenza"},{"joinName","Dominio / gruppo di lavoro"},
         {"user","Account del processo"},{"domain","Dominio account (ambiente)"},{"sid","SID account"},{"elevated","Eseguito come amministratore"},{"consoleUser","Utente della console locale"},{"sessionId","Sessione del processo"},{"enabled","Abilitato"},{"denyOnly","Solo negazione"},
         {"name","Nome"},{"description","Descrizione"},{"up","Connessa"},{"loopback","Interfaccia locale loopback"},{"tunnel","Tunnel"},{"index","Indice scheda"},{"dhcp","DHCP IPv4"},{"dhcpServer","Server DHCP IPv4"},{"dnsSuffix","Suffisso DNS"},{"mac","Indirizzo MAC"},{"addresses","Indirizzi / prefissi"},{"address","Indirizzo"},{"dns","Server DNS"},{"gateways","Gateway"},
+        {"hours","Intervallo esaminato (ore)"},{"scanLimit","Limite di eventi esaminati"},{"scannedEvents","Eventi esaminati"},{"eventLogAvailable","Registro Windows leggibile"},{"limitReached","Raggiunto un limite di raccolta"},{"collectionMilliseconds","Durata raccolta stabilità (ms)"},{"notResponding","Finestra non rispondente secondo Windows"},{"module","Modulo indicato da Windows"},{"exception","Codice eccezione"},{"offset","Posizione nel modulo"},{"timeUtc","Data e ora UTC"},{"moduleFromSuitePath","Modulo nella cartella della suite (non prova della causa)"},{"kind","Categoria dell'evento"},{"renderError","Evento non leggibile (codice Windows)"},
         {"state","Stato"},{"pid","ID processo"},{"imagePath","Programma del servizio"},{"image","Programma in ascolto"},{"account","Account servizio"},{"startType","Tipo avvio Windows"},{"port","Porta TCP"},{"queryError","Dato non leggibile (codice Windows)"},{"error","Errore di lettura"},{"permissionError","Permessi non verificabili (codice Windows)"},
         {"Authentication/Method","Autenticazione (0=account, 1=chiave)"},{"Authentication/PrivateKeyBaseDir","Directory chiavi private"},{"Authentication/PublicKeyBaseDir","Directory chiavi pubbliche"},{"AccessControl/AccessRestrictedToUserGroups","Accesso limitato ai gruppi"},{"AccessControl/AuthorizedUserGroups","Gruppi autorizzati"},{"AccessControl/AccessControlRulesProcessingEnabled","Regole avanzate di accesso"},{"accessRuleCount","Numero regole avanzate"},{"Network/VeyonServerPort","Porta servizio NetLink"},{"Network/DemoServerPort","Porta dimostrazione"},{"Network/LocalConnectOnly","Consenti solo collegamenti locali"},{"Network/FirewallExceptionEnabled","Eccezione firewall configurata"},{"School/DiscoveryEnabled","Discovery abilitato"},{"School/DiscoveryMaster","Destinatario annunci diretti"},{"Service/MultiSession","Modalità multisessione"},{"Windows/UseInterceptionDriver","Driver Interception configurato"},{"configurationRead","Configurazione di sistema leggibile"},{"registryStatus","Esito lettura registro (0=riuscita)"},
         {"type","Tipo"},{"path","Percorso"},{"ownerSid","SID proprietario / gruppo di accesso"},{"sddl","Descrittore dei permessi Windows"},{"readableByToolUser","Diritto di lettura nel token di Companion"},{"sha256","Impronta SHA-256 del file pubblico"},{"publicError","Chiave pubblica non verificata"},{"activeProfiles","Profili firewall attivi (1=dominio, 2=privato, 4=pubblico)"},{"profile","Profilo Windows (1=dominio, 2=privato, 4=pubblico)"},{"profiles","Profili della regola"},{"protocol","Protocollo (6=TCP, 17=UDP)"},{"application","Programma autorizzato"},{"allow","Regola di autorizzazione"},{"inbound","Traffico in ingresso"},{"missing","Regola non trovata"}
@@ -273,6 +275,7 @@ QJsonObject collect() {
     QJsonArray services;auto manager=OpenSCManagerW(nullptr,nullptr,SC_MANAGER_CONNECT);
     if(manager) {for(const auto name:{L"VeyonSchoolService",L"VeyonService",L"BFE",L"MpsSvc"}) services.append(service(manager,name));CloseServiceHandle(manager);}else error(report,QString("Servizi non leggibili (Windows %1).").arg(GetLastError()));report["services"]=services;
     report["listeners"]=listeners(settings["Network/VeyonServerPort"].toInt(11100),report);report["firewall"]=firewall();
+    report["health"]=collectHealth();
 #else
     error(report,"Questa prima versione della diagnostica è per Windows 10 x64.");
 #endif
@@ -307,6 +310,12 @@ QJsonObject publicReport(const QJsonObject& report,bool includeIdentifiers) {
 }
 QStringList recommendations(const QJsonObject& report,const QString& role) {
     QStringList result;const auto settings=report["settings"].toObject();const auto services=report["services"].toArray();
+    const auto health=report["health"].toObject();int desktopCrashes=0,suiteModules=0,suiteCrashes=0;
+    for(const auto& value:health["events"].toArray()) {const auto event=value.toObject();if(event["kind"]=="desktop-crash") {++desktopCrashes;if(event["moduleFromSuitePath"].toBool()) ++suiteModules;}else if(event["kind"]=="suite-crash") ++suiteCrashes;}
+    if(desktopCrashes) result<<QString("ATTENZIONE: nei record Windows esaminati delle ultime 24 ore risultano %1 arresti del desktop (dwm.exe), %2 con un modulo nella cartella NetLink/Veyon. Possono spiegare schermo nero e pause anche senza comandi al client. Controllare orari e modulo; gli eventi possono precedere l'aggiornamento. Non cancellare DLL e non attribuire automaticamente il problema alla rete.").arg(desktopCrashes).arg(suiteModules);
+    if(suiteCrashes) result<<QString("Windows ha registrato %1 arresti di applicazioni NetLink/Veyon nei record esaminati. Consultare orario e modulo nella sezione Stabilità; non sono prove di un errore di configurazione o della chiave.").arg(suiteCrashes);
+    if(report.contains("health") && !health["eventLogAvailable"].toBool()) result<<"Registro degli arresti Windows non leggibile: l'assenza di eventi nel rapporto NON dimostra stabilità. L'analisi elevata è facoltativa e verifica un contesto diverso.";
+    for(const auto& value:health["applications"].toArray()) if(value.toObject()["notResponding"].toBool()) result<<"ATTENZIONE: una finestra NetLink risulta non rispondente a Windows in questo istante. Conservare il rapporto; la causa (grafica, I/O o blocco) non è ancora accertata. Companion non forza la chiusura.";
     if(!report["errors"].toArray().isEmpty()) result<<"Raccolta parziale: leggere le informazioni non disponibili; non equivale a una configurazione corretta.";
     if(!running(services,"VeyonSchoolService")) result<<"Il servizio NetLink non risulta in esecuzione o non è stato possibile verificarlo. Controllare nel Configurator prima di provarne l'accesso.";
     if(running(services,"VeyonSchoolService") && running(services,"VeyonService")) result<<"Sono attivi sia NetLink sia Veyon originale: possibile conflitto di porte. Non fermarli automaticamente durante una lezione.";
@@ -372,6 +381,12 @@ QString html(const QJsonObject& report,const QString& role) {
     QString result="<h1>NetLink Companion</h1><p>Diagnosi locale in sola lettura. Nessuna impostazione modificata.</p><h2>Indicazioni</h2><ul>";
     for(const auto& recommendation:recommendations(report,role)) result+="<li>"+recommendation.toHtmlEscaped()+"</li>";
     result+="</ul><h2>Computer</h2>"+table(report["system"].toObject());
+    if(report.contains("health")) {
+        auto health=report["health"].toObject();const auto events=health.take("events").toArray(),applications=health.take("applications").toArray();
+        result+="<h2>Stabilità e arresti Windows</h2><p>Inventario limitato degli ultimi eventi Application Error (1000) delle ultime 24 ore. Non è un audit completo: assenza di eventi e finestre rispondenti non escludono blocchi o corse. Gli orari UTC possono precedere l'aggiornamento. Nessun dump di memoria o titolo di finestra viene raccolto.</p>"+table(health);
+        for(const auto& value:events) result+=table(value.toObject());
+        for(const auto& value:applications) result+=table(value.toObject());
+    }
     auto identity=report["identity"].toObject();const auto groups=identity.take("groups").toArray();result+="<h2>Account che esegue Companion</h2>"+table(identity)+"<p>I gruppi sono identificati dal SID; i gruppi denyOnly non concedono accesso nel token attuale.</p>";
     result+="<h2>Rete</h2>";for(const auto& value:report["interfaces"].toArray()) {auto iface=value.toObject();QStringList ips;for(const auto& entry:iface.take("addresses").toArray()) ips<<entry.toObject()["address"].toString()+"/"+QString::number(entry.toObject()["prefix"].toInt());iface["addresses"]=ips.join(", ");iface["dns"]=list(iface["dns"].toArray());iface["gateways"]=list(iface["gateways"].toArray());result+=table(iface);}
     result+="<h2>Servizi e porte TCP in ascolto</h2>";for(const auto& value:report["services"].toArray()) result+=table(value.toObject());for(const auto& value:report["listeners"].toArray()) result+=table(value.toObject());

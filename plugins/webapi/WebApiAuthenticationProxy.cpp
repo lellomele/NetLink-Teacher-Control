@@ -27,7 +27,7 @@
 
 
 WebApiAuthenticationProxy::WebApiAuthenticationProxy( const WebApiConfiguration& configuration ) :
-    m_waitConditionWaitTime( configuration.connectionAuthenticationTimeout() * 1000 )
+    m_waitConditionWaitTime(qBound(1, configuration.connectionAuthenticationTimeout(), 60) * 1000)
 {
 }
 
@@ -58,26 +58,18 @@ QVector<QUuid> WebApiAuthenticationProxy::authenticationMethods()
 
 WebApiAuthenticationProxy::AuthenticationMethod WebApiAuthenticationProxy::initCredentials()
 {
-	QMutexLocker l( mutex() );
-
-	if( m_selectedAuthenticationMethod.isNull() )
+	if (!waitForCondition(m_credentialsPopulated, m_waitConditionWaitTime, [this]() {
+		return !m_selectedAuthenticationMethod.isNull();
+	}))
 	{
-		l.unlock();
-
-		QMutex credentialsWaitMutex;
-		QMutexLocker credentialsWaitMutexLocker( &credentialsWaitMutex );
-
-		if( m_credentialsPopulated.wait( &credentialsWaitMutex, m_waitConditionWaitTime ) == false )
-		{
-			vWarning() << "waiting for credentials timed out";
+		vWarning() << "waiting for credentials timed out";
 #if VEYON_VERSION_MAJOR >= 5
-			return {};
+		return {};
 #else
-			return RfbVeyonAuth::Invalid;
+		return RfbVeyonAuth::Invalid;
 #endif
-		}
-		l.relock();
 	}
+	QMutexLocker l(mutex());
 
 #if VEYON_VERSION_MAJOR >= 5
 	return m_selectedAuthenticationMethod;

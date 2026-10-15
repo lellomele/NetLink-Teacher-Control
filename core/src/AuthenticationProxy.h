@@ -26,6 +26,7 @@
 
 #include <QMutexLocker>
 #include <QWaitCondition>
+#include <QDeadlineTimer>
 
 #include "AuthenticationCredentials.h"
 #include "RfbVeyonAuth.h"
@@ -69,13 +70,10 @@ public:
 
 	bool waitForAuthenticationMethods( int timeout )
 	{
-		QMutex m;
-		QMutexLocker l( &m );
-		if( authenticationTypes().isEmpty() == false )
-		{
-			return true;
-		}
-		return m_authenticationMethodsAvailable.wait( &m, timeout );
+		const auto notified = waitForCondition(m_authenticationMethodsAvailable, timeout, [this]() {
+			return !m_authenticationTypes.isEmpty() || m_protocolErrorOccurred;
+		});
+		return notified && !protocolErrorOccurred() && !authenticationTypes().isEmpty();
 	}
 
 	AuthenticationCredentials credentials()
@@ -93,6 +91,21 @@ public:
 	virtual RfbVeyonAuth::Type initCredentials() = 0;
 
 protected:
+	// Check the predicate and enter the wait under the same mutex used by the
+	// publisher. An unrelated local mutex loses notifications in that window.
+	// Recheck after every wake: an empty/spurious update is not readiness.
+	template<class Predicate>
+	bool waitForCondition(QWaitCondition& condition, int timeout, Predicate ready)
+	{
+		const QDeadlineTimer deadline(qBound(0, timeout, 60000));
+		QMutexLocker locker(&m_mutex);
+		while (!ready())
+		{
+			if (!condition.wait(&m_mutex, deadline)) return ready();
+		}
+		return true;
+	}
+
 	void lock()
 	{
 		m_mutex.lock();

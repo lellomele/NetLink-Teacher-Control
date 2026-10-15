@@ -6,8 +6,10 @@
 #include <QElapsedTimer>
 #include <QVector>
 #include <QUuid>
+#include <functional>
 #include "VeyonCore.h"
 
+class PolicyReliabilityTests;
 namespace SchoolNetwork {
 constexpr const char* PipeName = "VeyonSchool.NetworkPolicy.v1";
 VEYON_CORE_EXPORT QJsonObject request(const QJsonObject& command);
@@ -20,8 +22,12 @@ public:
     explicit PolicyDaemon(QObject* parent);
     ~PolicyDaemon() override;
 private:
+    friend class ::PolicyReliabilityTests;
+    using CloseEngine = std::function<quint32(void*)>;
+    PolicyDaemon(QObject* parent, bool initializePipe, CloseEngine closeEngine);
     QJsonObject apply(const QJsonObject& command);
     quint32 release();
+    void maintainLease();
     quint32 verifyFilters() const;
     QLocalServer m_server;
     QTimer m_timer;
@@ -31,5 +37,9 @@ private:
     void* m_engine = nullptr;
     QVector<quint64> m_filters;
     quint32 m_cleanupError = 0;
+    CloseEngine m_closeEngine;
+    QElapsedTimer m_cleanupRetry;
+    int m_cleanupAttempts = 0;
+    int m_pipeClients = 0;
 };
 }

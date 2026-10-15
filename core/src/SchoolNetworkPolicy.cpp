@@ -100,6 +100,7 @@ static bool trustedPipePeer(QLocalSocket* socket, const QString& expected, bool 
 #endif
 QJsonObject request(const QJsonObject& command) {
     QLocalSocket socket;
+    socket.setReadBufferSize(32769);
     socket.connectToServer(QString::fromLatin1(PipeName));
     if (!socket.waitForConnected(2000)) return result(false, "service-unavailable");
 #ifdef Q_OS_WIN
@@ -109,23 +110,39 @@ QJsonObject request(const QJsonObject& command) {
     if (bytes.size() > 32768 || socket.write(bytes) != bytes.size()) return result(false, "invalid-request");
     QElapsedTimer deadline; deadline.start();
     while (!socket.canReadLine() && deadline.elapsed() < 5000) {
-        if (!socket.waitForReadyRead(int(5000 - deadline.elapsed()))) break;
+        const auto remaining=5000-deadline.elapsed();
+        if (remaining<=0 || !socket.waitForReadyRead(int(remaining))) break;
         if (socket.bytesAvailable() > 32768) return result(false, "oversized-response");
     }
+    if (socket.bytesAvailable() > 32768) return result(false, "oversized-response");
     QJsonParseError error;
     const auto document = QJsonDocument::fromJson(socket.readLine(32769), &error);
     return error.error == QJsonParseError::NoError && document.isObject()
         ? document.object() : result(false, "service-timeout");
 }
-PolicyDaemon::PolicyDaemon(QObject* parent) : QObject(parent), m_server(this), m_timer(this) {
+PolicyDaemon::PolicyDaemon(QObject* parent) : PolicyDaemon(parent,true,[](void* engine) -> quint32 {
+#ifdef Q_OS_WIN
+    return FwpmEngineClose0(engine);
+#else
+    Q_UNUSED(engine)
+    return 0;
+#endif
+}) {}
+PolicyDaemon::PolicyDaemon(QObject* parent,bool initializePipe,CloseEngine closeEngine)
+    : QObject(parent),m_server(this),m_timer(this),m_closeEngine(std::move(closeEngine)) {
+    connect(&m_timer,&QTimer::timeout,this,&PolicyDaemon::maintainLease);
+    if(!initializePipe) return;
     m_server.setSocketOptions(QLocalServer::UserAccessOption);
     connect(&m_server, &QLocalServer::newConnection, this, [this]() {
         while (auto socket = m_server.nextPendingConnection()) {
             socket->setParent(this);
             socket->setReadBufferSize(32769);
+            if(m_pipeClients>=16) {socket->abort();socket->deleteLater();continue;}
 #ifdef Q_OS_WIN
             if (!trustedPipePeer(socket, "veyon-server.exe", false)) { socket->abort(); socket->deleteLater(); continue; }
 #endif
+            ++m_pipeClients;
+            connect(socket,&QObject::destroyed,this,[this] {--m_pipeClients;});
             connect(socket, &QLocalSocket::disconnected, socket, &QObject::deleteLater);
             QTimer::singleShot(6000, socket, &QLocalSocket::abort);
             connect(socket, &QLocalSocket::readyRead, this, [this, socket]() {
@@ -144,10 +161,18 @@ PolicyDaemon::PolicyDaemon(QObject* parent) : QObject(parent), m_server(this), m
     });
     // Never remove an existing pipe: a second service must fail instead of taking it over.
     if (!m_server.listen(QString::fromLatin1(PipeName))) qWarning("School policy pipe unavailable");
-    connect(&m_timer, &QTimer::timeout, this, [this]() { if (m_engine && m_lease.isValid() && m_lease.elapsed() >= 90000) release(); });
     m_timer.start(1000);
 }
 PolicyDaemon::~PolicyDaemon() { release(); }
+void PolicyDaemon::maintainLease() {
+    if(!m_engine) return;
+    if(m_cleanupError) {
+        // Retain the handle until the API confirms cleanup. Avoid retry storms
+        // when BFE/RPC is failing: 2,4,8,16,30 seconds, then at most every 30s.
+        const int delay=qMin(30000,2000*(1<<qMin(qMax(m_cleanupAttempts-1,0),4)));
+        if(!m_cleanupRetry.isValid() || m_cleanupRetry.elapsed()>=delay) release();
+    } else if(m_lease.isValid() && m_lease.elapsed()>=90000) release();
+}
 quint32 PolicyDaemon::verifyFilters() const {
 #ifdef Q_OS_WIN
     if(!m_engine || m_filters.isEmpty()) return ERROR_INVALID_HANDLE;
@@ -163,14 +188,18 @@ quint32 PolicyDaemon::verifyFilters() const {
 #endif
 }
 quint32 PolicyDaemon::release() {
-    quint32 error=0;
-#ifdef Q_OS_WIN
-    if (m_engine) error=FwpmEngineClose0(m_engine);
-#endif
+    if(!m_engine) return m_cleanupError;
+    const quint32 error=m_closeEngine(m_engine);
+    if(error) {
+        // A failed close is not proof that dynamic filters disappeared. Keep
+        // ownership and the handle so cleanup can be retried, never claim free.
+        m_cleanupError=error;m_cleanupRetry.restart();m_cleanupAttempts=qMin(m_cleanupAttempts+1,1000);
+        qWarning("NetLink WFP cleanup pending (code %lu, attempt %d); policy state is unknown",static_cast<unsigned long>(error),m_cleanupAttempts);
+        return error;
+    }
     m_engine = nullptr; m_filters.clear(); m_owner.clear(); m_digest.clear();
-    m_cleanupError=error;
-    if(error) qWarning("WFP dynamic session cleanup failed: %lu",static_cast<unsigned long>(error));
-    return error;
+    m_cleanupError=0;m_cleanupAttempts=0;m_cleanupRetry.invalidate();m_lease.invalidate();
+    return 0;
 }
 
 #ifdef Q_OS_WIN
@@ -311,11 +340,15 @@ QJsonObject nativeSelfTest() {
 QJsonObject PolicyDaemon::apply(const QJsonObject& command) {
     const auto op = command.value("op").toString();
     const auto owner = command.value("owner").toString();
-    if (m_engine && m_lease.isValid() && m_lease.elapsed() >= 90000) release();
+    if (m_engine && !m_cleanupError && m_lease.isValid() && m_lease.elapsed() >= 90000) release();
     if (op == "status") {
+        if(m_cleanupError) {
+            auto reply=result(false,"unknown",m_cleanupError);
+            reply["cleanupPending"]=true;reply["remainingMs"]=0;reply["filters"]=m_filters.size();return reply;
+        }
         if(m_engine) {
             const auto error=verifyFilters();
-            if(error) {release();return result(false,"filters-unavailable",error);}
+            if(error) {const auto closeError=release();return result(false,closeError ? "unknown" : "filters-unavailable",closeError ? closeError : error);}
         }
         auto reply = result(!m_cleanupError, m_engine ? "blocked" : m_cleanupError ? "unknown" : "allowed",m_cleanupError);
         reply["remainingMs"] = m_engine ? 90000 - int(m_lease.elapsed()) : 0;
@@ -323,8 +356,9 @@ QJsonObject PolicyDaemon::apply(const QJsonObject& command) {
     }
     if (owner.size() != 36 || QUuid(owner).isNull()) return result(false, "invalid-owner");
     if (m_engine && owner != m_owner) return result(false, "owned-by-another-session");
-    if (op == "release") {const auto error=release();return result(!error,error ? "release-failed" : "allowed",error);}
+    if (op == "release") {const auto error=release();return result(!error,error ? "unknown" : "allowed",error);}
     if (op != "apply") return result(false, "invalid-operation");
+    if(m_cleanupError) return result(false,"cleanup-pending",m_cleanupError);
     const auto addresses = command.value("addresses").toArray();
     if (addresses.isEmpty() || addresses.size() > 256) return result(false, "invalid-address-list");
     for (const auto& item : addresses) if (!validAddress(item.toString())) return result(false, "invalid-address");
@@ -351,6 +385,9 @@ QJsonObject PolicyDaemon::apply(const QJsonObject& command) {
         FWPM_SESSION0 session{}; session.flags = FWPM_SESSION_FLAG_DYNAMIC; session.txnWaitTimeoutInMSec = 2000;
         error = FwpmEngineOpen0(nullptr, RPC_C_AUTHN_WINNT, nullptr, &session, &m_engine);
         if (error) return result(false, "engine-open-failed", error);
+        // Ownership starts with the dynamic session, not only after successful
+        // filter installation: even partial setup may need an explicit retry.
+        m_owner=owner;
         FWPM_SUBLAYER0 sublayer{}; sublayer.subLayerKey = SchoolLayer; sublayer.weight = 0x8000;
         sublayer.displayData.name = const_cast<wchar_t*>(L"Veyon School");
         error = FwpmSubLayerAdd0(m_engine, &sublayer, nullptr);

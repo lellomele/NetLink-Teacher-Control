@@ -23,6 +23,7 @@
  */
 
 #include "rfb/rfbclient.h"
+#include <mutex>
 
 #include "AuthenticationProxy.h"
 #include "CryptoCore.h"
@@ -34,7 +35,6 @@
 #include "VncFeatureMessageEvent.h"
 
 
-static rfbClientProtocolExtension* __veyonProtocolExt = nullptr;
 static const uint32_t __veyonSecurityTypes[2] = { rfbSecTypeVeyon, 0 };
 
 
@@ -56,24 +56,22 @@ VeyonConnection::VeyonConnection():
 	m_user(),
 	m_userHomeDir()
 {
-	if( __veyonProtocolExt == nullptr )
-	{
-		__veyonProtocolExt = new rfbClientProtocolExtension;
-		__veyonProtocolExt->encodings = nullptr;
-		__veyonProtocolExt->handleEncoding = nullptr;
-		__veyonProtocolExt->handleMessage = handleVeyonMessage;
-		__veyonProtocolExt->securityTypes = __veyonSecurityTypes;
-		__veyonProtocolExt->handleAuthentication = handleSecTypeVeyon;
-
-		rfbClientRegisterExtension( __veyonProtocolExt );
-	}
+	static std::once_flag protocolRegistration;
+	std::call_once(protocolRegistration, []() {
+		static rfbClientProtocolExtension extension{};
+		extension.handleMessage = handleVeyonMessage;
+		extension.securityTypes = __veyonSecurityTypes;
+		extension.handleAuthentication = handleSecTypeVeyon;
+		rfbClientRegisterExtension(&extension);
+	});
 
 	if( VeyonCore::config().authenticationMethod() == VeyonCore::AuthenticationMethod::KeyFileAuthentication )
 	{
 		m_veyonAuthType = RfbVeyonAuth::KeyFile;
 	}
 
-	connect( m_vncConnection, &VncConnection::connectionPrepared, this, &VeyonConnection::registerConnection, Qt::DirectConnection );
+	connect(m_vncConnection, &VncConnection::connectionPrepared, this,
+			[this, transport = m_vncConnection]() { transport->setClientData(VeyonConnectionTag, this); }, Qt::DirectConnection);
 	connect( m_vncConnection, &VncConnection::destroyed, VeyonCore::instance(), [this]() {
 		delete this;
 	} );
@@ -90,8 +88,6 @@ VeyonConnection::~VeyonConnection()
 
 void VeyonConnection::stopAndDeleteLater()
 {
-	unregisterConnection();
-
 	if( m_vncConnection )
 	{
 		m_vncConnection->stopAndDeleteLater();
@@ -142,23 +138,6 @@ bool VeyonConnection::handleServerMessage( rfbClient* client, uint8_t msg )
 
 
 
-void VeyonConnection::registerConnection()
-{
-	if( m_vncConnection )
-	{
-		m_vncConnection->setClientData( VeyonConnectionTag, this );
-	}
-}
-
-
-
-void VeyonConnection::unregisterConnection()
-{
-	if( m_vncConnection )
-	{
-		m_vncConnection->setClientData( VeyonConnectionTag, nullptr );
-	}
-}
 
 
 
@@ -193,9 +172,9 @@ rfbBool VeyonConnection::handleSecTypeVeyon( rfbClient* client, uint32_t authSch
 
 	const auto authTypeCount = message.read().toInt();
 
-	if( authTypeCount == 0 )
+	if( authTypeCount <= 0 || authTypeCount > 64 )
 	{
-		vDebug() << QThread::currentThreadId() << "no auth types received";
+		vWarning() << "Invalid authentication type count" << authTypeCount;
 		if( proxy )
 		{
 			proxy->notifyProtocolError();
@@ -240,7 +219,7 @@ rfbBool VeyonConnection::handleSecTypeVeyon( rfbClient* client, uint32_t authSch
 		chosenAuthType = connection->veyonAuthType();
 	}
 
-	if( chosenAuthType == RfbVeyonAuth::Invalid )
+	if( chosenAuthType == RfbVeyonAuth::Invalid || !authTypes.contains(chosenAuthType) )
 	{
 		return FALSE;
 	}
@@ -261,7 +240,7 @@ rfbBool VeyonConnection::handleSecTypeVeyon( rfbClient* client, uint32_t authSch
 		authReplyMessage.write( VeyonCore::platform().userFunctions().currentUser() );
 	}
 
-	authReplyMessage.send();
+	if (!authReplyMessage.send()) return FALSE;
 
 	VariantArrayMessage authAckMessage( &socketDevice );
 	if( authAckMessage.receive() == false )
@@ -276,7 +255,7 @@ rfbBool VeyonConnection::handleSecTypeVeyon( rfbClient* client, uint32_t authSch
 		if( connection->authenticationCredentials().hasCredentials( AuthenticationCredentials::Type::PrivateKey ) )
 		{
 			VariantArrayMessage challengeReceiveMessage( &socketDevice );
-			challengeReceiveMessage.receive();
+			if (!challengeReceiveMessage.receive()) return FALSE;
 			const auto challenge = challengeReceiveMessage.read().toByteArray();
 
 			if( challenge.size() != CryptoCore::ChallengeSize )
@@ -298,14 +277,19 @@ rfbBool VeyonConnection::handleSecTypeVeyon( rfbClient* client, uint32_t authSch
 			VariantArrayMessage challengeResponseMessage( &socketDevice );
 			challengeResponseMessage.write( connection->authenticationCredentials().authenticationKeyName() );
 			challengeResponseMessage.write( signature );
-			challengeResponseMessage.send();
+			if (!challengeResponseMessage.send()) return FALSE;
+		}
+		else
+		{
+			vWarning() << "Key authentication requested but no local private key credentials are available";
+			return FALSE;
 		}
 		break;
 
 	case RfbVeyonAuth::Logon:
 	{
 		VariantArrayMessage publicKeyMessage( &socketDevice );
-		publicKeyMessage.receive();
+		if (!publicKeyMessage.receive()) return FALSE;
 
 		CryptoCore::PublicKey publicKey = CryptoCore::PublicKey::fromPEM( publicKeyMessage.read().toString() );
 
@@ -325,7 +309,7 @@ rfbBool VeyonConnection::handleSecTypeVeyon( rfbClient* client, uint32_t authSch
 
 		VariantArrayMessage passwordResponse( &socketDevice );
 		passwordResponse.write( encryptedPassword.toByteArray() );
-		passwordResponse.send();
+		if (!passwordResponse.send()) return FALSE;
 		break;
 	}
 
@@ -333,7 +317,7 @@ rfbBool VeyonConnection::handleSecTypeVeyon( rfbClient* client, uint32_t authSch
 	{
 		VariantArrayMessage tokenAuthMessage( &socketDevice );
 		tokenAuthMessage.write( connection->authenticationCredentials().token().toByteArray() );
-		tokenAuthMessage.send();
+		if (!tokenAuthMessage.send()) return FALSE;
 		break;
 	}
 

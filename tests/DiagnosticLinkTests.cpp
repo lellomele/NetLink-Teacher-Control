@@ -57,6 +57,54 @@ private Q_SLOTS:
         const auto size=qToBigEndian<quint32>(4097);QCOMPARE(attacker.write(reinterpret_cast<const char*>(&size),4),qint64(4));
         QTRY_VERIFY_WITH_TIMEOUT(!errors.isEmpty(),3000);QCOMPARE(received.size(),0);QVERIFY(!receiver.pairingCode().isEmpty());
     }
+    void stopCallbackMayDestroyLink() {
+        QPointer<Companion::DiagnosticLink> receiver=new Companion::DiagnosticLink;
+        connect(receiver,&Companion::DiagnosticLink::stopped,this,[&receiver]{delete receiver.data();});
+        QVERIFY(!receiver->receiveOnce(QHostAddress::LocalHost));QVERIFY(receiver.isNull());
+        QPointer<Companion::DiagnosticLink> sender=new Companion::DiagnosticLink;
+        connect(sender,&Companion::DiagnosticLink::stopped,this,[&sender]{delete sender.data();});
+        QVERIFY(!sender->sendReport("NL1.bad",report()));QVERIFY(sender.isNull());
+    }
+    void receivedCallbackMayDestroyReceiver() {
+        QPointer<Companion::DiagnosticLink> receiver=new Companion::DiagnosticLink;
+        Companion::DiagnosticLink sender;
+        QVERIFY(receiver->receiveOnce(QHostAddress::LocalHost));const auto code=receiver->pairingCode();
+        connect(receiver,&Companion::DiagnosticLink::reportReceived,this,[&receiver](const QJsonObject&){delete receiver.data();});
+        QVERIFY(sender.sendReport(code,report()));QTRY_VERIFY_WITH_TIMEOUT(receiver.isNull(),8000);
+        QTest::qWait(50); // deliver pending disconnect/deferred parser events
+    }
+    void stoppedCallbackMayStartNewSessionWithoutOuterCallOverwritingIt() {
+        for(bool outerSend:{false,true}) {
+            Companion::DiagnosticLink receiver,sender;
+            QString fresh;bool started=false;QMetaObject::Connection restart;
+            restart=connect(&receiver,&Companion::DiagnosticLink::stopped,this,[&]{
+                disconnect(restart);
+                started=receiver.receiveOnce(QHostAddress::LocalHost);
+                fresh=receiver.pairingCode();
+            });
+            const auto outerResult=outerSend?receiver.sendReport("NL1.bad",report()):receiver.receiveOnce(QHostAddress::LocalHost);
+            QVERIFY(!outerResult);QVERIFY(started);QVERIFY(!fresh.isEmpty());QCOMPARE(receiver.pairingCode(),fresh);
+            QSignalSpy received(&receiver,&Companion::DiagnosticLink::reportReceived),sent(&sender,&Companion::DiagnosticLink::reportSent);
+            QVERIFY(sender.sendReport(fresh,report()));
+            QTRY_COMPARE_WITH_TIMEOUT(received.size(),1,8000);QTRY_COMPARE_WITH_TIMEOUT(sent.size(),1,3000);
+        }
+    }
+    void failureCallbackMayDestroySender() {
+        Companion::DiagnosticLink receiver;QVERIFY(receiver.receiveOnce(QHostAddress::LocalHost));
+        QPointer<Companion::DiagnosticLink> sender=new Companion::DiagnosticLink;
+        connect(sender,&Companion::DiagnosticLink::failed,this,[&sender](const QString&){delete sender.data();});
+        QVERIFY(sender->sendReport(changed(receiver.pairingCode(),"pin"),report()));
+        QTRY_VERIFY_WITH_TIMEOUT(sender.isNull(),8000);QCoreApplication::processEvents();
+    }
+    void queuedNotificationsDoNotCrossSessionGenerations() {
+        Companion::DiagnosticLink link;
+        QSignalSpy received(&link,&Companion::DiagnosticLink::reportReceived),sent(&link,&Companion::DiagnosticLink::reportSent),failed(&link,&Companion::DiagnosticLink::failed);
+        link.postFailure("old failure");link.postReportReceived(report());link.postReportSent();
+        QVERIFY(link.receiveOnce(QHostAddress::LocalHost));const auto fresh=link.pairingCode();
+        QCoreApplication::processEvents();
+        QCOMPARE(received.size(),0);QCOMPARE(sent.size(),0);QCOMPARE(failed.size(),0);QCOMPARE(link.pairingCode(),fresh);
+        link.postReportSent();QTRY_COMPARE_WITH_TIMEOUT(sent.size(),1,1000);
+    }
 };
 QTEST_GUILESS_MAIN(DiagnosticLinkTests)
 #include "DiagnosticLinkTests.moc"

@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 #include <QDateTime>
+#include <QElapsedTimer>
 #include <QHash>
 #include <QNetworkAccessManager>
+#include <QNetworkInterface>
 #include <QTcpServer>
 #include <QTimer>
 #include <QUdpSocket>
 #include <QUuid>
+#include <QSet>
 #include "VeyonCore.h"
 
+class SchoolLifecycleTests;
 namespace SchoolDiscovery {
 struct Record {
     QString endpoint, name, address;
@@ -35,6 +39,8 @@ public:
     QString error() const { return m_error; }
     void probe();
 private:
+    friend class ::SchoolLifecycleTests;
+    Agent(bool master, const QString& bootstrap, int port, QObject* parent, bool initializeSockets);
     Message announcement(const QString& action) const;
     void announce();
     void multicast(const QByteArray& data);
@@ -53,6 +59,11 @@ private:
     QHash<QString, Record> m_records;
     QHash<QString, qint64> m_seen;
     QHash<QString, int> m_rate;
+    QList<QNetworkInterface> m_interfaces;
+    QSet<QUdpSocket*> m_udpDrainScheduled;
+    QElapsedTimer m_clock;
+    qint64 m_lastProbe = -2000;
+    bool m_overloadReported = false;
     quint64 m_instance, m_sequence = 0;
     int m_httpClients = 0;
 };

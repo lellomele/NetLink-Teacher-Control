@@ -1,4 +1,4 @@
-# Audit and release gates — NetLink 0.1.0-alpha.5
+# Audit and release gates — NetLink 0.1.0-alpha.6
 
 Status: **partial audit and preliminary implementation, not a completed security
 audit, certified WS-Discovery implementation or production-ready release**.
@@ -50,8 +50,65 @@ pending reception is covered after correcting destructor signal reentrancy.
 A focused cppcheck run on DiagnosticLink could not parse the SDK's QT_CONFIG
 macro; this is an analysis coverage gap, not a clean static-analysis result.
 
+Alpha.6 passes all 16 local CTest suites: 139 Qt passes, no failures, and one
+skipped discovery HTTP-loopback case because the active installed service already
+owns port 3702. The six exported discovery messages pass the independent schema
+validator. The 13 Qt suites include 17 connection, 18 School lifecycle, eight
+authentication-wait, eight WFP cleanup, seven TCP/TLS-write, seven health and six
+GUI-latency passes; the diagnostic-link suite now has 13 passes. Counts include
+setup/cleanup. Three additional native suites cover 80,000 concurrent mock hook
+callbacks, 200 inert DLL load/unload cycles and three 16,384-update region-queue
+stress cycles. No global hooks or real privileged WFP filters are installed by
+those tests. Five repeated warm School lifecycle runs passed, with a maximum
+offscreen dialog opening of six milliseconds after console/font initialization;
+this is not an interactive Windows/classroom latency guarantee.
+
+The exact source-archive patch path was tested twice on fresh pinned vendor
+trees nested inside this checkout without their own Git metadata. All 21 changed
+vendor files match the working sources after line-ending normalization; hook and
+native tests rebuilt successfully from those extracted trees.
+
 ## Corrections
 
+- The desktop-crash investigation found Windows Application Error 1000 events
+  for `dwm.exe`, naming the distributed winpthreads DLL. The installed import
+  chain was `vnchooks → libstdc++ → libwinpthread`; the recorded offset maps to
+  an abort after failed TLS-slot allocation. The replacement injected DLL uses
+  only KERNEL32/USER32, no CRT/C++/pthread startup, TLS directory or delayed
+  runtime imports. Loader attach/detach do no registry/User32 initialization;
+  bounded callbacks do not allocate or wait for arbitrary window regions.
+  Ownership publication, partial hook removal and logical input-filter
+  deactivation are checked. The capture-region queue now uses a dedicated
+  mutex with atomic union/drain, replacing a shared flag and polling loop.
+  Concurrent producers/consumer verify the exact accumulated region and stable
+  GDI resources after Windows cache warm-up. Mock hooks and inert DLL loading do not prove live
+  desktop interoperability: the installed two-PC GUI test must confirm it.
+- Network frames are decoded into worker-only storage and published as detached
+  snapshots. Empty updates do not copy or repaint. Frame dimensions/bytes,
+  outgoing queues and message/event batches are bounded. Stop/reconnect discard
+  queued commands and obsolete callbacks; worker-owned client data is not
+  modified from the GUI. Lost wakeups in stop and authentication predicate waits
+  are corrected, with tests controlling the historical race window.
+  Raw and OpenSSL writes share an absolute monotonic deadline, including
+  non-reading peers and TLS WANT_READ/WANT_WRITE; partial progress cannot extend
+  it indefinitely. This does not bound blocking DNS or every handshake operation.
+- School windows are nonmodal/idempotent with client-selection snapshots and
+  event-driven status updates. DNS resolution is cancellable and all-or-nothing;
+  failed hosts cannot silently yield a partial policy. Attendance callbacks guard
+  Worker lifetime and request IDs. WFP requests have concurrency limits and one
+  pending Release per authenticated connection. Failed engine close preserves
+  its handle, ownership and filters for backed-off retry, reports unknown, and
+  prevents a new Apply from hiding pending cleanup. Active pipe clients are capped.
+- Companion projects only relevant bounded Windows crash records and window
+  response state; it never collects memory dumps or unrelated event messages.
+  Deferred TLS notifications carry a session generation and cannot reach a newly
+  paired session after cancellation. Callback-driven destruction is covered.
+  A lightweight GUI timer records recovered event-loop gaps, not permanent
+  deadlock proof; OS sleep/resume may also account for a gap.
+- Source-archive vendor patching stops Git discovery at the parent of each vendor
+  directory. This prevents an extracted tree nested inside another repository
+  from silently reporting success while skipping its patches. Packaging rejects
+  injected hooks with unexpected DLL imports, TLS or delayed import startup.
 - Authentication framing distinguishes the exact-length blocking LibVNCClient
   SocketDevice from buffered/event-driven devices. The blocking path never peeks;
   asynchronous partial frames remain unconsumed. The adapter's Qt meta-object is
@@ -113,12 +170,30 @@ macro; this is an analysis coverage gap, not a clean static-analysis result.
 
 ## Coverage limitations and open security work
 
+The alpha.6 pass targets the identified crash path and concrete lifecycle,
+concurrency and timeout defects; it is not a claim that every latent defect in
+the application or its dependencies has been found. Local synthetic stress and
+snapshot timings do not establish classroom performance. Native BFE/RPC may still
+block service shutdown; a warning is emitted after five seconds rather than
+forcibly terminating a transaction. Network-share CSV commit remains synchronous.
+Blocking DNS and inherited forced-thread termination on exceptional destruction
+need a separate cancellation design. Legacy capture teardown still contains
+`g_lockcode`/keyboard-helper coordination and some unbounded joins; replacing
+that protocol safely requires a separate lifecycle redesign, not forced unload
+or a timeout that could leave callbacks using freed memory. GUI-gap warnings
+appear only after recovery.
+
 Cppcheck 2.19.1 scanned the compilation database, initially 336 compilation units,
 including internal Windows libraries. Concrete issues above were corrected.
 Some Qt/compiler configurations were not parsed: the second pass still had 43
 syntax/preprocessing diagnostics and warnings needing triage. A zero tool exit
 does NOT establish full analysis coverage or absence of bugs. External runtime
 packages were inventoried, not independently audited in full.
+The alpha.6 focused compilation-database scan of seven changed implementation
+files also stopped in Qt/MinGW headers (`__has_builtin`, Qt deprecation macros).
+Preprocessing GuiLatencyMonitor with the actual GCC flags succeeded, but the
+analyzer still rejected the resulting translation unit. No application finding
+was established by that scan; it adds no complete static-analysis coverage.
 
 Sanitizers, sustained load/reentrancy testing, complete dependency CVE/backport
 review and independent protocol interoperability remain release gates. The

@@ -28,6 +28,7 @@
 #include "DocumentationFigureCreator.h"
 #include "VeyonMaster.h"
 #include "MainWindow.h"
+#include "GuiLatencyMonitor.h"
 
 
 int main( int argc, char** argv )
@@ -62,6 +63,7 @@ int main( int argc, char** argv )
 	splashScreen.finish( masterCore.mainWindow() );
 
 	masterCore.mainWindow()->show();
+	new GuiLatencyMonitor(&app);
 
 	return core.exec();
 }

@@ -5,7 +5,7 @@ InternetGuard basato su Windows Filtering Platform, Appello con il nome dichiara
 dallo studente sulle miniature e ricerca dei client tramite WS-Discovery 1.1.
 Le funzioni sono integrate: non occorre installare un plugin esterno.
 
-**Versione preliminare 0.1.0-alpha.5: destinata a PC di prova, non al laboratorio in uso.**
+**Versione preliminare 0.1.0-alpha.6: destinata a PC di prova, non al laboratorio in uso.**
 
 ## Installazione
 
@@ -13,6 +13,12 @@ Scaricare l’installer x64 dalla [pagina delle release](https://github.com/lell
 Installarlo come amministratore sul PC docente e sui client. Windows 10 a 64 bit è
 il sistema di riferimento; le librerie necessarie sono incluse nell’installer.
 Non servono Python, .NET aggiuntivo, DDS, Zenoh o un nuovo driver kernel.
+
+Per aggiornare, chiudere Console docente, Configurator e Companion e usare
+l'installer completo su entrambi i PC, conservando le chiavi esistenti. Dopo
+l'aggiornamento dalle alpha precedenti riavviare Windows prima del collaudo:
+le vecchie librerie di aggancio possono essere ancora caricate in altri processi.
+Non sostituire o cancellare singole DLL.
 
 Il programma usa la configurazione Veyon esistente e installa il servizio separato
 `VeyonSchoolService`. Non eseguire contemporaneamente i due servizi: usano le stesse
@@ -37,6 +43,9 @@ docenti. Non distribuire la chiave privata ai client.
 - **InternetGuard:** selezionare i PC, aprire InternetGuard e scegliere Blocca,
   Sblocca o Verifica stato. La console mostra conferme, errori e richieste senza risposta.
   Il blocco è rinnovato ogni 20 secondi e scade dopo 90 secondi senza rinnovo.
+  Le finestre InternetGuard, Appello e Trova client lasciano utilizzabile la
+  console e conservano i PC selezionati all'apertura. Chiudere la finestra
+  InternetGuard non sblocca i client: usare esplicitamente **Sblocca**.
 - **Appello:** selezionare i PC e richiedere nome e cognome. I nomi sono visualizzati
   sulle miniature, ricercabili e ordinabili. Si può esportare il risultato in CSV
   oppure terminare l’appello e cancellare i nomi.
@@ -55,6 +64,13 @@ Windows, account e gruppi del processo, schede/IP/prefissi, DNS/DHCP/gateway,
 servizi, porte TCP, profili firewall, regole discovery del fork, impostazioni
 NetLink e PC già inseriti nel Configurator. Delle chiavi private legge soltanto
 nomi, percorsi e permessi, mai il contenuto; calcola l'impronta dei soli file pubblici.
+
+La sezione **Stabilità e arresti Windows** cerca, con limiti di tempo e quantità,
+gli arresti del desktop e delle applicazioni della suite nelle ultime 24 ore e
+le finestre che Windows segnala come non rispondenti. Mostra orari UTC e modulo
+coinvolto, senza raccogliere dump di memoria, titoli di finestre o eventi di altre
+applicazioni. I vecchi eventi restano visibili dopo l'aggiornamento: confrontarne
+gli orari con le nuove prove. L'assenza di eventi non certifica la stabilità.
 
 Eseguirlo prima con lo stesso account e livello di privilegi del Master. Il pulsante
 **Apri come amministratore** è facoltativo: i suoi risultati non provano i permessi
@@ -114,6 +130,9 @@ Il feedback InternetGuard conferma l’installazione dei filtri WFP, **non** una
 di navigazione. Serve ancora il collaudo su Windows 10 con firewall/antivirus reali,
 connessioni già aperte, IPv6, VPN e cambi di interfaccia. La scadenza è volutamente
 fail-open: questo non è un firewall aziendale o un controllo di sicurezza assoluto.
+Se Windows non conferma la chiusura della sessione WFP, NetLink conserva lo stato
+di recupero, segnala **sconosciuto** e ritenta: non dichiara falsamente lo sblocco.
+Un blocco delle chiamate native BFE/RPC può ritardare anche la scadenza prevista.
 
 Le destinazioni autorizzate restano raggiungibili su tutte le porte; proxy o VPN su
 quelle destinazioni possono permettere l’accesso esterno. Non autorizzare intere
@@ -138,6 +157,12 @@ degli input non ha la stessa forza della modalità con driver Interception.
 Interception è il filtro di tastiera/mouse che rafforza il blocco degli input,
 incluse combinazioni speciali; non serve per rete, autenticazione o InternetGuard.
 Le nuove funzioni richiedono il fork NetLink (già Veyon School) sui client.
+
+I ritardi dell'interfaccia superiori a due secondi vengono segnalati nel normale
+registro diagnostico dopo il recupero, con avvisi limitati nel tempo. Anche una
+sospensione di Windows può produrre un ritardo: non è una prova di deadlock.
+Non vengono forzati riavvii, chiusure o riparazioni. Il salvataggio CSV su una
+cartella di rete non disponibile può ancora attendere le risposte di Windows.
 
 ## Compilazione
 

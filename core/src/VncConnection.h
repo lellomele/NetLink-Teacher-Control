@@ -42,6 +42,7 @@
 using rfbClient = struct _rfbClient;
 
 class VncEvent;
+class VeyonConfiguration;
 
 class VEYON_CORE_EXPORT VncConnection : public QThread
 {
@@ -58,6 +59,8 @@ public:
 	static constexpr int DefaultSocketKeepaliveIdleTime = 1000;
 	static constexpr int DefaultSocketKeepaliveInterval = 500;
 	static constexpr int DefaultSocketKeepaliveCount = 5;
+	static constexpr int MaximumQueuedEvents = 1024;
+	static constexpr quint64 MaximumFramebufferBytes = 128ULL * 1024 * 1024;
 
 	enum class Quality
 	{
@@ -110,14 +113,11 @@ public:
 		return state() == State::Connected && isRunning();
 	}
 
-	const QString& host() const
-	{
-		return m_host;
-	}
+	QString host() const;
 
 	void setQuality( Quality quality )
 	{
-		m_quality = quality ;
+		m_quality.store(quality);
 	}
 
 	void setUseRemoteCursor( bool enabled );
@@ -177,6 +177,8 @@ protected:
 	void run() override;
 
 private:
+	// Shared construction path; tests supply an isolated configuration store.
+	explicit VncConnection(const VeyonConfiguration& configuration, QObject* parent = nullptr);
 	// RFB parameters
 	using RfbPixel = uint32_t;
 	static constexpr int RfbBitsPerSample = 8;
@@ -191,7 +193,8 @@ private:
 		DeleteAfterFinished = 0x10,
 		SkipHostPing = 0x20,
 		RequiresManualUpdateRateControl = 0x40,
-		TriggerFramebufferUpdate = 0x80
+		TriggerFramebufferUpdate = 0x80,
+		UpdateFormatAndEncodings = 0x100
 	};
 
 	~VncConnection() override;
@@ -209,6 +212,7 @@ private:
 	void finishFrameBufferUpdate();
 
 	void sendEvents();
+	void discardEvents();
 
 	void deleteLaterInMainThread();
 
@@ -238,30 +242,39 @@ private:
 	// states and flags
 	std::atomic<State> m_state;
 	std::atomic<FramebufferState> m_framebufferState;
+	std::atomic_bool m_deleteScheduled{false};
 	QAtomicInt m_controlFlags;
 
 	// connection parameters and data
 	rfbClient* m_client;
-	Quality m_quality;
+	std::atomic<Quality> m_quality;
 	QString m_host;
 	int m_port;
 	int m_defaultPort{-1};
-	bool m_useRemoteCursor{false};
+	std::atomic_bool m_useRemoteCursor{false};
 
 	// thread and timing control
-	QMutex m_globalMutex;
+	mutable QMutex m_globalMutex;
 	QMutex m_eventQueueMutex;
+	QMutex m_waitMutex;
 	QWaitCondition m_updateIntervalSleeper;
 	QAtomicInt m_framebufferUpdateInterval;
 	QElapsedTimer m_framebufferUpdateWatchdog;
 
 	// queue for RFB and custom events
 	QQueue<VncEvent *> m_eventQueue;
+	bool m_eventOverflowReported{false}; // guarded by m_eventQueueMutex
+	bool m_slowMessageReported{false}; // VNC worker only, at most once per connection
 
 	// framebuffer data and thread synchronization objects
+	// Only the VNC worker accesses the decoder buffer. Published images never share
+	// storage with it, so GUI readers can retain a snapshot without a data race.
+	QImage m_receivingImage{};
+	QRect m_pendingImageUpdate{}; // accumulated by the VNC worker until publication
 	QImage m_image{};
 	QImage m_scaledFramebuffer{};
 	QSize m_scaledSize{};
 	QReadWriteLock m_imgLock{};
+	friend class ConnectionReliabilityTests;
 
 } ;
