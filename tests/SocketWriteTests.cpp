@@ -11,6 +11,7 @@
 #include <QTcpSocket>
 #include <memory>
 #include <thread>
+#include <cerrno>
 #include <openssl/ssl.h>
 #include <openssl/evp.h>
 #include <openssl/x509.h>
@@ -105,17 +106,35 @@ private Q_SLOTS:
     void rawUnresponsiveReaderHasAbsoluteDeadline() {
         SocketPair pair;QVERIFY(pair.open(true));
         rfbClient client{};client.sock=rfbSocket(pair.writer.socketDescriptor());client.serverPort=11100;client.readTimeout=1;
-        // Windows loopback can accept one very large send despite SO_SNDBUF.
-        // Saturate with small writes first, then exercise the actual wait path.
-        const QByteArray filler(16384,'q');bool saturated=false;
-        for(int i=0;i<4096;++i) {
+        // A transient WSAEWOULDBLOCK is not persistent backpressure on Windows
+        // loopback, and the requested SO_SNDBUF may be raised by the OS. Allocate
+        // the payload first, then require four consecutive non-writable polls.
+        const QByteArray payload(32*1024*1024,'s'),filler(16384,'q');
+        const auto setupDeadline=rfbWriteNowMs()+3000;
+        constexpr int MaximumPrefill=64*1024*1024;
+        int prefilled=0,stablePolls=0,lastError=0;
+        while(rfbWriteNowMs()<setupDeadline && prefilled<MaximumPrefill && stablePolls<4) {
             const int sent=::send(client.sock,filler.constData(),filler.size(),0);
-            if(sent<0) {saturated=true;break;}
+            if(sent>0) {prefilled+=sent;stablePolls=0;continue;}
+            if(sent==0) break;
+#ifdef WIN32
+            lastError=WSAGetLastError();
+            if(lastError!=WSAEWOULDBLOCK) break;
+#else
+            lastError=errno;
+            if(lastError!=EWOULDBLOCK && lastError!=EAGAIN) break;
+#endif
+            const auto pollDeadline=qMin(setupDeadline,rfbWriteNowMs()+75);
+            const int ready=rfbWaitForWriteSocket(client.sock,0,pollDeadline);
+            if(ready<0) break;
+            stablePolls=ready==0?stablePolls+1:0;
         }
-        QVERIFY(saturated);
-        const QByteArray payload(32*1024*1024,'s');QElapsedTimer elapsed;elapsed.start();
-        QVERIFY(!WriteToRFBServer(&client,payload.constData(),unsigned(payload.size())));
-        qInfo()<<"Raw slow-reader write deadline elapsed ms:"<<elapsed.elapsed();
+        qInfo()<<"Raw fixture prefill bytes:"<<prefilled<<"stable non-writable polls:"<<stablePolls<<"socket error:"<<lastError;
+        QCOMPARE(stablePolls,4);
+        QElapsedTimer elapsed;elapsed.start();
+        const bool sent=WriteToRFBServer(&client,payload.constData(),unsigned(payload.size()));
+        qInfo()<<"Raw slow-reader result:"<<sent<<"elapsed ms:"<<elapsed.elapsed();
+        QVERIFY(!sent);
         QVERIFY(elapsed.elapsed()<4000);
     }
     void rawResponsiveReaderPreservesBytes() {

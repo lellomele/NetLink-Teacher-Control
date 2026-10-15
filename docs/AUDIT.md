@@ -62,6 +62,14 @@ stress cycles. No global hooks or real privileged WFP filters are installed by
 those tests. Five repeated warm School lifecycle runs passed, with a maximum
 offscreen dialog opening of six milliseconds after console/font initialization;
 this is not an interactive Windows/classroom latency guarantee.
+Five repeated runs of the six native/connection/authentication/cleanup suites
+and five diagnostic-link runs also passed. Extended TCP/TLS repetition exposed a
+fixture assumption: one Windows `WSAEWOULDBLOCK` can be transient, and a later
+large send may legitimately be accepted entirely by the kernel. The fixture now
+allocates before prefill, validates the exact error and requires four consecutive
+75 ms non-writable polls, with three-second/64 MiB preparation caps. Twenty
+complete write-suite repetitions then passed (140 Qt passes); the production
+write code was unchanged by this fixture correction.
 
 The exact source-archive patch path was tested twice on fresh pinned vendor
 trees nested inside this checkout without their own Git metadata. All 21 changed
