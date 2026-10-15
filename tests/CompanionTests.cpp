@@ -58,16 +58,39 @@ private Q_SLOTS:
     }
     void tcpProbeLoopbackOnly() {
         QTcpServer server;QVERIFY(server.listen(QHostAddress::LocalHost,0));CompanionWindow window(fixture(),false);
+        window.findChild<QCheckBox*>("companionProtocol")->setChecked(false);
         window.findChild<QComboBox*>("companionTarget")->setEditText("127.0.0.1");window.findChild<QSpinBox*>("companionPort")->setValue(server.serverPort());
         auto button=window.findChild<QPushButton*>("companionProbe");button->click();auto result=window.findChild<QLabel*>("companionProbeResult");
-        QTRY_VERIFY_WITH_TIMEOUT(button->isEnabled(),3000);QVERIFY(result->text().contains("TCP raggiungibile"));QVERIFY(result->text().contains("NON verificata"));window.close();
+        QTRY_VERIFY_WITH_TIMEOUT(button->isEnabled(),3000);QVERIFY(result->text().contains("TCP raggiungibile"));QVERIFY(result->text().contains("NON verificata"));QCOMPARE(result->property("diagnosticState").toString(),QString("success"));QVERIFY(result->autoFillBackground());
+        const auto output=qEnvironmentVariable("NETLINK_COMPANION_SCREENSHOTS");if(!output.isEmpty()){QDir().mkpath(output);window.show();QApplication::processEvents();QVERIFY(window.grab().save(QDir(output).filePath("netlink-companion-tcp-success.png")));}window.close();
+    }
+    void protocolProbeLoopback() {
+        QTcpServer server;QVERIFY(server.listen(QHostAddress::LocalHost,0));
+        connect(&server,&QTcpServer::newConnection,this,[&server]{auto socket=server.nextPendingConnection();socket->write("RFB 003.008\n");});
+        CompanionWindow window(fixture(),false);window.findChild<QComboBox*>("companionTarget")->setEditText("127.0.0.1");window.findChild<QSpinBox*>("companionPort")->setValue(server.serverPort());
+        auto button=window.findChild<QPushButton*>("companionProbe");button->click();auto result=window.findChild<QLabel*>("companionProbeResult");
+        QTRY_VERIFY_WITH_TIMEOUT(button->isEnabled(),3000);QVERIFY(result->text().contains("banner RFB"));QVERIFY(result->text().contains("NON verificata"));QCOMPARE(result->property("diagnosticState").toString(),QString("success"));window.close();
+    }
+    void firewallAndListenerDiagnostics() {
+        auto report=fixture();auto settings=report["settings"].toObject();settings["Network/FirewallExceptionEnabled"]=false;report["settings"]=settings;
+        report["listeners"]=QJsonArray{QJsonObject{{"port",11100},{"address","127.0.0.1"}}};
+        auto advice=Companion::recommendations(report,"client").join('\n');QVERIFY(advice.contains("eccezione firewall automatica disabilitata"));QVERIFY(advice.contains("solo su loopback"));
+        report["listeners"]=QJsonArray{};QVERIFY(Companion::recommendations(report,"client").join('\n').contains("nessun listener"));
+        auto system=report["system"].toObject();system["companionVersion"]="4.7.5-netlink.0.1.0-alpha.4";report["system"]=system;QVERIFY(Companion::recommendations(report,"teacher").join('\n').contains("lettore di autenticazione"));
+        system["companionVersion"]="4.7.5-netlink.0.1.0-alpha.5";report["system"]=system;QVERIFY(!Companion::recommendations(report,"teacher").join('\n').contains("Questa alpha precede"));
+    }
+    void windowDestructionWithPendingReception() {
+        auto window=new CompanionWindow(fixture(),false);
+        QPointer<Companion::DiagnosticLink> link=window->findChild<Companion::DiagnosticLink*>();QVERIFY(link);
+        QVERIFY(link->receiveOnce(QHostAddress::LocalHost));QVERIFY(!link->pairingCode().isEmpty());
+        delete window;QVERIFY(link.isNull());QApplication::processEvents();
     }
     void widgetPreview() {
         QTemporaryDir directory;QVERIFY(directory.isValid());QSettings settings(directory.filePath("appearance.ini"),QSettings::IniFormat);
         auto appearance=NetLinkAppearance::install(&settings);CompanionWindow window(fixture(),false);window.show();QApplication::processEvents();
         QVERIFY(!window.windowIcon().isNull());auto view=window.findChild<QTextBrowser*>("companionReport");QVERIFY(view);QVERIFY(view->toPlainText().contains("PC-DIMOSTRATIVO"));
         auto role=window.findChild<QComboBox*>("companionRole");QVERIFY(role);role->setCurrentIndex(1);QVERIFY(view->toPlainText().contains("chiave privata leggibile"));
-        const auto output=qEnvironmentVariable("NETLINK_COMPANION_SCREENSHOTS");if(!output.isEmpty()){QDir().mkpath(output);QVERIFY(window.grab().save(QDir(output).filePath("netlink-companion.png")));}
+        const auto output=qEnvironmentVariable("NETLINK_COMPANION_SCREENSHOTS");if(!output.isEmpty()){QDir().mkpath(output);QVERIFY(window.grab().save(QDir(output).filePath("netlink-companion.png")));window.findChild<QTabWidget*>()->setCurrentIndex(1);QApplication::processEvents();QVERIFY(window.grab().save(QDir(output).filePath("netlink-companion-protected-link.png")));}
         window.close();delete appearance;
     }
 };

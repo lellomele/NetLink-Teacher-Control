@@ -1,4 +1,4 @@
-# Audit and release gates — NetLink 0.1.0-alpha.4
+# Audit and release gates — NetLink 0.1.0-alpha.5
 
 Status: **partial audit and preliminary implementation, not a completed security
 audit, certified WS-Discovery implementation or production-ready release**.
@@ -24,7 +24,7 @@ installation identities for compatibility; this is a public-facing rebrand.
 Companion has dedicated fixture tests for report parsing/bounds, invalid targets,
 identifier omission by whitelist projection, HTML escaping, static comparison,
 elevated-token warnings, asymmetric masks, GUI rendering and a TCP probe against
-an isolated loopback fixture only. No private key contents are read; no privileged
+an isolated loopback fixture only. No Veyon private-key file contents are read; no privileged
 configuration writes are implemented. Native collection and permission results
 have passed one read-only local Windows smoke check, retaining the report only in
 memory and displaying counts rather than identifiers. Collection/permission results
@@ -39,8 +39,38 @@ Packaged CLI loading is checked with only Windows system directories in PATH.
 The local non-elevated WFP self-test reached the engine but sublayer creation
 returned Windows error 5 (access denied); privileged WFP execution is NOT verified.
 
+Alpha.5 adds eight transport Qt passes, eight diagnostic-link Qt passes and
+fifteen Companion Qt passes (including setup/cleanup), for six passing suites
+and 64 Qt passes in total. The user-authorized two-PC test with a fresh key
+completed authentication and received the first framebuffer update through the
+corrected VeyonConnection implementation; no input was sent or image saved.
+TLS tests cover correct pairing, wrong pins/tokens, expiry, replay rejection,
+oversized pre-authentication frames and explicit stop. Widget destruction with
+pending reception is covered after correcting destructor signal reentrancy.
+A focused cppcheck run on DiagnosticLink could not parse the SDK's QT_CONFIG
+macro; this is an analysis coverage gap, not a clean static-analysis result.
+
 ## Corrections
 
+- Authentication framing distinguishes the exact-length blocking LibVNCClient
+  SocketDevice from buffered/event-driven devices. The blocking path never peeks;
+  asynchronous partial frames remain unconsumed. The adapter's Qt meta-object is
+  exported across the Windows DLL boundary. Regression coverage includes real
+  adapter construction outside the core DLL, auth types, empty acknowledgements,
+  challenges, feature messages, oversized headers and truncated bodies.
+- Companion highlights TCP outcomes without implying successful authentication,
+  optionally reads an RFB greeting, and identifies disabled automatic firewall
+  exceptions, missing listeners and loopback-only listeners. A public profile on
+  any adapter is no longer presented as proof that the Wi-Fi profile is public.
+- The optional Companion report link is one-shot TLS, not remote management.
+  Certificates/keys and 256-bit pairing secrets are generated in memory; the
+  sender pins SHA-256 even when no TLS verification error occurs. Pairing claims
+  require a constant-time token comparison before report transfer, expire within
+  five minutes, and close after one accepted session. Framing, report schema,
+  connection count, attempts and phase deadlines are bounded. No firewall changes,
+  key-file reads, shell commands or automatic listeners are added by this link.
+  Local TLS fixture tests do not establish cross-subnet/firewall interoperability
+  or replace independent review of the new network-facing code.
 - School configuration fields update the staged model immediately, enabling Apply
   and persisting before post-save hooks. Reset blocks widget signals; connections
   are idempotent. Invalid/oversized resource lists are rejected by pre-save page

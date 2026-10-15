@@ -5,7 +5,7 @@ InternetGuard basato su Windows Filtering Platform, Appello con il nome dichiara
 dallo studente sulle miniature e ricerca dei client tramite WS-Discovery 1.1.
 Le funzioni sono integrate: non occorre installare un plugin esterno.
 
-**Versione preliminare 0.1.0-alpha.4: destinata a PC di prova, non al laboratorio in uso.**
+**Versione preliminare 0.1.0-alpha.5: destinata a PC di prova, non al laboratorio in uso.**
 
 ## Installazione
 
@@ -49,6 +49,7 @@ docenti. Non distribuire la chiave privata ai client.
 ### NetLink Companion
 
 Il terzo programma della suite si apre da **Start → NetLink → Companion**.
+La stessa cartella contiene Console docente e Configurator.
 Raccoglie localmente le informazioni utili per configurare la comunicazione:
 Windows, account e gruppi del processo, schede/IP/prefissi, DNS/DHCP/gateway,
 servizi, porte TCP, profili firewall, regole discovery del fork, impostazioni
@@ -67,12 +68,29 @@ e omette identificativi, indirizzi e chiavi. Il rapporto completo contiene dati
 personali e della rete: conservarlo e condividerlo solo quando necessario.
 
 **Verifica TCP** apre una sola connessione al nome/IP e alla porta scelti, per massimo
-8 secondi. Non verifica autenticazione, multicast UDP o navigazione. Sul servizio
+8 secondi. Gli esiti hanno testo e sfondo distinti. È possibile verificare anche
+la risposta iniziale RFB, distinguendo una porta aperta da un servizio che risponde.
+Non verifica autenticazione, multicast UDP o navigazione. Sul servizio
 NetLink/Veyon questa prova può provocare una notifica di autenticazione incompleta.
 Le impronte uguali attestano file pubblici uguali, non la validità della coppia
 con la chiave privata. I rapporti non sono firmati e non vengono importati come
 configurazione fidata. Routing, ACL, isolamento Wi-Fi e autenticazione vanno
 confermati con una connessione reale dal Master.
+
+La scheda **Collegamento protetto** consente di trasferire direttamente un rapporto
+tra due Companion, anche quando il servizio NetLink non è raggiungibile. Sul PC
+ricevente scegliere ruolo, interfaccia e porta separata (predefinita TCP 11110,
+oppure 0 per una porta automatica), quindi **Ricevi un rapporto**. Incollare il
+codice nell'altro Companion e confermare l'invio dei dati completi. Il ricevente
+confronta automaticamente il rapporto ricevuto con quello locale.
+
+Il canale usa TLS 1.2 o successivo, certificato temporaneo verificato mediante
+l'impronta nel codice e un segreto casuale monouso. Il codice scade entro 5 minuti;
+la ricezione termina dopo un rapporto. Trattare il codice come riservato. Non
+vengono aperte porte all'avvio né modificate regole firewall: se il traffico è
+filtrato serve un'autorizzazione locale mirata sul ricevente. Non è un canale di
+amministrazione remota, non esegue riparazioni e non usa le chiavi Veyon. I rapporti
+rimangono dichiarazioni dell'altro programma, non attestazioni del sistema.
 
 ### Configurator
 
@@ -108,8 +126,9 @@ nella memoria del Master finché termina l’appello o si chiude il programma; i
 contiene dati personali e va conservato soltanto quando necessario. Gli annunci
 discovery non trasmettono i nomi degli studenti e non sono autenticati.
 
-La comunicazione eredita il modello di sicurezza Veyon 4.7.5: non viene aggiunto un
-canale TLS generalizzato. Non esporre i servizi a Internet o a reti non fidate.
+La comunicazione Master/client eredita il modello di sicurezza Veyon 4.7.5: il TLS
+del solo Companion non aggiunge un canale TLS generalizzato alla suite.
+Non esporre i servizi a Internet o a reti non fidate.
 Limiti: 256 client per operazione, 255 destinazioni totali, 128 risorse aggiuntive,
 1.024 candidati discovery; le risposte SOAP sono limitate a 32 KiB e 64 record.
 

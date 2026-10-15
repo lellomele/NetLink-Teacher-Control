@@ -167,14 +167,14 @@ QJsonObject firewall() {
     if(SUCCEEDED(status)) {
         long active=0;if(SUCCEEDED(policy->get_CurrentProfileTypes(&active))) result["activeProfiles"]=int(active);
         QJsonArray profiles;for(const auto type:{NET_FW_PROFILE2_DOMAIN,NET_FW_PROFILE2_PRIVATE,NET_FW_PROFILE2_PUBLIC}) {VARIANT_BOOL enabled=VARIANT_FALSE;const auto hr=policy->get_FirewallEnabled(type,&enabled);QJsonObject item{{"profile",int(type)}};if(SUCCEEDED(hr)) item["enabled"]=enabled==VARIANT_TRUE;else item["queryError"]=QString::number(quint32(hr),16);profiles.append(item);}result["profiles"]=profiles;
-        INetFwRules* rules=nullptr;QJsonArray discovery;
+        INetFwRules* rules=nullptr;QJsonArray discovery,serviceRules;
         if(SUCCEEDED(policy->get_Rules(&rules))) {
-            for(int index=0;index<3;++index) {const auto name=QString("Veyon School discovery %1").arg(index);auto ruleName=SysAllocString(wide(name));INetFwRule* rule=nullptr;QJsonObject item{{"name",name}};
+            for(int index=0;index<5;++index) {const auto name=index<3?QString("Veyon School discovery %1").arg(index):QString(index==3?"Veyon Server":"Veyon Worker");auto ruleName=SysAllocString(wide(name));INetFwRule* rule=nullptr;QJsonObject item{{"name",name}};
                 if(SUCCEEDED(rules->Item(ruleName,&rule))) {VARIANT_BOOL enabled=VARIANT_FALSE;long profile=0,protocol=0;NET_FW_ACTION action=NET_FW_ACTION_BLOCK;NET_FW_RULE_DIRECTION direction=NET_FW_RULE_DIR_OUT;rule->get_Enabled(&enabled);rule->get_Profiles(&profile);rule->get_Protocol(&protocol);rule->get_Action(&action);rule->get_Direction(&direction);item["enabled"]=enabled==VARIANT_TRUE;item["profiles"]=int(profile);item["protocol"]=int(protocol);item["allow"]=action==NET_FW_ACTION_ALLOW;item["inbound"]=direction==NET_FW_RULE_DIR_IN;
                     BSTR path=nullptr;if(SUCCEEDED(rule->get_ApplicationName(&path))) {item["application"]=QString::fromWCharArray(path?path:L"");SysFreeString(path);}rule->Release();
-                } else item["missing"]=true;SysFreeString(ruleName);discovery.append(item);
+                } else item["missing"]=true;SysFreeString(ruleName);if(index<3) discovery.append(item);else serviceRules.append(item);
             }rules->Release();
-        }result["discoveryRules"]=discovery;policy->Release();
+        }result["discoveryRules"]=discovery;result["serviceRules"]=serviceRules;policy->Release();
     } else result["error"]=QString::number(quint32(status),16);
     if(SUCCEEDED(initialized)) CoUninitialize();
     return result;
@@ -312,7 +312,19 @@ QStringList recommendations(const QJsonObject& report,const QString& role) {
     if(running(services,"VeyonSchoolService") && running(services,"VeyonService")) result<<"Sono attivi sia NetLink sia Veyon originale: possibile conflitto di porte. Non fermarli automaticamente durante una lezione.";
     if(!running(services,"BFE")) result<<"Il servizio motore di filtraggio Windows (BFE) non risulta attivo o non è verificabile: controllarlo prima del collaudo InternetGuard.";
     if(settings["Network/LocalConnectOnly"].toBool()) result<<"L'accesso è limitato al computer locale: i collegamenti da altri PC possono essere rifiutati.";
-    if(report["firewall"].toObject()["activeProfiles"].toInt()&4) result<<"È attivo anche un profilo di rete Pubblico: le eccezioni discovery del fork sono limitate a Privato/Dominio. Verificare la rete fidata, senza disattivare il firewall.";
+    if(settings.contains("Network/FirewallExceptionEnabled") && !settings["Network/FirewallExceptionEnabled"].toBool())
+        result<<"ATTENZIONE: eccezione firewall automatica disabilitata. Un client può rispondere su 127.0.0.1 ma non dal docente. Servono regole manuali equivalenti oppure, sul PC di prova in rete fidata, Configurator come amministratore → Vista → Avanzate → Servizio → Abilita le eccezioni del firewall. Le regole discovery NON autorizzano da sole la porta del servizio. Non è ancora una prova della policy effettiva.";
+    if(report.contains("listeners")) {
+        const int port=settings["Network/VeyonServerPort"].toInt(11100);bool found=false,network=false;
+        for(const auto& value:report["listeners"].toArray()) {const auto listener=value.toObject();if(listener["port"].toInt()!=port) continue;found=true;const QHostAddress address(listener["address"].toString());if(!address.isNull() && !address.isLoopback()) network=true;}
+        if(!found && running(services,"VeyonSchoolService")) result<<QString("ATTENZIONE: servizio avviato, ma nessun listener TCP rilevato sulla porta %1. Verificare porta configurata, avvio del processo server e possibili conflitti.").arg(port);
+        else if(found && !network) result<<QString("ATTENZIONE: porta %1 in ascolto solo su loopback. Può funzionare da questo PC, ma non dal docente; verificare anche il processo effettivamente avviato.").arg(port);
+        else if(found) result<<QString("Porta %1 in ascolto anche su un'interfaccia di rete. Non garantisce che il firewall la consenta o che l'autenticazione riesca.").arg(port);
+    }
+    if(report["firewall"].toObject()["activeProfiles"].toInt()&4) result<<"È presente un profilo Pubblico su almeno un'interfaccia, anche virtuale: non significa automaticamente che il Wi-Fi sia Pubblico. Le eccezioni discovery del fork sono limitate a Privato/Dominio. Verificare il profilo dell'interfaccia effettiva senza disattivare il firewall.";
+    const auto version=report["system"].toObject()["companionVersion"].toString();
+    for(int alpha=1;alpha<=4;++alpha) if(version.endsWith(QString("0.1.0-alpha.%1").arg(alpha))) {
+        result<<"Questa alpha precede la correzione del lettore di autenticazione del Master: con TCP raggiungibile può comparire Authentication failed prima dello scambio delle chiavi. Aggiornare la suite prima di rigenerare altre chiavi.";break;}
     if(report["identity"].toObject()["elevated"].toBool()) result<<"Companion è elevato: l'accessibilità delle chiavi si riferisce a questo account/token, NON prova che il Master avviato normalmente possa leggerle. Ripetere come utente docente non elevato.";
     if(settings["Authentication/Method"].toInt()==1) {
         int pub=0,priv=0,readable=0;for(const auto& value:report["keys"].toArray()) {const auto key=value.toObject();if(key["type"]=="public") ++pub;else if(key["type"]=="private") {++priv;if(key["readableByToolUser"].toBool()) ++readable;}}
@@ -322,6 +334,7 @@ QStringList recommendations(const QJsonObject& report,const QString& role) {
     } else result<<"È configurata l'autenticazione tramite account, non tramite chiavi. Per riutilizzare una coppia di chiavi, entrambi i PC devono scegliere il metodo corrispondente.";
     result<<"Subnet diverse non significano errore: servono routing/ACL compatibili e DiscoveryMaster sul client per gli annunci diretti. Il multicast non attraversa automaticamente le subnet.";
     result<<"I controlli locali non provano l'autenticazione Veyon né il blocco InternetGuard: per quello serve una connessione reale dal Master e il relativo feedback.";
+    result<<"Per isolare un timeout: dal docente provare IP client:porta servizio; sul client confrontare 127.0.0.1:stessa porta. Il collegamento client → docente è una direzione diversa e non prova l'ingresso sul client. User vuoto in una notifica può indicare una prova TCP o uno scambio interrotto prima dell'identificazione, non necessariamente una chiave errata.";
     return result;
 }
 QStringList compare(const QJsonObject& teacher,const QJsonObject& client) {
@@ -362,10 +375,11 @@ QString html(const QJsonObject& report,const QString& role) {
     auto identity=report["identity"].toObject();const auto groups=identity.take("groups").toArray();result+="<h2>Account che esegue Companion</h2>"+table(identity)+"<p>I gruppi sono identificati dal SID; i gruppi denyOnly non concedono accesso nel token attuale.</p>";
     result+="<h2>Rete</h2>";for(const auto& value:report["interfaces"].toArray()) {auto iface=value.toObject();QStringList ips;for(const auto& entry:iface.take("addresses").toArray()) ips<<entry.toObject()["address"].toString()+"/"+QString::number(entry.toObject()["prefix"].toInt());iface["addresses"]=ips.join(", ");iface["dns"]=list(iface["dns"].toArray());iface["gateways"]=list(iface["gateways"].toArray());result+=table(iface);}
     result+="<h2>Servizi e porte TCP in ascolto</h2>";for(const auto& value:report["services"].toArray()) result+=table(value.toObject());for(const auto& value:report["listeners"].toArray()) result+=table(value.toObject());
-    auto firewall=report["firewall"].toObject();const auto profiles=firewall.take("profiles").toArray(),rules=firewall.take("discoveryRules").toArray();
+    auto firewall=report["firewall"].toObject();const auto profiles=firewall.take("profiles").toArray(),rules=firewall.take("discoveryRules").toArray(),serviceRules=firewall.take("serviceRules").toArray();
     result+="<h2>Firewall Windows</h2>"+table(firewall)+"<p>Inventario parziale delle regole del fork, non una simulazione della policy effettiva: criteri di dominio e altri prodotti possono prevalere.</p>";
     for(const auto& value:profiles) result+=table(value.toObject());
     for(const auto& value:rules) result+=table(value.toObject());
+    for(const auto& value:serviceRules) result+=table(value.toObject());
     result+="<h2>Configurazione NetLink/Veyon</h2>"+table(report["settings"].toObject())+"<h2>PC già configurati</h2>";for(const auto& value:report["configuredComputers"].toArray()) result+=table(value.toObject());
     result+="<h2>Chiavi: metadati e permessi</h2><p>Nessun contenuto di chiave privata viene letto o esportato. Le impronte SHA-256 riguardano soltanto i file pubblici, non la validità di una coppia crittografica.</p>";for(const auto& value:report["keys"].toArray()) result+=table(value.toObject());
     result+="<h2>Informazioni non disponibili</h2><ul>";for(const auto& value:report["errors"].toArray()) result+="<li>"+value.toString().toHtmlEscaped()+"</li>";

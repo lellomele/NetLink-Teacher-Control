@@ -43,6 +43,8 @@ jobs:
           cat build-school/tests/school-configuration-tests-results.txt
           cat build-school/tests/netlink-appearance-tests-results.txt
           cat build-school/tests/netlink-companion-tests-results.txt
+          cat build-school/tests/netlink-transport-tests-results.txt
+          cat build-school/tests/netlink-diagnostic-link-tests-results.txt
       - name: Official XML schema validation
         shell: pwsh
         run: ./tests/validate-discovery.ps1 -Fixtures build-school/schema-fixtures
@@ -58,6 +60,7 @@ jobs:
           $toolchain=Join-Path '${{ steps.msys2.outputs.msys2-location }}' 'mingw64'
           $env:PATH=(Join-Path $toolchain 'bin')+';'+$env:PATH
           ./packaging/build-package.ps1 -Build build-release -Toolchain $toolchain
+          ./packaging/verify-package.ps1
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: github.event_name == 'workflow_dispatch'
         with:

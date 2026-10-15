@@ -26,6 +26,7 @@
 
 #include "VariantArrayMessage.h"
 #include "VariantStream.h"
+#include "SocketDevice.h"
 
 
 VariantArrayMessage::VariantArrayMessage( QIODevice* ioDevice ) :
@@ -54,6 +55,7 @@ bool VariantArrayMessage::send()
 
 bool VariantArrayMessage::isReadyForReceive()
 {
+	if (!m_ioDevice || !m_ioDevice->isOpen()) return false;
 	MessageSize messageSize = 0;
 
 	if( m_ioDevice->peek( reinterpret_cast<char *>( &messageSize ), sizeof(messageSize) ) == sizeof(messageSize) )
@@ -73,8 +75,12 @@ bool VariantArrayMessage::isReadyForReceive()
 
 bool VariantArrayMessage::receive()
 {
-	// Do not consume a header until the complete bounded frame is present.
-	if (!isReadyForReceive()) return false;
+	if (!m_ioDevice || !m_ioDevice->isOpen()) return false;
+	// LibVNCClient's adapter performs bounded, exact-length blocking reads and
+	// cannot report pending wire bytes through QIODevice::bytesAvailable(). Do
+	// not peek on it: that would consume the header into Qt's unrelated buffer.
+	// Event-driven sockets and buffers must still retain incomplete frames.
+	if (!qobject_cast<SocketDevice*>(m_ioDevice) && !isReadyForReceive()) return false;
 	MessageSize messageSize = 0;
 
 	if( m_ioDevice->read( reinterpret_cast<char *>( &messageSize ), sizeof(messageSize) ) != sizeof(messageSize) ) // Flawfinder: ignore

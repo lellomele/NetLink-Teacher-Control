@@ -25,8 +25,9 @@
 #pragma once
 
 #include <QIODevice>
+#include "VeyonCore.h"
 
-class SocketDevice : public QIODevice
+class VEYON_CORE_EXPORT SocketDevice : public QIODevice
 {
 	Q_OBJECT
 public:

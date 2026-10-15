@@ -58,6 +58,34 @@ Non pubblicare chiavi private, password o esportazioni di configurazione.
    tipo di avvio originale ripristinabile. Il servizio originale non viene
    riavviato automaticamente dalla disinstallazione.
 
+## Autenticazione e Companion
+
+1. Aggiornare la suite completa sui due PC di prova. Avviare il Master con
+   l'account docente normale; una miniatura aggiornata verifica uno scambio reale,
+   mentre TCP raggiungibile o un banner RFB non provano l'autenticazione.
+2. In Companion verificare esiti distinti per TCP riuscito, rifiutato, timeout,
+   risposta RFB valida e porta aperta senza risposta RFB. Non rigenerare le chiavi
+   in base al solo testo di una notifica con utente vuoto.
+3. Confrontare nel rapporto servizio avviato, listener sulla porta del servizio,
+   indirizzo di ascolto ed eccezione firewall configurata. Una regola configurata
+   non garantisce che la policy effettiva consenta il traffico.
+4. Scegliere il ruolo nella diagnosi locale. Sul PC ricevente, scheda Collegamento
+   protetto: scegliere l'interfaccia corretta e TCP 11110 oppure una porta
+   automatica, attivare Ricevi un rapporto e trasferire il codice solo all'altro
+   operatore. Non eseguire questa prova su una rete non fidata.
+5. Sull'altro PC incollare il codice e confermare consapevolmente l'invio del
+   rapporto completo. Verificare ricezione, confronto automatico e chiusura del
+   canale dopo la conferma. Nessun comando di riparazione deve essere eseguito.
+6. Provare codice alterato, scaduto e riutilizzato; nessun rapporto deve essere
+   consegnato. Provare Interrompi, chiusura dell'app e perdita del collegamento.
+   Il canale non deve ascoltare all'avvio o dopo la scadenza.
+7. Se la porta temporanea è filtrata, raccogliere l'esito senza disattivare il
+   firewall. Eventuali regole autorizzate dall'amministratore devono essere
+   limitate all'eseguibile Companion, alla porta e al PC/rete fidati necessari.
+8. Controllare Start → NetLink: Console docente, Configurator e Companion con
+   icone e destinazioni corrette, anche dopo aggiornamento. Verificare che gli
+   eventuali collegamenti dell'installazione Veyon originale siano conservati.
+
 Riportare passaggio, passato/non passato ed errore testuale, senza credenziali.
 Prima della stabile servono anche carico prolungato su una classe e chiusura
 dei punti ancora aperti in AUDIT.md.
