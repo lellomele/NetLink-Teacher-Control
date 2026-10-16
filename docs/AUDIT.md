@@ -43,6 +43,17 @@ fixture. The six independent XML schema checks passed. A separate production
 build completed with all eight current EXE identities. These results do not
 replace the privileged installation and original-client interoperability pilot.
 
+The remote Windows Server pressure test exposed a fixture assumption: after four
+non-writable polls for small sends, the OS still accepted the entire 32 MiB raw
+write in 688 ms. A successful write before the deadline is not a production
+timeout failure, but it did not exercise a stalled write. The fixture now limits
+the listening socket's receive buffer before connecting, requests no additional
+Winsock send buffering and logs/checks the effective receive limit. The actual
+raw/TLS deadline assertions remain mandatory; production socket code is unchanged.
+CI always prints Qt result files on failure and repeats the pressure suite twenty
+times without retry-until-pass behavior. These isolated loopback tests do not
+replace a slow/unreachable physical-client pilot.
+
 ## Alpha 8 focused changes
 
 The discovery list accepts native and mapped IPv4 only and excludes the local

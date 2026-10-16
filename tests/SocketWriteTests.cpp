@@ -33,13 +33,33 @@ struct SocketPair {
     QTcpServer listener;QTcpSocket writer;std::unique_ptr<QTcpSocket> reader;
     bool open(bool limited) {
         if(!listener.listen(QHostAddress::LocalHost,0)) return false;
+        if(limited) {
+            // Constrain the listening socket before the TCP handshake: changing
+            // only the accepted socket can leave a larger-than-intended
+            // negotiated receive window. No machine-wide TCP
+            // setting is changed; accepted sockets inherit this fixture limit.
+            const int receiveBuffer=4096;
+            if(::setsockopt(rfbSocket(listener.socketDescriptor()),SOL_SOCKET,SO_RCVBUF,
+                reinterpret_cast<const char*>(&receiveBuffer),sizeof(receiveBuffer))!=0) return false;
+        }
         writer.connectToHost(QHostAddress::LocalHost,listener.serverPort());
         if(!writer.waitForConnected(3000) || !listener.waitForNewConnection(3000)) return false;
         reader.reset(listener.nextPendingConnection());if(!reader) return false;
         if(limited) {
+            // Request no extra Winsock send buffering in the pressure fixture.
+            // A large single send can otherwise be queued in full even after
+            // several non-writable polls for smaller writes.
+#ifdef WIN32
+            writer.setSocketOption(QAbstractSocket::SendBufferSizeSocketOption,0);
+#else
             writer.setSocketOption(QAbstractSocket::SendBufferSizeSocketOption,4096);
+#endif
             reader->setSocketOption(QAbstractSocket::ReceiveBufferSizeSocketOption,4096);
             reader->setReadBufferSize(1);
+            qInfo()<<"Limited socket buffers, send:"<<writer.socketOption(QAbstractSocket::SendBufferSizeSocketOption)
+                   <<"receive:"<<reader->socketOption(QAbstractSocket::ReceiveBufferSizeSocketOption);
+            const int actualReceiveBuffer=reader->socketOption(QAbstractSocket::ReceiveBufferSizeSocketOption).toInt();
+            if(actualReceiveBuffer<=0 || actualReceiveBuffer>16384) return false;
         }
         return true;
     }
