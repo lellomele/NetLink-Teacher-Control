@@ -25,6 +25,7 @@
 #pragma once
 
 #include <QMutex>
+#include <QSet>
 #include <QtConcurrent>
 
 #include "FeatureWorkerManager.h"
@@ -94,6 +95,8 @@ private:
 
 	QStringList m_failedAuthHosts;
 	QStringList m_failedAccessControlHosts;
+	// Main-event-thread snapshot only; never read authentication state from a timer.
+	QSet<const VncServerClient*> m_trayAuthorizedClients;
 
 	FeatureWorkerManager m_featureWorkerManager;
 

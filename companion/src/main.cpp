@@ -5,6 +5,7 @@
 #include "Diagnostics.h"
 #include "DiagnosticLink.h"
 #include "NetLinkAppearance.h"
+#include "NetLinkUi.h"
 #include "GuiLatencyMonitor.h"
 #include <veyonconfig.h>
 #include <QApplication>
@@ -48,10 +49,11 @@
 class CompanionWindow : public QMainWindow {
 public:
     explicit CompanionWindow(const QJsonObject& initialReport={},bool autoScan=true) {
-        setWindowTitle("NetLink Companion — diagnosi e configurazione assistita");
+        setWindowTitle(NetLinkUi::windowTitle("NetLink Companion — diagnosi e configurazione assistita"));
         setWindowIcon(QIcon(":/companion/icon.png"));resize(1050,800);
         auto central=new QWidget(this);setCentralWidget(central);auto root=new QVBoxLayout(central);
         auto tabs=new QTabWidget(central);root->addWidget(tabs);
+        NetLinkUi::addInformationMenu(this);
         auto localPage=new QWidget(tabs);tabs->addTab(localPage,"Diagnosi locale");auto layout=new QVBoxLayout(localPage);
         auto header=new QLabel("<h2>NetLink Companion</h2>Analisi locale senza modifiche a servizi, firewall, rete o chiavi.",central);header->setWordWrap(true);layout->addWidget(header);
         auto bar=new QHBoxLayout;layout->addLayout(bar);
@@ -237,7 +239,7 @@ private:
         QFile file(path);if(!file.open(QIODevice::ReadOnly)){QMessageBox::warning(this,"Confronto","Rapporto non leggibile.");return;}QJsonObject other;QString message;
         if(!Companion::parseReport(file.read(Companion::MaximumReportBytes+1),other,message)){QMessageBox::warning(this,"Confronto",message);return;}
         const auto results=m_role->currentData()=="teacher"?Companion::compare(m_report,other):Companion::compare(other,m_report);
-        auto dialog=new QDialog(this);dialog->setAttribute(Qt::WA_DeleteOnClose);dialog->setWindowTitle("Confronto docente / client — rapporti non firmati");dialog->resize(800,500);auto layout=new QVBoxLayout(dialog);auto view=new QTextBrowser(dialog);view->setOpenLinks(false);QString content="<h2>Risultati del confronto</h2><ul>";for(const auto& result:results) content+="<li>"+result.toHtmlEscaped()+"</li>";view->setHtml(content+"</ul>");layout->addWidget(view);dialog->show();
+        auto dialog=new QDialog(this);dialog->setAttribute(Qt::WA_DeleteOnClose);dialog->setWindowTitle(NetLinkUi::windowTitle("Confronto docente / client — rapporti non firmati"));dialog->resize(800,500);auto layout=new QVBoxLayout(dialog);auto view=new QTextBrowser(dialog);view->setOpenLinks(false);QString content="<h2>Risultati del confronto</h2><ul>";for(const auto& result:results) content+="<li>"+result.toHtmlEscaped()+"</li>";view->setHtml(content+"</ul>");layout->addWidget(view);dialog->show();
     }
     QJsonObject m_report;QByteArray m_output;QString m_failure;
     QPushButton *m_scan,*m_export,*m_compare,*m_probe;QComboBox *m_role,*m_target;QSpinBox* m_port;QCheckBox* m_identifiers;QLabel *m_status,*m_probeResult;QTextBrowser* m_view;QProcess* m_collector;QTcpSocket* m_socket;QTimer *m_deadline,*m_probeDeadline;
@@ -259,6 +261,9 @@ int main(int argc,char** argv) {
         if(bytes.size()>Companion::MaximumReportBytes) return 2;
         return std::fwrite(bytes.constData(),1,size_t(bytes.size()),stdout)==size_t(bytes.size())?0:3;
     }
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
+#endif
     QApplication app(argc,argv);app.setOrganizationName("Veyon");app.setApplicationName("NetLinkCompanion");app.setApplicationDisplayName("NetLink Companion");app.setApplicationVersion(VEYON_VERSION);app.setWindowIcon(QIcon(":/companion/icon.png"));
     NetLinkAppearance::install();CompanionWindow window;window.show();new GuiLatencyMonitor(&app);return app.exec();
 }

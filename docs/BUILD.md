@@ -39,6 +39,22 @@ The offscreen appearance tests accept `NETLINK_APPEARANCE_SCREENSHOTS` for PNG
 output; on Windows offscreen rendering, set `QT_QPA_FONTDIR=C:\Windows\Fonts`
 to make system fonts available. Neither variable is needed by the installed GUI.
 
+The alpha.10 GUI restyling adds Organic/Outline/Classic icon preferences,
+28/36/44 logical-pixel toolbar sizes and Configurator Easy/Standard/Advanced
+views. These preferences use the same separate per-user appearance store;
+switching views does not reset hidden system values. Original vector glyph
+sources are QPainter paths in `core/src/NetLinkUi.cpp`, not external fonts or a
+new SVG/icon library. The application branding sources/icons remain unchanged.
+GUI DPI scaling is enabled only in Master/Configurator/Companion entry points,
+not the server or screen-capture/input workers.
+
+`netlink-ui-scale-1`, `netlink-ui-scale-1_5` and `netlink-ui-scale-2` test the real
+directory page with an isolated JSON model, vector rendering, accessible native
+tool buttons, view preservation, group removal confirmation and non-quitting tray
+status dialogs. Set `NETLINK_UI_SCREENSHOTS` for PNG output. Console preview
+images use real toolbar controls with synthetic cards, not a connected Master.
+These offscreen tests do not replace native Windows tray/DPI/remote-input pilots.
+
 `branding/render-companion-icon.ps1` generates the Companion icon from the retained
 `companion.svg` design using Windows drawing APIs. Companion is built as
 `companion/netlink-companion.exe`, with existing Qt/core runtime dependencies and
@@ -60,7 +76,7 @@ before replacing files. Backup, stop and unregister must succeed first; a
 registered fork service with no usable CLI aborts the upgrade. Current files are
 packaged from an explicit eight-EXE allowlist, ignoring stale build outputs.
 Only the seven known legacy EXEs in the fixed fork directory are retired after
-the new service starts. A repeated alpha.9 install prefers its current CLI.
+the new service starts. Reinstalling alpha.9 or later prefers its current CLI.
 The NSIS fixture tests that same selection/retirement code on inert files in a
 private directory, without real service, registry or reboot-state operations.
 It does not establish successful privileged installation/upgrade/uninstall;

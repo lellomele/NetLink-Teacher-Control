@@ -5,7 +5,7 @@ InternetGuard basato su Windows Filtering Platform, Appello con il nome dichiara
 dallo studente sulle miniature e ricerca dei client tramite WS-Discovery 1.1.
 Le funzioni sono integrate: non occorre installare un plugin esterno.
 
-**Versione preliminare 0.1.0-alpha.9: destinata a PC di prova, non al laboratorio in uso.**
+**Versione preliminare 0.1.0-alpha.10: destinata a PC di prova, non al laboratorio in uso.**
 
 ## Installazione
 
@@ -47,9 +47,15 @@ docenti. Non distribuire la chiave privata ai client.
 ## Uso
 
 - **Aspetto:** temi Sistema, Chiaro e Scuro; palette Oceano, Bosco, Prugna o colore
-  personalizzato. Il pulsante Aspetto nel Master e il menu Aspetto nel Configurator
-  salvano preferenze personali, senza elevazione o riavvio del servizio.
+  personalizzato; set coordinati di icone Organico, Lineare e Classico, con tre
+  dimensioni dei pulsanti. Il menu **NetLink → Aspetto, colori e icone** salva
+  preferenze personali, senza elevazione o riavvio del servizio.
   Eventuali colori delle miniature già personalizzati nel Configurator restano prioritari.
+- **Configurator:** viste Facile, Normale e Avanzata. Facile mostra autenticazione,
+  chiavi, servizio essenziale, gruppi/PC e discovery senza alterare le opzioni
+  nascoste. I comandi per aggiungere e rimuovere gruppi o PC sono sopra le tabelle.
+- **Stato del servizio:** l’icona nell’area di notifica mostra un riepilogo locale;
+  il suo menu apre i dettagli. “In ascolto” non prova la raggiungibilità da altri PC.
 - **InternetGuard:** selezionare i PC, aprire InternetGuard e scegliere Blocca,
   Sblocca o Verifica stato. La console mostra conferme, errori e richieste senza risposta.
   Il blocco è rinnovato ogni 20 secondi e scade dopo 90 secondi senza rinnovo.

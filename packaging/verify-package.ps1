@@ -1,4 +1,4 @@
-param([string]$Package='dist/NetLink-0.1.0-alpha.9-win64',[string]$Manifest='dist/package-manifest.json')
+param([string]$Package='dist/NetLink-0.1.0-alpha.10-win64',[string]$Manifest='dist/package-manifest.json')
 $ErrorActionPreference='Stop'
 $repoRoot=Split-Path $PSScriptRoot
 $packageRoot=(Resolve-Path -LiteralPath (Join-Path $repoRoot $Package)).Path
@@ -23,6 +23,6 @@ foreach($file in $files) {
 }
 foreach($name in @('netlink-master.exe','netlink-configurator.exe','netlink-service.exe','netlink-server.exe','netlink-worker.exe','netlink-cli.exe','netlink-wcli.exe','netlink-companion.exe')) {
     $file=Get-Item -LiteralPath (Join-Path $packageRoot $name)
-    if($file.VersionInfo.FileVersion -ne '4.7.5-netlink.0.1.0-alpha.9' -or $file.VersionInfo.OriginalFilename -ne $name){throw "Wrong application version/identity: $name"}
+    if($file.VersionInfo.FileVersion -ne '4.7.5-netlink.0.1.0-alpha.10' -or $file.VersionInfo.OriginalFilename -ne $name){throw "Wrong application version/identity: $name"}
 }
 Write-Output "Verified $($files.Count) files, SHA-256 manifest, application versions and runtime exclusions."

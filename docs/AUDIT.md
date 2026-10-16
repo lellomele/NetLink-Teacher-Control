@@ -1,7 +1,49 @@
-# Audit and release gates — NetLink 0.1.0-alpha.9
+# Audit and release gates — NetLink 0.1.0-alpha.10
 
 Status: **partial audit and preliminary implementation, not a completed security
 audit, certified WS-Discovery implementation or production-ready release**.
+
+## Alpha 10 focused GUI changes
+
+Standard Qt tool buttons replace the custom parentless hover window and fixed
+raster/font-ratio sizing. SVG/font dependencies are not added: original QPainter
+icon paths are rendered at the requested resolution. Native focus, accessible
+names, popup menus, checked state and toolbar overflow are retained. Tooltip
+content is HTML-escaped; app/feature labels cannot inject markup.
+
+Configurator view selection is stored separately per user. Easy filters only
+known pages/controls; it does not recreate settings or overwrite hidden values.
+Directory table population blocks edit signals, clears stale rows, preserves
+group identity and does not rebuild the editor inside cellChanged. Destructive
+group removal defaults to No. Add/remove commands are above both tables.
+
+The tray snapshot uses local cached process/listener state without DNS, service
+control or WFP pipe I/O on the event loop. Authorized client identities are
+tracked by main-thread success notifications and intersected with live clients,
+not by racing background authentication state from a periodic query. Native
+tooltip length is bounded; its details dialog is plain text, single-instance,
+non-quitting and self-deleting. Closing it must not terminate the tray worker.
+Configured discovery is not represented as network reachability or WFP success.
+
+The focused UI suites run at three offscreen scale factors using an isolated
+configuration and inert classroom data. Real monitor changes, Windows tray
+hover/Explorer recovery, privileged install and remote pointer alignment still
+need the guided two-PC pilot before this alpha can be considered stable.
+
+Copyright is a Unicode © suffix in native window titles, with no extra footer
+in the Console, Configurator, Companion, School panels or service details. Native
+Windows caption font/color, frame controls and accessibility are preserved: there
+is no custom title bar, per-word font override or gradient. Existing legal/about
+attributions and dedicated information menus are retained.
+
+Local alpha.10 verification passed all 23 CTest suites: 214 Qt passes (including
+initialization/cleanup and three independent scale cases), zero failures/skips,
+plus the native NSIS upgrade fixture and six independent XML schema validations.
+Each GUI scale suite also passed five consecutive until-fail repetitions.
+The separate WITH_TESTS=OFF production build and 245-file payload validation
+passed, including all eight PE identities/versions, SHA-256 hashes and forbidden
+driver/test artifact checks. The original alpha.9 installer remains unchanged;
+this alpha does not claim the pending privileged/native two-PC pilot is complete.
 
 ## Alpha 9 focused changes
 

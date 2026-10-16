@@ -28,6 +28,9 @@
 #include <QPixmap>
 #include <QSystemTrayIcon>
 #include <QTimer>
+#include <QMenu>
+#include <QDateTime>
+#include "NetLinkUi.h"
 
 #include "SystemTrayIcon.h"
 #include "FeatureWorkerManager.h"
@@ -142,6 +145,15 @@ bool SystemTrayIcon::handleFeatureMessage( VeyonWorkerInterface& worker, const F
 	if (m_systemTrayIcon == nullptr && m_hidden == false)
 	{
 		m_systemTrayIcon = new QSystemTrayIcon( this );
+		auto menu=new QMenu;
+		// QSystemTrayIcon does not own its context menu.
+		connect(this,&QObject::destroyed,menu,&QObject::deleteLater);
+		auto status=menu->addAction(QStringLiteral("Stato del servizio…"));
+		connect(status,&QAction::triggered,this,[this] {
+			NetLinkUi::showTrayDetails(m_lastToolTip,VeyonCore::versionString(),m_systemTrayIcon->property("netlinkStatusTime").toString());
+		});
+		auto copyright=menu->addAction(NetLinkUi::copyrightText());copyright->setEnabled(false);
+		m_systemTrayIcon->setContextMenu(menu);
 
 		updateIcon();
 
@@ -153,7 +165,9 @@ bool SystemTrayIcon::handleFeatureMessage( VeyonWorkerInterface& worker, const F
 	case SetToolTipCommand:
 		if( m_systemTrayIcon )
 		{
-			m_systemTrayIcon->setToolTip( message.argument( Argument::ToolTipText ).toString() );
+			m_lastToolTip=message.argument( Argument::ToolTipText ).toString().left(2048);
+			m_systemTrayIcon->setProperty("netlinkStatusTime",QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss")));
+			m_systemTrayIcon->setToolTip(m_lastToolTip.section(QStringLiteral("\n\n"),0,0).left(127));
 		}
 		return true;
 

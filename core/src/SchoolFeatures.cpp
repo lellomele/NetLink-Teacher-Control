@@ -5,6 +5,7 @@
 #include "SchoolNetworkPolicy.h"
 #include "SchoolPolicyResolver.h"
 #include "SchoolConfigurationPage.h"
+#include "NetLinkUi.h"
 #include "ConfigurationPage.h"
 #include "Configuration/LocalStore.h"
 #include "ConfigurationManager.h"
@@ -82,9 +83,12 @@ void prepareDialog(QDialog* dialog, const QString& objectName) {
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setWindowModality(Qt::NonModal);
     dialog->setWindowIcon(QIcon(":/core/veyon.png"));
+    QTimer::singleShot(0,dialog,[dialog] {
+        dialog->setWindowTitle(NetLinkUi::windowTitle(dialog->windowTitle()));
+    });
 }
 void notify(QWidget* parent, QMessageBox::Icon icon, const QString& title, const QString& text) {
-    auto box=new QMessageBox(icon,title,text,QMessageBox::Ok,parent);
+    auto box=new QMessageBox(icon,NetLinkUi::windowTitle(title),text,QMessageBox::Ok,parent);
     box->setTextFormat(Qt::PlainText);box->setAttribute(Qt::WA_DeleteOnClose);box->open();
 }
 }
@@ -334,7 +338,7 @@ bool SchoolFeatures::handleFeatureMessage(VeyonWorkerInterface& worker,const Fea
     // worker's TCP reply reaches the service. The worker owns bounded shutdown.
     dialog->setAttribute(Qt::WA_QuitOnClose,false);m_studentDialog=dialog;
     dialog->setProperty("schoolAttendanceRequest",request);
-    dialog->setWindowTitle("Appello — NetLink");dialog->setWindowIcon(QIcon(":/core/veyon.png"));
+    dialog->setWindowTitle(NetLinkUi::windowTitle("Appello — NetLink"));dialog->setWindowIcon(QIcon(":/core/veyon.png"));
     auto layout=new QVBoxLayout(dialog);auto label=new QLabel("Inserisci il tuo nome e cognome per l’appello del docente.",dialog);label->setTextFormat(Qt::PlainText);layout->addWidget(label);
     auto name=new QLineEdit(dialog);name->setMaxLength(120);layout->addWidget(name);
     auto buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,dialog);layout->addWidget(buttons);

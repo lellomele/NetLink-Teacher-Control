@@ -27,6 +27,8 @@
 #include <QMainWindow>
 
 class QAbstractButton;
+class QAction;
+class QComboBox;
 
 namespace Ui {
 class MainWindow;
@@ -67,5 +69,7 @@ private:
 
 	Ui::MainWindow *ui;
 	bool m_configChanged;
+	QAction* m_viewModeEasy = nullptr;
+	QComboBox* m_viewModeSelector = nullptr;
 
 } ;

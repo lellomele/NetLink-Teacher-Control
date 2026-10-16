@@ -30,6 +30,7 @@
 #include "VeyonMaster.h"
 #include "ToolButton.h"
 #include "UserConfig.h"
+#include "NetLinkAppearance.h"
 
 
 MainToolBar::MainToolBar( QWidget* parent ) :
@@ -48,10 +49,10 @@ void MainToolBar::contextMenuEvent( QContextMenuEvent* event )
 
 #if QT_VERSION < 0x050600
 #warning Building legacy compat code for unsupported version of Qt
-	auto toolTipAction = menu.addAction( tr( "Disable balloon tooltips" ) );
+	auto toolTipAction = menu.addAction( tr( "Nascondi le descrizioni dei pulsanti" ) );
 	connect( toolTipAction, &QAction::triggered, this, &MainToolBar::toggleToolTips );
 #else
-	auto toolTipAction = menu.addAction( tr( "Disable balloon tooltips" ), this, &MainToolBar::toggleToolTips );
+	auto toolTipAction = menu.addAction( tr( "Nascondi le descrizioni dei pulsanti" ), this, &MainToolBar::toggleToolTips );
 #endif
 	toolTipAction->setCheckable( true );
 	toolTipAction->setChecked( m_mainWindow->masterCore().userConfig().noToolTips() );
@@ -65,6 +66,9 @@ void MainToolBar::contextMenuEvent( QContextMenuEvent* event )
 #endif
 	iconModeAction->setCheckable( true );
 	iconModeAction->setChecked( m_mainWindow->masterCore().userConfig().toolButtonIconOnlyMode() );
+	menu.addSeparator();
+	auto appearance=menu.addAction(QStringLiteral("Aspetto, colori e icone…"));
+	connect(appearance,&QAction::triggered,this,[this]{NetLinkAppearance::install()->showSettings(m_mainWindow);});
 
 	menu.exec( event->globalPos() );
 }

@@ -43,6 +43,17 @@ AuthKeysConfigurationPage::AuthKeysConfigurationPage() :
 	m_keyFilesFilter( tr( "Key files (*.pem)" ) )
 {
 	ui->setupUi(this);
+	ui->label_2->setText(QStringLiteral("Chiavi già funzionanti? Conservale: il restyling non richiede di rigenerarle. Per una nuova configurazione:"));
+	ui->label_3->setText(QStringLiteral("1. Sul DOCENTE crea una coppia di chiavi con un nome riconoscibile."));
+	ui->label_4->setText(QStringLiteral("2. Sul DOCENTE limita la lettura della privata al gruppo Windows dei docenti autorizzati."));
+	ui->label_5->setText(QStringLiteral("3. Esporta soltanto la PUBBLICA e importala su ciascun CLIENT con lo stesso nome. La privata non va sui client."));
+	ui->label_6->setTextFormat(Qt::PlainText);
+	ui->label_6->setText(QStringLiteral("Le operazioni sulle chiavi e sui relativi permessi sono immediate. Applica salva le opzioni del Configurator, non annulla una chiave creata o importata."));
+	ui->deleteKey->setProperty("netlinkEasyHidden",true);
+	ui->createKeyPair->setToolTip(QStringLiteral("Sul PC docente crea una coppia di chiavi con un nome riconoscibile. Non rigenerare una chiave già in uso per risolvere un problema di rete."));
+	ui->exportKey->setToolTip(QStringLiteral("Per configurare i client esporta soltanto la chiave pubblica. La chiave privata deve restare sul docente, leggibile solo dagli utenti autorizzati."));
+	ui->importKey->setToolTip(QStringLiteral("Sul PC studente importa la chiave pubblica esportata dal docente, mantenendo lo stesso nome. Non importare la chiave privata sui client."));
+	ui->setAccessGroup->setToolTip(QStringLiteral("Consenti la lettura della chiave privata soltanto al gruppo Windows dei docenti autorizzati. Non scegliere Everyone o utenti non autorizzati."));
 
 	Configuration::UiMapping::setFlags( ui->keyFileDirectories, Configuration::Property::Flag::Advanced );
 

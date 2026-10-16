@@ -54,6 +54,11 @@ VncProxyServer::~VncProxyServer()
 	stop();
 }
 
+bool VncProxyServer::isListening() const
+{
+	return m_server && m_server->isListening();
+}
+
 
 
 bool VncProxyServer::start( int vncServerPort, const Password& vncServerPassword )

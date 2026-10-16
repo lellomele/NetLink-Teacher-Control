@@ -32,6 +32,11 @@
 #include <QScrollBar>
 #include <QSettings>
 #include <QTimer>
+#include <QComboBox>
+#include <QLabel>
+#include <QScreen>
+#include <QToolBar>
+#include <QSignalBlocker>
 
 #include "Configuration/JsonStore.h"
 #include "Configuration/UiMapping.h"
@@ -43,6 +48,7 @@
 #include "MainWindow.h"
 #include "PluginManager.h"
 #include "NetLinkAppearance.h"
+#include "NetLinkUi.h"
 #include <QMenuBar>
 
 #include "ui_MainWindow.h"
@@ -55,10 +61,11 @@ MainWindow::MainWindow( QWidget* parent ) :
 {
 	ui->setupUi( this );
 	auto appearance = NetLinkAppearance::install();
-	auto appearanceAction = menuBar()->addAction(QStringLiteral("Aspetto"));
-	connect(appearanceAction, &QAction::triggered, this, [this, appearance] { appearance->showSettings(this); });
+	Q_UNUSED(appearance)
+	NetLinkUi::addInformationMenu(this);
+	ui->actionAboutVeyon->setText(QStringLiteral("Informazioni su NetLink"));
 
-	setWindowTitle( tr( "%1 Configurator %2" ).arg( VeyonCore::applicationName(), VeyonCore::versionString() ) );
+	setWindowTitle( NetLinkUi::windowTitle(tr( "%1 Configurator %2" ).arg( VeyonCore::applicationName(), VeyonCore::versionString() )) );
 
 	loadConfigurationPagePlugins();
 
@@ -84,10 +91,26 @@ MainWindow::MainWindow( QWidget* parent ) :
 	connect( ui->actionSaveSettings, &QAction::triggered, this, &MainWindow::saveSettingsToFile );
 
 	auto viewModeGroup = new QActionGroup( this );
+	m_viewModeEasy=new QAction(QStringLiteral("Facile — chiavi e collegamento"),this);m_viewModeEasy->setCheckable(true);
+	m_viewModeEasy->setObjectName(QStringLiteral("viewModeEasy"));
+	ui->menu_View->insertAction(ui->viewModeStandard,m_viewModeEasy);
+	viewModeGroup->addAction(m_viewModeEasy);
 	viewModeGroup->addAction( ui->viewModeStandard );
 	viewModeGroup->addAction( ui->viewModeAdvanced );
 	viewModeGroup->setExclusive( true );
-	ui->viewModeStandard->setChecked( true );
+	ui->viewModeStandard->setText(QStringLiteral("Normale"));ui->viewModeAdvanced->setText(QStringLiteral("Avanzata"));
+	QSettings viewSettings(QSettings::NativeFormat,QSettings::UserScope,QStringLiteral("Veyon"),QStringLiteral("NetLinkAppearance"));
+	const auto savedMode=viewSettings.value(QStringLiteral("ConfiguratorView"),QStringLiteral("Easy")).toString();
+	(savedMode==QStringLiteral("Advanced")?ui->viewModeAdvanced:savedMode==QStringLiteral("Standard")?ui->viewModeStandard:m_viewModeEasy)->setChecked(true);
+	auto viewBar=addToolBar(QStringLiteral("Modalità di configurazione"));viewBar->setObjectName(QStringLiteral("netlinkConfiguratorViewBar"));viewBar->setMovable(false);
+	viewBar->addWidget(new QLabel(QStringLiteral("Modalità: "),viewBar));
+	m_viewModeSelector=new QComboBox(viewBar);m_viewModeSelector->setObjectName(QStringLiteral("netlinkConfiguratorView"));
+	m_viewModeSelector->addItem(QStringLiteral("Facile"));m_viewModeSelector->addItem(QStringLiteral("Normale"));m_viewModeSelector->addItem(QStringLiteral("Avanzata"));
+	m_viewModeSelector->setToolTip(QStringLiteral("Facile: chiavi, accesso, servizio, gruppi/PC e discovery. Normale e Avanzata mostrano altre opzioni. Cambiare vista non modifica né azzera la configurazione."));
+	viewBar->addWidget(m_viewModeSelector);
+	connect(m_viewModeSelector,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[this](int index){
+		(index==2?ui->viewModeAdvanced:index==1?ui->viewModeStandard:m_viewModeEasy)->setChecked(true);updateView();
+	});
 
 	connect( viewModeGroup, &QActionGroup::triggered, this, &MainWindow::updateView );
 
@@ -96,9 +119,13 @@ MainWindow::MainWindow( QWidget* parent ) :
 	connect( &VeyonCore::config(), &VeyonConfiguration::configurationChanged, this, &MainWindow::configurationChanged );
 
 	connect( ui->configPages, &QStackedWidget::currentChanged, this, &MainWindow::updateSizes );
+	connect(ui->configPages,&QStackedWidget::currentChanged,this,[this]{ui->scrollArea->verticalScrollBar()->setValue(0);});
+	ui->pageSelector->setIconSize(QSize(32,32));
+	ui->scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+	ui->configPages->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);
 
-	resize( ui->pageSelector->width() + ui->generalConfigurationPage->minimumSizeHint().width(),
-			ui->generalConfigurationPage->minimumSizeHint().height() );
+	const auto available=QGuiApplication::primaryScreen()?QGuiApplication::primaryScreen()->availableGeometry().size():QSize(1100,750);
+	resize(qMin(1040,available.width()-60),qMin(680,available.height()-80));
 
 	updateView();
 
@@ -252,14 +279,16 @@ void MainWindow::aboutVeyon()
 
 void MainWindow::updateSizes()
 {
-	ui->configPages->setMinimumSize( ui->scrollArea->width() - ui->scrollArea->verticalScrollBar()->width(),
-									 ui->configPages->currentWidget()->minimumSizeHint().height() );
+	if(!ui->configPages->currentWidget()) return;
+	ui->configPages->setMinimumSize(0,ui->configPages->currentWidget()->minimumSizeHint().height());
 }
 
 
 
 void MainWindow::updateView()
 {
+	for(int i=0;i<ui->configPages->count();++i) NetLinkUi::setEasyPage(ui->configPages->widget(i),false);
+	for(int i=0;i<ui->pageSelector->count();++i) ui->pageSelector->setRowHidden(i,false);
 	if( ui->viewModeAdvanced->isChecked() )
 	{
 		switchToAdvancedView();
@@ -267,6 +296,22 @@ void MainWindow::updateView()
 	else
 	{
 		switchToStandardView();
+	}
+	const bool easy=m_viewModeEasy && m_viewModeEasy->isChecked();
+	for(int i=0;i<ui->pageSelector->count();++i) {
+		auto page=ui->configPages->widget(i);
+		if(easy) {
+			ui->pageSelector->setRowHidden(i,!NetLinkUi::easyPage(QString::fromLatin1(page->metaObject()->className())));
+			NetLinkUi::setEasyPage(page,true);
+		}
+	}
+	if(ui->pageSelector->isRowHidden(ui->pageSelector->currentRow())) ui->pageSelector->setCurrentRow(0);
+	if(m_viewModeSelector) {
+		const QSignalBlocker blocker(m_viewModeSelector);
+		m_viewModeSelector->setCurrentIndex(easy?0:ui->viewModeAdvanced->isChecked()?2:1);
+		QSettings settings(QSettings::NativeFormat,QSettings::UserScope,QStringLiteral("Veyon"),QStringLiteral("NetLinkAppearance"));
+		const auto mode=easy?QStringLiteral("Easy"):ui->viewModeAdvanced->isChecked()?QStringLiteral("Advanced"):QStringLiteral("Standard");
+		if(settings.value(QStringLiteral("ConfiguratorView")).toString()!=mode) settings.setValue(QStringLiteral("ConfiguratorView"),mode);
 	}
 
 	QTimer::singleShot( 0, this, &MainWindow::updateSizes );

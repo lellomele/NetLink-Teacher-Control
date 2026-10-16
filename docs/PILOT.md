@@ -18,6 +18,43 @@ Non pubblicare chiavi private, password o esportazioni di configurazione.
    servizio dopo modifiche. Nel Master la miniatura deve aggiornarsi.
 5. Annotare build OS, antivirus/firewall, latenza e carico CPU a riposo.
 
+## Aggiornamento ad alpha.10
+
+Su entrambi i PC esportare prima la configurazione dal Configurator e conservare
+al sicuro le chiavi esistenti. Chiudere Console, Configurator e Companion.
+Installare l’installer completo come amministratore prima sul DELL client,
+quindi sul MATEBOOK docente, senza disinstallare o rigenerare chiavi. Riavviare
+entrambi. Aprire le applicazioni dalla cartella **Start → NetLink** e verificare
+la versione alpha.10. La chiave `netlink_test` e i PC configurati devono restare
+invariati. Confermare miniatura e controllo remoto prima delle prove successive.
+
+## Restyling dell’interfaccia alpha.10
+
+1. In **NetLink → Aspetto, colori e icone** provare Organico, Lineare e Classico,
+   le tre dimensioni e i temi chiaro/scuro. Salva deve persistere al riavvio;
+   Annulla deve annullare anche il cambio di icone/dimensioni. Nessuna nuova chiave.
+2. Provare display Windows al 100%, 150% e 200%, poi spostare la Console fra
+   monitor con scale diverse. Testare tastiera/focus, contrasto elevato, menu
+   della toolbar e tutti i comandi anche quando la barra entra in overflow.
+3. Configurator: **Facile** mostra accesso, chiavi, servizio essenziale, gruppi/PC
+   e discovery; **Normale** e **Avanzata** mantengono le altre opzioni. Passare
+   ripetutamente fra le viste non deve abilitare Applica né alterare valori
+   nascosti. Non modificare le chiavi per la sola verifica grafica.
+4. Gruppi/PC: con finestra non massimizzata i comandi devono essere sopra le
+   tabelle. Verificare modifica di celle, aggiunta/rimozione righe, selezione,
+   conferma del gruppo con tutti i PC, Applica e riapertura della configurazione.
+5. Icona di servizio: verificare assenza/presenza di un Master autorizzato, porta
+   locale, TCP in ascolto e menu **Stato del servizio**. Chiudere il pannello più
+   volte: l’icona deve restare attiva. Il testo è un’istantanea, non certifica
+   firewall, autenticazione di un nuovo PC, discovery o blocco Internet.
+6. Dopo la nuova scalatura della GUI verificare puntamento mouse sul client,
+   miniatura, Appello e apertura/chiusura ripetuta dei pannelli School. Server e
+   worker non adottano la nuova scalatura della GUI, ma il test fisico è richiesto.
+7. Verificare il testo **© 2026 prof. Ing. Raffaele Mele** nelle barre del titolo,
+   senza righe di copyright sotto i pannelli operativi. Carattere e colore del
+   titolo sono quelli standard di Windows, senza sfumature. Le attribuzioni
+   nella finestra Informazioni restano disponibili e non vengono rimosse.
+
 ## InternetGuard
 
 1. Sul client, terminale amministrativo nella cartella di installazione:

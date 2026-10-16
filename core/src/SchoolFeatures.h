@@ -24,7 +24,7 @@ public:
     QString name() const override { return QStringLiteral("NetLink"); }
     QString description() const override { return QStringLiteral("InternetGuard WFP, Appello, WS-Discovery"); }
     QString vendor() const override { return QStringLiteral("prof. Ing. Raffaele Mele"); }
-    QString copyright() const override { return QString::fromUtf8("Copyright © 2025-26 prof. Ing. Raffaele Mele"); }
+    QString copyright() const override { return QStringLiteral("© 2026 prof. Ing. Raffaele Mele"); }
     const FeatureList& featureList() const override { return m_features; }
     ConfigurationPage* createConfigurationPage() override;
     bool controlFeature(Feature::Uid, Operation, const QVariantMap&, const ComputerControlInterfaceList&) override;

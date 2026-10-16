@@ -28,12 +28,17 @@ SchoolConfigurationPage::SchoolConfigurationPage(VeyonConfiguration& configurati
     layout->addRow(m_enabled);
     layout->addRow("Nome/IP del Master (client di altre subnet)", m_master);
     layout->addRow("Risorse autorizzate: un IP o CIDR per riga", m_resources);
-    auto help = new QLabel("I PC selezionati nel Master sono riutilizzati automaticamente.\n"
-        "Non inserire intere subnet senza necessità: ogni destinazione consentita resta raggiungibile su tutte le porte.\n"
-        "Il discovery non sostituisce le chiavi e le regole di accesso Veyon.", this);
+    m_resources->setProperty("netlinkEasyHidden",true);
+    layout->labelForField(m_resources)->setProperty("netlinkEasyHidden",true);
+    m_master->setToolTip("Lascia vuoto se docente e client sono nella stessa subnet. In reti diverse inserisci il nome/IP IPv4 del docente. Non è una chiave di autenticazione.");
+    auto help = new QLabel("Trova client cerca PC remoti e permette di importarli nella Console.\n"
+        "Nella stessa subnet il nome/IP del Master può restare vuoto; su altre subnet va configurato sul client.\n"
+        "Il discovery non sostituisce chiavi, regole di accesso o autorizzazioni di rete.", this);
     help->setTextFormat(Qt::PlainText);
     help->setWordWrap(true);
     layout->addRow(help);
+    auto policyHelp=new QLabel("InternetGuard riutilizza i PC selezionati nel Master. Non inserire intere subnet senza necessità: ogni risorsa consentita resta raggiungibile su tutte le porte.",this);
+    policyHelp->setTextFormat(Qt::PlainText);policyHelp->setWordWrap(true);policyHelp->setProperty("netlinkEasyHidden",true);layout->addRow(policyHelp);
     resetWidgets();
     connectWidgetsToProperties();
 }

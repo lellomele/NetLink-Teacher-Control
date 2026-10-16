@@ -5,12 +5,14 @@
 #include <QDialogButtonBox>
 #include <QFontDatabase>
 #include <QLineEdit>
+#include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QProcess>
 #include <QTcpServer>
 #include <QTableWidget>
 #include "SchoolFeatures.h"
+#include "NetLinkUi.h"
 #include "SchoolPolicyResolver.h"
 #include "VeyonMasterInterface.h"
 #include "VeyonWorkerInterface.h"
@@ -108,7 +110,10 @@ private Q_SLOTS:
             QVERIFY(dialog);QVERIFY(dialog->isVisible());
             QVERIFY(features.startFeature(master,feature,{}));
             QCOMPARE(dialog,feature.uid()==features.m_guardUid ? features.m_guardDialog : feature.uid()==features.m_attendanceUid ? features.m_attendanceDialog : features.m_discoveryDialog);
-            QTest::qWait(2);dialog->reject();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);QVERIFY(dialog.isNull());
+            QTest::qWait(2);
+            QVERIFY(dialog->windowTitle().endsWith(NetLinkUi::copyrightText()));
+            QVERIFY(dialog->findChildren<QLabel*>("netlinkCopyright").isEmpty());
+            dialog->reject();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);QVERIFY(dialog.isNull());
         }
         qInfo("NetLink School dialog open maximum after console initialization: %lld ms",static_cast<long long>(slowest));
         QVERIFY(pulses>0);QVERIFY(features.m_guardTargets.isEmpty());QVERIFY(!features.m_resolution);

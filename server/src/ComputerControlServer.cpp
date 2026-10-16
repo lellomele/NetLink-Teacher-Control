@@ -23,6 +23,9 @@
  */
 
 #include <QCoreApplication>
+#include <QSysInfo>
+#include <QTimer>
+#include "NetLinkUi.h"
 
 #include "AccessControlProvider.h"
 #include "BuiltinFeatures.h"
@@ -63,6 +66,8 @@ ComputerControlServer::ComputerControlServer( QObject* parent ) :
 	connect(&m_vncProxyServer, &VncProxyServer::serverMessageProcessed,
 			 this, &ComputerControlServer::sendAsyncFeatureMessages, Qt::DirectConnection);
 	connect( &m_vncProxyServer, &VncProxyServer::connectionClosed, this, &ComputerControlServer::updateTrayIconToolTip );
+	auto trayTimer=new QTimer(this);trayTimer->setInterval(15000);
+	connect(trayTimer,&QTimer::timeout,this,&ComputerControlServer::updateTrayIconToolTip);trayTimer->start();
 }
 
 
@@ -86,6 +91,7 @@ bool ComputerControlServer::start()
 
 	m_vncServer.prepare();
 	m_vncServer.start();
+	updateTrayIconToolTip();
 
 	return true;
 }
@@ -220,6 +226,7 @@ void ComputerControlServer::showAccessControlMessage( VncServerClient* client )
 		client->protocolState() == VncServerProtocol::State::AccessControl )
 	{
 		vInfo() << "Access control successful for" << client->hostAddress() << client->username();
+		m_trayAuthorizedClients.insert(client);
 
 		if( VeyonCore::config().remoteConnectionNotificationsEnabled() )
 		{
@@ -292,41 +299,23 @@ void ComputerControlServer::sendAsyncFeatureMessages(VncProxyConnection* connect
 
 void ComputerControlServer::updateTrayIconToolTip()
 {
-	auto toolTip = tr( "%1 Service %2 at %3:%4" ).arg( VeyonCore::applicationName(), VeyonCore::versionString(),
-													   HostAddress::localFQDN(),
-												QString::number( VeyonCore::config().veyonServerPort() + VeyonCore::sessionId() ) );
-
-	QMutexLocker locker( &m_dataMutex );
-
-	QStringList clients;
-	QStringList hostsToResolve;
-	clients.reserve( m_vncProxyServer.clients().size() );
-	hostsToResolve.reserve( m_vncProxyServer.clients().size() );
-
-	for( const auto* client : m_vncProxyServer.clients() )
-	{
-		const auto clientIpAddress = client->proxyClientSocket()->peerAddress().toString();
-		if( m_resolvedHostNames.contains( clientIpAddress ) == false )
-		{
-			hostsToResolve.append( clientIpAddress );
-			clients.append( clientIpAddress );
-		}
-		else
-		{
-			clients.append( m_resolvedHostNames[clientIpAddress] );
-		}
+	// No DNS, native service call or policy-pipe request on the server event loop.
+	QSet<const VncServerClient*> current;
+	for(auto connection:m_vncProxyServer.clients())
+		if(auto client=qobject_cast<ComputerControlClient*>(connection)) current.insert(client->serverClient());
+	m_trayAuthorizedClients.intersect(current);
+	auto toolTip=NetLinkUi::traySummary(QSysInfo::machineHostName(),
+		VeyonCore::config().veyonServerPort()+VeyonCore::sessionId(),m_vncProxyServer.isListening(),
+		m_vncProxyServer.listensLocallyOnly(),
+		VeyonCore::config().authenticationMethod()==VeyonCore::AuthenticationMethod::KeyFileAuthentication,
+		VeyonCore::config().schoolDiscoveryEnabled(),m_trayAuthorizedClients.size(),current.size()-m_trayAuthorizedClients.size());
+	QStringList peers;
+	for(auto connection:m_vncProxyServer.clients()) {
+		if(peers.size()>=8) {peers.append(QStringLiteral("… altre connessioni non elencate"));break;}
+		if(auto client=qobject_cast<ComputerControlClient*>(connection))
+			peers.append(client->proxyClientSocket()->peerAddress().toString().left(64)+
+				(m_trayAuthorizedClients.contains(client->serverClient())?QStringLiteral(" — autorizzato"):QStringLiteral(" — altro TCP")));
 	}
-
-	if( hostsToResolve.isEmpty() == false )
-	{
-		auto watcher = resolveFQDNs( hostsToResolve );
-		connect( watcher, &QFutureWatcher<void>::finished, this, &ComputerControlServer::updateTrayIconToolTip );
-	}
-
-	if( clients.isEmpty() == false )
-	{
-		toolTip += QLatin1Char('\n') + tr( "Active connections:") + QLatin1Char('\n') + clients.join( QLatin1Char('\n') );
-	}
-
-	VeyonCore::builtinFeatures().systemTrayIcon().setToolTip( toolTip, m_featureWorkerManager );
+	if(!peers.isEmpty()) toolTip+=QStringLiteral("\n\nConnessioni TCP osservate:\n")+peers.join(QLatin1Char('\n'));
+	VeyonCore::builtinFeatures().systemTrayIcon().setToolTip(toolTip,m_featureWorkerManager);
 }

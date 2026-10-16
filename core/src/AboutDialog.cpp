@@ -27,6 +27,7 @@
 
 #include "AboutDialog.h"
 #include "VeyonCore.h"
+#include "NetLinkUi.h"
 
 #include "ui_AboutDialog.h"
 
@@ -37,7 +38,7 @@ AboutDialog::AboutDialog( QWidget *parent ) :
 {
 	ui->setupUi( this );
 
-	setWindowTitle( tr( "About %1 %2" ).arg( VeyonCore::applicationName(), VeyonCore::versionString() ) );
+	setWindowTitle( NetLinkUi::windowTitle(tr( "About %1 %2" ).arg( VeyonCore::applicationName(), VeyonCore::versionString() )) );
 
 	ui->versionLabel->setText( VeyonCore::versionString() );
 
@@ -51,8 +52,7 @@ AboutDialog::AboutDialog( QWidget *parent ) :
 
 	VeyonCore::enforceBranding( this );
 	ui->label_3->setText(QString::fromUtf8("NetLink — console per la gestione dell’aula\nBasato su Veyon 4.7.5"));
-	ui->label_8->setText(QString::fromUtf8("NetLink: Copyright © 2025-26 prof. Ing. Raffaele Mele\n"
-		"Veyon: Copyright © 2004-2022 Tobias Junghans / Veyon Solutions e contributori"));
+	ui->label_8->setText(NetLinkUi::copyrightText()+QString::fromUtf8("\nVeyon: Copyright © 2004-2022 Tobias Junghans / Veyon Solutions e contributori"));
 	ui->label_8->setWordWrap(true);
 	ui->label_4->setText(QStringLiteral("<a href=\"https://github.com/lellomele/veyon-school\">NetLink — repository</a> | "
 		"<a href=\"https://veyon.io\">Progetto originale Veyon</a>"));

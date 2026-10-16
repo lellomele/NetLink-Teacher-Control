@@ -18,6 +18,8 @@ public:
         QString mode = QStringLiteral("System");
         QString preset = QStringLiteral("Oceano");
         QColor accent = QColor(QStringLiteral("#2563eb"));
+        QString iconSet = QStringLiteral("Organic");
+        int toolbarIconSize = 36;
     };
     static NetLinkAppearance* install(QSettings* settings = nullptr);
     ~NetLinkAppearance() override;
@@ -28,6 +30,7 @@ public:
     static QColor contrastingText(const QColor& background);
     static QPalette makePalette(const Preferences& preferences, bool systemDark);
     void showSettings(QWidget* parent);
+    Preferences preferences() const { return m_preferences; }
 
 Q_SIGNALS:
     void changed();

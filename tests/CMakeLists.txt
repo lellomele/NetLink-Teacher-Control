@@ -2,6 +2,18 @@ if(WITH_FUZZERS)
 	add_subdirectory(libfuzzer)
 endif()
 if(WITH_TESTS)
+    add_executable(netlink-ui-tests NetLinkUiTests.cpp
+        ../plugins/builtindirectory/BuiltinDirectoryConfigurationPage.cpp
+        ../plugins/builtindirectory/BuiltinDirectoryConfigurationPage.h
+        ../plugins/builtindirectory/BuiltinDirectoryConfigurationPage.ui)
+    set_default_target_properties(netlink-ui-tests)
+    target_include_directories(netlink-ui-tests PRIVATE ../plugins/builtindirectory)
+    target_link_libraries(netlink-ui-tests PRIVATE veyon-core Qt${QT_MAJOR_VERSION}::Test)
+    foreach(scale 1 1.5 2)
+        string(REPLACE "." "_" scale_id "${scale}")
+        add_test(NAME netlink-ui-scale-${scale_id} COMMAND netlink-ui-tests -o "${CMAKE_CURRENT_BINARY_DIR}/netlink-ui-${scale_id}-results.txt,txt")
+        set_tests_properties(netlink-ui-scale-${scale_id} PROPERTIES TIMEOUT 45 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_SCALE_FACTOR=${scale}")
+    endforeach()
     add_executable(netlink-application-identity-tests ApplicationIdentityTests.cpp)
     set_default_target_properties(netlink-application-identity-tests)
     target_link_libraries(netlink-application-identity-tests PRIVATE veyon-core Qt${QT_MAJOR_VERSION}::Test)

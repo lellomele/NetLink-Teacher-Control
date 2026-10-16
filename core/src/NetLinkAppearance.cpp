@@ -3,6 +3,7 @@
 #undef QT_NO_CAST_FROM_ASCII
 #undef QT_USE_QSTRINGBUILDER
 #include "NetLinkAppearance.h"
+#include "NetLinkUi.h"
 #include <QApplication>
 #include <QColorDialog>
 #include <QComboBox>
@@ -58,6 +59,8 @@ NetLinkAppearance::Preferences NetLinkAppearance::normalized(Preferences prefere
     if(preferences.preset != "Personalizzato") preferences.accent = presetColor(preferences.preset);
     if(!preferences.accent.isValid()) preferences.accent = presetColor("Oceano");
     preferences.accent.setAlpha(255);
+    if(!QStringList({"Organic", "Outline", "Classic"}).contains(preferences.iconSet)) preferences.iconSet="Organic";
+    if(!QList<int>({28,36,44}).contains(preferences.toolbarIconSize)) preferences.toolbarIconSize=36;
     return preferences;
 }
 
@@ -74,6 +77,8 @@ NetLinkAppearance::Preferences NetLinkAppearance::load(QSettings& settings)
     preferences.mode = settings.value("Mode", "System").toString();
     preferences.preset = settings.value("Preset", "Oceano").toString();
     preferences.accent = QColor(settings.value("Accent", "#2563eb").toString());
+    preferences.iconSet = settings.value("IconSet", "Organic").toString();
+    preferences.toolbarIconSize = settings.value("ToolbarIconSize", 36).toInt();
     return normalized(preferences);
 }
 
@@ -83,6 +88,8 @@ bool NetLinkAppearance::save(QSettings& settings, const Preferences& input)
     settings.setValue("Mode", preferences.mode);
     settings.setValue("Preset", preferences.preset);
     settings.setValue("Accent", preferences.accent.name());
+    settings.setValue("IconSet", preferences.iconSet);
+    settings.setValue("ToolbarIconSize", preferences.toolbarIconSize);
     settings.sync();
     return settings.status() == QSettings::NoError;
 }
@@ -153,6 +160,7 @@ NetLinkAppearance::~NetLinkAppearance()
 void NetLinkAppearance::apply()
 {
     m_highContrast = highContrast();
+    qApp->setProperty("netlinkHighContrast",m_highContrast);
     m_darkSystem = systemDark(m_originalPalette);
     // Preserve the Windows accessibility palette and native style in high contrast.
     if(m_highContrast) {
@@ -163,6 +171,11 @@ void NetLinkAppearance::apply()
         if(qApp->style()->objectName().compare("fusion", Qt::CaseInsensitive) != 0) qApp->setStyle(QStyleFactory::create("Fusion"));
         qApp->setPalette(makePalette(m_preferences, m_darkSystem));
         qApp->setStyleSheet("QToolBar{border:0;padding:6px;spacing:5px;}"
+            "QToolButton[netlinkFeatureButton=\"true\"]{border:1px solid palette(mid);border-radius:10px;padding:8px;background:palette(button);color:palette(button-text);margin:1px;}"
+            "QToolButton[netlinkFeatureButton=\"true\"]:hover{background:palette(midlight);border-color:palette(highlight);}"
+            "QToolButton[netlinkFeatureButton=\"true\"]:checked{background:palette(midlight);border:2px solid palette(highlight);padding:7px;}"
+            "QToolButton[netlinkFeatureButton=\"true\"]:focus{border:2px solid palette(highlight);padding:7px;}"
+            "QToolTip{padding:8px;border:1px solid palette(mid);background:palette(tool-tip-base);color:palette(tool-tip-text);}"
             "QPushButton,QComboBox,QLineEdit{padding:6px;border:1px solid palette(mid);border-radius:5px;}"
             "QPushButton{background:palette(button);color:palette(button-text);}"
             "QPushButton:hover{background:palette(midlight);}"
@@ -205,7 +218,7 @@ void NetLinkAppearance::showSettings(QWidget* parent)
     const auto previous = m_preferences;
     auto pending = previous;
     QDialog dialog(parent);
-    dialog.setWindowTitle("Aspetto di NetLink");
+    dialog.setWindowTitle(NetLinkUi::windowTitle("Aspetto di NetLink"));
     dialog.setObjectName("netLinkAppearanceDialog");
     dialog.setMinimumWidth(360);
     auto layout = new QVBoxLayout(&dialog);
@@ -221,6 +234,17 @@ void NetLinkAppearance::showSettings(QWidget* parent)
     auto color = new QPushButton(pending.accent.name(), &dialog);
     color->setObjectName("appearanceColor");
     form->addRow("Tema", mode); form->addRow("Palette", preset); form->addRow("Colore d’accento", color);
+    auto iconSet=new QComboBox(&dialog);iconSet->setObjectName("appearanceIconSet");
+    iconSet->addItem("Organico — forme morbide e coordinate","Organic");
+    iconSet->addItem("Lineare — contorni essenziali","Outline");
+    iconSet->addItem("Classico — icone precedenti","Classic");
+    iconSet->setCurrentIndex(iconSet->findData(pending.iconSet));
+    auto iconSize=new QComboBox(&dialog);iconSize->setObjectName("appearanceIconSize");
+    iconSize->addItem("Compatta (28)",28);iconSize->addItem("Comoda (36)",36);iconSize->addItem("Grande (44)",44);
+    iconSize->setCurrentIndex(iconSize->findData(pending.toolbarIconSize));
+    form->addRow("Set di icone",iconSet);form->addRow("Dimensione pulsanti",iconSize);
+    auto iconPreview=new QLabel(&dialog);iconPreview->setObjectName("appearanceIconPreview");
+    form->addRow("Anteprima",iconPreview);
     layout->addLayout(form);
     auto note = new QLabel("Anteprima immediata. Le preferenze sono personali e non richiedono diritti amministrativi.\nAnnulla ripristina l’aspetto precedente.", &dialog);
     note->setWordWrap(true); layout->addWidget(note);
@@ -229,9 +253,14 @@ void NetLinkAppearance::showSettings(QWidget* parent)
     buttons->button(QDialogButtonBox::Cancel)->setText("Annulla");
     buttons->button(QDialogButtonBox::RestoreDefaults)->setText("Predefiniti");
     layout->addWidget(buttons);
-    const auto preview = [&] { pending = normalized(pending); color->setText(pending.accent.name()); m_preferences = pending; apply(); };
+    const auto preview = [&] { pending = normalized(pending); color->setText(pending.accent.name()); m_preferences = pending; apply();
+        auto pixels=NetLinkUi::icon("InternetGuard",pending.iconSet,pending.accent).pixmap(QSize(48,48)*dialog.devicePixelRatioF());
+        pixels.setDevicePixelRatio(dialog.devicePixelRatioF());iconPreview->setPixmap(pixels); };
+    preview();
     connect(mode, QOverload<int>::of(&QComboBox::currentIndexChanged), &dialog, [&](int) { pending.mode = mode->currentData().toString(); preview(); });
     connect(preset, &QComboBox::currentTextChanged, &dialog, [&](const QString& value) { pending.preset = value; preview(); });
+    connect(iconSet,QOverload<int>::of(&QComboBox::currentIndexChanged),&dialog,[&](int){pending.iconSet=iconSet->currentData().toString();preview();});
+    connect(iconSize,QOverload<int>::of(&QComboBox::currentIndexChanged),&dialog,[&](int){pending.toolbarIconSize=iconSize->currentData().toInt();preview();});
     connect(color, &QPushButton::clicked, &dialog, [&] {
         const auto chosen = QColorDialog::getColor(pending.accent, &dialog, "Colore d’accento");
         if(!chosen.isValid()) return;
@@ -239,7 +268,8 @@ void NetLinkAppearance::showSettings(QWidget* parent)
         preset->setCurrentText(pending.preset); preview();
     });
     connect(buttons->button(QDialogButtonBox::RestoreDefaults), &QPushButton::clicked, &dialog, [&] {
-        pending = Preferences{}; mode->setCurrentIndex(mode->findData(pending.mode)); preset->setCurrentText(pending.preset); preview();
+        pending = Preferences{}; mode->setCurrentIndex(mode->findData(pending.mode)); preset->setCurrentText(pending.preset);
+        iconSet->setCurrentIndex(iconSet->findData(pending.iconSet));iconSize->setCurrentIndex(iconSize->findData(pending.toolbarIconSize));preview();
     });
     connect(buttons, &QDialogButtonBox::accepted, &dialog, [&] {
         if(!save(*m_settings, pending)) { QMessageBox::warning(&dialog, "NetLink", "Salvataggio delle preferenze non riuscito."); return; }

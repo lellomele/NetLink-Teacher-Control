@@ -48,6 +48,8 @@ public:
 
 	bool start( int vncServerPort, const Password& vncServerPassword );
 	void stop();
+	bool isListening() const;
+	bool listensLocallyOnly() const { return m_listenAddress.isLoopback(); }
 
 	const VncProxyConnectionList& clients() const
 	{
