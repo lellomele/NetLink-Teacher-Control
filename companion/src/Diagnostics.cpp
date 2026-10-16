@@ -4,6 +4,7 @@
 #undef QT_USE_QSTRINGBUILDER
 #include "Diagnostics.h"
 #include "HealthDiagnostics.h"
+#include "NetLinkIdentity.h"
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -152,7 +153,7 @@ QJsonArray suiteProcesses(QJsonObject& report) {
     PROCESSENTRY32W entry{};entry.dwSize=sizeof(entry);QElapsedTimer elapsed;elapsed.start();int scanned=0;
     if(Process32FirstW(snapshot,&entry)) do {
         const auto name=QString::fromWCharArray(entry.szExeFile).toLower();
-        if(name=="veyon-service.exe" || name=="veyon-server.exe" || name=="veyon-worker.exe" || name=="veyon-master.exe" || name=="netlink-companion.exe") {
+        if(NetLinkIdentity::isDiagnosticApplication(name)) {
             QJsonObject item{{"application",name},{"pid",int(entry.th32ProcessID)},{"image",imagePath(entry.th32ProcessID)}};DWORD session=0;
             if(ProcessIdToSessionId(entry.th32ProcessID,&session)) item["sessionId"]=int(session);
             result.append(item);
@@ -340,7 +341,7 @@ QStringList recommendations(const QJsonObject& report,const QString& role) {
     if(settings["Service/HideTrayIcon"].toBool()) result<<"L'icona nell'area di notifica è nascosta dalla configurazione (Servizio → Nascondi icona). Non indica da sola un servizio fermo.";
     else if(report.contains("processes")) {
         bool server=false,worker=false;const auto currentSession=report["identity"].toObject()["sessionId"].toInt(-1);
-        for(const auto& value:report["processes"].toArray()) {const auto process=value.toObject();if(process["sessionId"].toInt(-2)!=currentSession) continue;if(process["application"]=="veyon-server.exe") server=true;if(process["application"]=="veyon-worker.exe") worker=true;}
+        for(const auto& value:report["processes"].toArray()) {const auto process=value.toObject();if(process["sessionId"].toInt(-2)!=currentSession) continue;const auto name=process["application"].toString();if(NetLinkIdentity::matchesDiagnosticName(name,NetLinkIdentity::Application::Server)) server=true;if(NetLinkIdentity::matchesDiagnosticName(name,NetLinkIdentity::Application::Worker)) worker=true;}
         if(server && !worker) result<<"Nella sessione attuale è presente il server ma nessun processo worker per l'icona. Dalla nuova alpha il servizio ritenta automaticamente dopo un avvio incompleto: attendere circa 30 secondi e ripetere l'analisi. Un worker presente può appartenere ad altre funzioni: non prova da solo che l'icona sia visibile. Controllare anche le icone nascoste di Windows.";
     }
     for(const auto& value:services) {const auto service=value.toObject();if(service["name"]=="VeyonSchoolService" && service["startType"].toInt()==3) result<<"Il servizio NetLink è configurato con avvio manuale: dopo un riavvio potrebbe non partire da solo. Verificare Avvio automatico nel Configurator; non viene cambiato da Companion.";}

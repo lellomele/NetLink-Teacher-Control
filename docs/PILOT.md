@@ -21,7 +21,7 @@ Non pubblicare chiavi private, password o esportazioni di configurazione.
 ## InternetGuard
 
 1. Sul client, terminale amministrativo nella cartella di installazione:
-   `veyon-cli.exe school selftest`. Il test usa solo 192.0.2.254 e 2001:db8::ffff,
+   `netlink-cli.exe school selftest`. Il test usa solo 192.0.2.254 e 2001:db8::ffff,
    senza blocco generale. Atteso `selftest-passed`, 16 filtri temporanei; riportare
    eventuali codici d’errore.
 2. Verificare navigazione libera e aprire un download PRIMA del blocco.
@@ -149,6 +149,26 @@ suite. Non rigenerare le chiavi che già consentono il controllo remoto.
    salvato non prolunga la sua validità. Nessun invito sostituisce le chiavi Veyon.
 
 ## Recupero in caso di errore
+
+### Aggiornamento ai nomi NetLink
+
+1. Aggiornare da alpha.8 ad alpha.9 senza disinstallazione preventiva, chiudendo
+   prima Console, Configurator e Companion. Riavviare entrambi i PC.
+2. In Start → NetLink verificare i tre collegamenti. I processi del fork devono
+   chiamarsi `netlink-service.exe`, `netlink-server.exe` e, quando necessario,
+   `netlink-worker.exe`; il servizio interno resta `VeyonSchoolService`.
+3. Verificare conservazione di PC/aula, chiavi, permessi e preferenze. Riprovare
+   autenticazione, controllo remoto, Appello, icona, discovery e InternetGuard.
+4. In Companion controllare inventario dei nuovi processi e degli eventi Windows;
+   l'apertura di un vecchio rapporto deve continuare a riconoscere i nomi Veyon.
+5. Provare una seconda installazione alpha.9 sulla stessa alpha.9, quindi una
+   disinstallazione solo sul PC isolato: chiavi, backup e file estranei devono
+   essere conservati. La prova automatica su file fittizi non copre questi passi.
+6. La compatibilità delle funzioni comuni con un client Veyon originale 4.7.5
+   richiede una prova distinta; non è certificata dalle prove fra due NetLink.
+   Non avviare contemporaneamente i due servizi sulla stessa porta.
+
+### Installazione incompleta o ritorno a Veyon
 
 Non proseguire un’installazione segnalata come incompleta. Conservare il messaggio
 e il backup protetto in `C:\Program Files\Veyon School\Backups`. Dopo la copia dei

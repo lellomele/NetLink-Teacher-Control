@@ -15,6 +15,12 @@ macro(build_veyon_application APPLICATION_NAME)
 	set_target_properties(${APPLICATION_NAME} PROPERTIES LINK_OPTIONS "${CMAKE_LINK_OPTIONS_PIE}")
 	target_link_libraries(${APPLICATION_NAME} PRIVATE veyon-core)
 	set_default_target_properties(${APPLICATION_NAME})
+	# Preserve target/library/protocol identities; only Windows EXE filenames
+	# change. Companion already has its final NetLink name.
+	if(VEYON_BUILD_WINDOWS AND "${APPLICATION_NAME}" MATCHES "^veyon-(master|configurator|service|server|worker|cli|wcli)$")
+		string(REGEX REPLACE "^veyon-" "netlink-" NETLINK_OUTPUT_NAME "${APPLICATION_NAME}")
+		set_target_properties(${APPLICATION_NAME} PROPERTIES OUTPUT_NAME "${NETLINK_OUTPUT_NAME}")
+	endif()
 	if(WITH_PCH)
 		target_precompile_headers(${APPLICATION_NAME} REUSE_FROM veyon-application-pch)
 	endif()

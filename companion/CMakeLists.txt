@@ -4,6 +4,7 @@ add_library(netlink-diagnostics STATIC src/Diagnostics.cpp src/Diagnostics.h src
 set_default_target_properties(netlink-diagnostics)
 target_link_libraries(netlink-diagnostics PUBLIC Qt${QT_MAJOR_VERSION}::Core Qt${QT_MAJOR_VERSION}::Network PRIVATE OpenSSL::Crypto)
 target_include_directories(netlink-diagnostics PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(netlink-diagnostics PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
 if(WIN32)
     target_link_libraries(netlink-diagnostics PRIVATE iphlpapi ws2_32 advapi32 ole32 oleaut32 wtsapi32 netapi32 uuid wevtapi user32)
 endif()

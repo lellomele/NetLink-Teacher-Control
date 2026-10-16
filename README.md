@@ -5,7 +5,7 @@ InternetGuard basato su Windows Filtering Platform, Appello con il nome dichiara
 dallo studente sulle miniature e ricerca dei client tramite WS-Discovery 1.1.
 Le funzioni sono integrate: non occorre installare un plugin esterno.
 
-**Versione preliminare 0.1.0-alpha.8: destinata a PC di prova, non al laboratorio in uso.**
+**Versione preliminare 0.1.0-alpha.9: destinata a PC di prova, non al laboratorio in uso.**
 
 ## Installazione
 
@@ -19,6 +19,16 @@ l'installer completo su entrambi i PC, conservando le chiavi esistenti. Dopo
 l'aggiornamento dalle alpha precedenti riavviare Windows prima del collaudo:
 le vecchie librerie di aggancio possono essere ancora caricate in altri processi.
 Non sostituire o cancellare singole DLL.
+
+Gli eseguibili Windows si chiamano `netlink-master.exe`, `netlink-configurator.exe`,
+`netlink-service.exe`, `netlink-server.exe`, `netlink-worker.exe`, `netlink-cli.exe`,
+`netlink-wcli.exe` e `netlink-companion.exe`. L'installer aggiorna anche le alpha con
+i vecchi nomi `veyon-*.exe`: non rinominarli manualmente. I sette vecchi eseguibili
+del fork vengono rimossi dopo l'avvio del nuovo servizio, eventualmente al riavvio.
+Le regole firewall gestite dalla suite sono aggiornate; regole personalizzate,
+script o criteri scolastici basati sui vecchi percorsi vanno adeguati separatamente.
+Restano invariati DLL, cartella `C:\Program Files\Veyon School`, configurazione,
+directory delle chiavi e identificativo interno `VeyonSchoolService`.
 
 Il programma usa la configurazione Veyon esistente e installa il servizio separato
 `VeyonSchoolService`. Non eseguire contemporaneamente i due servizi: usano le stesse

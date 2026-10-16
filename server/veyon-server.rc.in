@@ -22,7 +22,7 @@ BEGIN
       VALUE "FileDescription",	"NetLink Server\0"
       VALUE "FileVersion",	"@VERSION_STRING@\0"
       VALUE "LegalCopyright",	"Copyright (c) 2025-26 prof. Ing. Raffaele Mele; Veyon (c) 2017-2022 Veyon Solutions / Tobias Junghans\0"
-      VALUE "OriginalFilename",	"veyon-server.exe\0"
+      VALUE "OriginalFilename",	"netlink-server.exe\0"
     END
   END
   BLOCK "VarFileInfo"

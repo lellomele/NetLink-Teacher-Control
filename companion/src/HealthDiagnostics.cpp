@@ -3,6 +3,7 @@
 #undef QT_NO_CAST_FROM_ASCII
 #undef QT_USE_QSTRINGBUILDER
 #include "HealthDiagnostics.h"
+#include "NetLinkIdentity.h"
 #include <QDateTime>
 #include <QElapsedTimer>
 #include <QFileInfo>
@@ -19,9 +20,7 @@
 namespace Companion {
 namespace {
 bool suiteApplication(const QString& name) {
-    static const QSet<QString> names{"veyon-master.exe","veyon-configurator.exe","veyon-service.exe",
-        "veyon-server.exe","veyon-worker.exe","veyon-cli.exe","veyon-wcli.exe","netlink-companion.exe"};
-    return names.contains(name.toLower());
+    return NetLinkIdentity::isDiagnosticApplication(name);
 }
 QString basename(QString path) {return path.replace('\\','/').section('/',-1).left(256);}
 }

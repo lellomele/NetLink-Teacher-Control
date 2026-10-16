@@ -29,6 +29,7 @@
 
 #include "VeyonConfiguration.h"
 #include "Filesystem.h"
+#include "NetLinkIdentity.h"
 #include "PlatformFilesystemFunctions.h"
 
 
@@ -174,14 +175,12 @@ QString Filesystem::screenshotDirectoryPath() const
 
 QString Filesystem::serverFilePath() const
 {
-	return QDir::toNativeSeparators( QCoreApplication::applicationDirPath() + QDir::separator() +
-									 QStringLiteral("veyon-server" ) + VeyonCore::executableSuffix() );
+	return NetLinkIdentity::executablePath(NetLinkIdentity::Application::Server);
 }
 
 
 
 QString Filesystem::workerFilePath() const
 {
-	return QDir::toNativeSeparators( QCoreApplication::applicationDirPath() + QDir::separator() +
-									 QStringLiteral("veyon-worker" ) + VeyonCore::executableSuffix() );
+	return NetLinkIdentity::executablePath(NetLinkIdentity::Application::Worker);
 }

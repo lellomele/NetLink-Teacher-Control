@@ -22,7 +22,7 @@ BEGIN
       VALUE "FileDescription",	"NetLink Command Line Interface (console version)\0"
       VALUE "FileVersion",	"@VERSION_STRING@\0"
       VALUE "LegalCopyright",	"Copyright (c) 2025-26 prof. Ing. Raffaele Mele; Veyon (c) 2017-2022 Veyon Solutions / Tobias Junghans\0"
-      VALUE "OriginalFilename",	"veyon-cli.exe\0"
+      VALUE "OriginalFilename",	"netlink-cli.exe\0"
     END
   END
   BLOCK "VarFileInfo"

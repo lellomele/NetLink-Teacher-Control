@@ -45,6 +45,8 @@ private Q_SLOTS:
         const auto event=Companion::crashEvent(fixture("veyon-master.exe",true));
         QCOMPARE(event["kind"].toString(),QString("suite-crash"));
         QVERIFY(Companion::crashEvent(fixture("netlink-companion.exe")).contains("module"));
+        for(const auto& name:{"netlink-master.exe","netlink-configurator.exe","netlink-service.exe","netlink-server.exe","netlink-worker.exe","netlink-cli.exe","netlink-wcli.exe"})
+            QCOMPARE(Companion::crashEvent(fixture(name,true))["kind"].toString(),QString("suite-crash"));
     }
     void recommendationsKeepEvidenceAndLimitsSeparate() {
         QJsonObject report{{"health",QJsonObject{{"eventLogAvailable",true},{"events",QJsonArray{Companion::crashEvent(fixture())}},

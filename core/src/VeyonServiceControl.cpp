@@ -27,6 +27,7 @@
 
 #include "PlatformServiceFunctions.h"
 #include "VeyonServiceControl.h"
+#include "NetLinkIdentity.h"
 
 
 VeyonServiceControl::VeyonServiceControl( QWidget* parent ) :
@@ -54,10 +55,7 @@ QString VeyonServiceControl::name()
 
 QString VeyonServiceControl::filePath()
 {
-	return QDir::toNativeSeparators(
-				QCoreApplication::applicationDirPath() +
-				QDir::separator() +
-				QStringLiteral("veyon-service") + VeyonCore::executableSuffix() );
+	return NetLinkIdentity::executablePath(NetLinkIdentity::Application::Service);
 }
 
 

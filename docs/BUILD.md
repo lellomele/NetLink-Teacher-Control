@@ -25,9 +25,13 @@ Generate icons if the vector design changes:
 `powershell -NoProfile -ExecutionPolicy Bypass -File branding/render-icon.ps1`.
 The icon rasterizer uses built-in Windows drawing APIs; the original SVG is retained.
 The generated `netlink.ico` is embedded in all Windows executables and the
-installer. Public names are NetLink; the protected `Veyon School` installation
-directory, binary filenames and `VeyonSchoolService` identity remain unchanged
-for compatibility with installed clients and WFP image-path trust checks.
+installer. Windows executable output names are `netlink-*.exe`; CMake target
+identities and all DLL filenames remain unchanged. The protected `Veyon School`
+installation directory, registry/key locations, feature/protocol identifiers
+and `VeyonSchoolService` identity are retained. NetLinkIdentity centralizes local
+launch and strict WFP peer paths. Legacy names are accepted only in diagnostic
+reports and the installer upgrade selection, never as trusted WFP pipe aliases.
+Non-Windows application output names are unchanged by this Windows alpha.
 
 Appearance preferences are separate per-user values under
 `HKCU\Software\Veyon\NetLinkAppearance`, never authentication/system settings.
@@ -50,6 +54,17 @@ Package from a fresh `dist` payload directory:
 This compiles existing translations without modifying TS sources, resolves DLL
 imports recursively, preserves licenses and creates the NSIS installer. The legacy
 `windows-binaries` target is not used on Windows.
+
+The installer selects the installed `netlink-wcli.exe`, or legacy `veyon-wcli.exe`,
+before replacing files. Backup, stop and unregister must succeed first; a
+registered fork service with no usable CLI aborts the upgrade. Current files are
+packaged from an explicit eight-EXE allowlist, ignoring stale build outputs.
+Only the seven known legacy EXEs in the fixed fork directory are retired after
+the new service starts. A repeated alpha.9 install prefers its current CLI.
+The NSIS fixture tests that same selection/retirement code on inert files in a
+private directory, without real service, registry or reboot-state operations.
+It does not establish successful privileged installation/upgrade/uninstall;
+those still require the guided Windows pilot.
 
 Internal UltraVNC changes are stored as `patches-ultravnc.diff`, applied only to the
 pinned revision. Configuration fails if neither pristine nor exact patched source

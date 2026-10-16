@@ -1,7 +1,47 @@
-# Audit and release gates — NetLink 0.1.0-alpha.8
+# Audit and release gates — NetLink 0.1.0-alpha.9
 
 Status: **partial audit and preliminary implementation, not a completed security
 audit, certified WS-Discovery implementation or production-ready release**.
+
+## Alpha 9 focused changes
+
+Only the seven Windows executable output names change to `netlink-*`; Companion
+already had its final name. DLLs, CMake target identities, protected install path,
+registry/key locations, service/IPC identifiers and network feature/protocol IDs
+remain unchanged. NetLinkIdentity supplies names for local server/worker/service
+launch, discovery firewall rules, WFP application exceptions and exact full-path
+pipe peer checks. The SYSTEM SID check is retained. Legacy filename recognition
+is explicitly diagnostic-only and cannot authorize a WFP peer.
+
+The installer selects the previous installed CLI before any replacement, exports
+configuration, stops/unregisters the existing fork service with checked process
+launch/exit status, then registers the current service image. A registered service
+without a usable CLI or an incomplete file copy aborts the upgrade. Current Start
+shortcuts and uninstall commands use the new names. Only the seven exact old EXE
+paths in the fixed fork directory are retired after successful new service start;
+locked old EXEs may require reboot. Keys, backups, DLLs, unknown files and any
+separate original Veyon installation are not retirement targets.
+
+A non-elevated NSIS fixture exercises the same installed-CLI selection and file
+retirement macros for fresh/alpha.8/alpha.9/mixed directory states, using inert
+files and no production service/registry/reboot operations. It checks preservation
+of keys, backups, current binaries and unknown files. C++ tests cover the local
+launch paths, strict current installed-path matching, legacy alias rejection and
+diagnostic handling of both naming generations. Companion event/process parsing
+retains old report support while recognizing all renamed applications.
+
+This does not establish a completed privileged installer upgrade or mixed-client
+interoperability test. An actual alpha.8→alpha.9 upgrade, reinstallation, reboot,
+uninstall and original Veyon 4.7.5 client test remain guided pilot checks. The user
+reported that the alpha.8 tray icon reappeared on MATEBOOK; the renamed worker path
+must still be checked after alpha.9 installation. No changes to the retained
+protocol/authentication implementation are needed for executable renaming.
+
+Local alpha.9 verification passed 20 CTest suites, including 178 Qt passes
+(setup/cleanup included), no failures or skips, and the native NSIS migration
+fixture. The six independent XML schema checks passed. A separate production
+build completed with all eight current EXE identities. These results do not
+replace the privileged installation and original-client interoperability pilot.
 
 ## Alpha 8 focused changes
 

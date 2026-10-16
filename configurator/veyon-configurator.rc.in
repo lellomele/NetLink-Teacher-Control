@@ -22,7 +22,7 @@ BEGIN
       VALUE "FileDescription",	"NetLink Configurator\0"
       VALUE "FileVersion",	"@VERSION_STRING@\0"
       VALUE "LegalCopyright",	"Copyright (c) 2025-26 prof. Ing. Raffaele Mele; Veyon (c) Tobias Junghans / Veyon Solutions e contributori\0"
-      VALUE "OriginalFilename",	"veyon-configurator.exe\0"
+      VALUE "OriginalFilename",	"netlink-configurator.exe\0"
     END
   END
   BLOCK "VarFileInfo"

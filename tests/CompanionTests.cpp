@@ -39,6 +39,16 @@ private Q_SLOTS:
         auto settings=report["settings"].toObject();settings["Service/HideTrayIcon"]=true;report["settings"]=settings;QVERIFY(Companion::recommendations(report,"teacher").join('\n').contains("nascosta dalla configurazione"));
         const auto filtered=Companion::publicReport(report,false);QVERIFY(!filtered.contains("processes"));
     }
+    void renamedWorkerIsRecognizedAlongsideLegacyReports() {
+        for(bool legacy:{false,true}) {
+            auto report=fixture();report["identity"]=QJsonObject{{"sessionId",1}};
+            const auto prefix=legacy?QString("veyon-"):QString("netlink-");
+            report["processes"]=QJsonArray{QJsonObject{{"application",prefix+"server.exe"},{"sessionId",1}}};
+            QVERIFY(Companion::recommendations(report,"teacher").join('\n').contains("nessun processo worker"));
+            auto processes=report["processes"].toArray();processes.append(QJsonObject{{"application",prefix+"worker.exe"},{"sessionId",1}});report["processes"]=processes;
+            QVERIFY(!Companion::recommendations(report,"teacher").join('\n').contains("nessun processo worker"));
+        }
+    }
     void validTargets() {
         for(const auto& value:{"PC-DOCENTE","pc.aula.local","192.0.2.10","2001:db8::1","127.0.0.1"}) QVERIFY(Companion::validTarget(value));
         for(const auto& value:{"","0.0.0.0","::","224.0.0.1","255.255.255.255","999.2.3.4","http://pc","pc:11100","192.0.2.0/24"," pc","pc;whoami","a..b","-pc","pc-"}) QVERIFY(!Companion::validTarget(value));

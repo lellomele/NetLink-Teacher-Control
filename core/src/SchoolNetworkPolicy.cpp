@@ -2,6 +2,7 @@
 #undef QT_NO_CAST_FROM_ASCII
 #undef QT_USE_QSTRINGBUILDER
 #include "SchoolNetworkPolicy.h"
+#include "NetLinkIdentity.h"
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDir>
@@ -38,7 +39,7 @@ bool configureDiscoveryFirewall(bool enabled) {
         if(enabled) {
             INetFwRule* rule=nullptr;
             error=CoCreateInstance(CLSID_NetFwRule,nullptr,CLSCTX_INPROC_SERVER,IID_INetFwRule,reinterpret_cast<void**>(&rule));
-            const QString app=QDir::toNativeSeparators(QCoreApplication::applicationDirPath()+(index==0 ? "/veyon-service.exe" : "/veyon-master.exe"));
+            const QString app=NetLinkIdentity::executablePath(index==0?NetLinkIdentity::Application::Service:NetLinkIdentity::Application::Master);
             auto appName=SysAllocString(reinterpret_cast<const OLECHAR*>(app.utf16()));auto port=SysAllocString(L"3702");
             if(SUCCEEDED(error)) error=rule->put_Name(ruleName);
             if(SUCCEEDED(error)) error=rule->put_ApplicationName(appName);
@@ -76,7 +77,7 @@ static QJsonObject result(bool ok, const QString& status, quint32 code = 0) {
     return {{"ok", ok}, {"status", status}, {"code", double(code)}};
 }
 #ifdef Q_OS_WIN
-static bool trustedPipePeer(QLocalSocket* socket, const QString& expected, bool server) {
+static bool trustedPipePeer(QLocalSocket* socket, NetLinkIdentity::Application expected, bool server) {
     ULONG pid = 0;
     HANDLE pipe = reinterpret_cast<HANDLE>(socket->socketDescriptor());
     if (!(server ? GetNamedPipeServerProcessId(pipe, &pid) : GetNamedPipeClientProcessId(pipe, &pid))) return false;
@@ -84,8 +85,7 @@ static bool trustedPipePeer(QLocalSocket* socket, const QString& expected, bool 
     if (!process) return false;
     wchar_t path[32768]; DWORD size = 32768;
     bool ok = QueryFullProcessImageNameW(process, 0, path, &size) &&
-        QDir::cleanPath(QDir::fromNativeSeparators(QString::fromWCharArray(path, int(size)))).compare(
-            QDir::cleanPath(QCoreApplication::applicationDirPath() + "/" + expected), Qt::CaseInsensitive) == 0;
+        NetLinkIdentity::matchesInstalledPath(QString::fromWCharArray(path,int(size)),QCoreApplication::applicationDirPath(),expected);
     HANDLE token = nullptr;
     if (ok && OpenProcessToken(process, TOKEN_QUERY, &token)) {
         alignas(TOKEN_USER) BYTE data[512]; DWORD used = 0; BYTE sid[SECURITY_MAX_SID_SIZE]; DWORD sidSize = sizeof(sid);
@@ -104,7 +104,7 @@ QJsonObject request(const QJsonObject& command) {
     socket.connectToServer(QString::fromLatin1(PipeName));
     if (!socket.waitForConnected(2000)) return result(false, "service-unavailable");
 #ifdef Q_OS_WIN
-    if (!trustedPipePeer(&socket, "veyon-service.exe", true)) return result(false, "untrusted-service");
+    if (!trustedPipePeer(&socket, NetLinkIdentity::Application::Service, true)) return result(false, "untrusted-service");
 #endif
     const auto bytes = QJsonDocument(command).toJson(QJsonDocument::Compact) + '\n';
     if (bytes.size() > 32768 || socket.write(bytes) != bytes.size()) return result(false, "invalid-request");
@@ -139,7 +139,7 @@ PolicyDaemon::PolicyDaemon(QObject* parent,bool initializePipe,CloseEngine close
             socket->setReadBufferSize(32769);
             if(m_pipeClients>=16) {socket->abort();socket->deleteLater();continue;}
 #ifdef Q_OS_WIN
-            if (!trustedPipePeer(socket, "veyon-server.exe", false)) { socket->abort(); socket->deleteLater(); continue; }
+            if (!trustedPipePeer(socket, NetLinkIdentity::Application::Server, false)) { socket->abort(); socket->deleteLater(); continue; }
 #endif
             ++m_pipeClients;
             connect(socket,&QObject::destroyed,this,[this] {--m_pipeClients;});
@@ -411,9 +411,9 @@ QJsonObject PolicyDaemon::apply(const QJsonObject& command) {
             if (error) break;
         }
         // Discovery is restricted to the installed, protected service/master binaries.
-        for (const auto& app : {"veyon-service.exe", "veyon-master.exe"}) {
+        for (auto app : {NetLinkIdentity::Application::Service, NetLinkIdentity::Application::Master}) {
             if (!error) error = addFilter(m_engine, layers[index], true, {}, 17, 3702,
-                QCoreApplication::applicationDirPath()+"/"+app, next);
+                NetLinkIdentity::executablePath(app), next);
         }
         for (const auto& dns : infra.dns) {
             if ((QHostAddress(dns).protocol() == QAbstractSocket::IPv4Protocol) != ipv4) continue;
