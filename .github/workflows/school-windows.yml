@@ -38,23 +38,17 @@ jobs:
         run: |
           export PATH="$PWD/build-school/core:$PATH"
           export VEYON_SCHOOL_SCHEMA_FIXTURES="$(cygpath -w "$PWD/build-school/schema-fixtures")"
-          ctest --test-dir build-school --output-on-failure
-          cat build-school/tests/school-tests-results.txt
-          cat build-school/tests/school-configuration-tests-results.txt
-          cat build-school/tests/netlink-appearance-tests-results.txt
-          cat build-school/tests/netlink-companion-tests-results.txt
-          cat build-school/tests/netlink-transport-tests-results.txt
-          cat build-school/tests/netlink-diagnostic-link-tests-results.txt
-          cat build-school/tests/netlink-gui-latency-tests-results.txt
-          cat build-school/tests/netlink-health-tests-results.txt
-          cat build-school/tests/school-lifecycle-tests-results.txt
-          cat build-school/tests/netlink-worker-lifecycle-tests-results.txt
-          cat build-school/tests/netlink-windows-session-token-tests-results.txt
-          cat build-school/tests/netlink-application-identity-tests-results.txt
-          cat build-school/tests/netlink-connection-reliability-tests-results.txt
-          cat build-school/tests/netlink-policy-reliability-tests-results.txt
-          cat build-school/tests/netlink-authentication-wait-tests-results.txt
-          cat build-school/tests/netlink-socket-write-tests-results.txt
+          test_status=0
+          ctest --test-dir build-school --output-on-failure || test_status=$?
+          if [ "$test_status" -eq 0 ]; then
+            ctest --test-dir build-school --output-on-failure -R '^netlink-socket-write-tests$' --repeat until-fail:20 || test_status=$?
+          fi
+          # Qt writes details to files. Preserve failures instead of exiting
+          # before their diagnostics reach the GitHub log.
+          for result_file in build-school/tests/*-results.txt; do
+            if [ -f "$result_file" ]; then cat "$result_file"; fi
+          done
+          exit "$test_status"
       - name: Official XML schema validation
         shell: pwsh
         run: ./tests/validate-discovery.ps1 -Fixtures build-school/schema-fixtures
