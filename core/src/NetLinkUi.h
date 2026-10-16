@@ -13,6 +13,11 @@ class QMessageBox;
 
 namespace NetLinkUi {
 VEYON_CORE_EXPORT QString copyrightText();
+VEYON_CORE_EXPORT QString applicationName(const QString& configuredName);
+// Shared UI catalog: canonical English, Italian fallback, then Qt translations.
+VEYON_CORE_EXPORT QString text(const QString& source);
+VEYON_CORE_EXPORT QString text(const char* source);
+VEYON_CORE_EXPORT void installStandardTranslations();
 // Native title-bar text: one suffix, without consuming the working area.
 VEYON_CORE_EXPORT QString windowTitle(const QString& title);
 // Original, resolution-independent QPainter paths; no icon font/SVG runtime.

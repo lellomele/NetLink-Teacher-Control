@@ -21,6 +21,7 @@
  *  USA.
  */
 
+#include "NetLinkUi.h"
 #include <QMenu>
 #include <QPainter>
 #include <QPaintEvent>
@@ -49,10 +50,10 @@ void MainToolBar::contextMenuEvent( QContextMenuEvent* event )
 
 #if QT_VERSION < 0x050600
 #warning Building legacy compat code for unsupported version of Qt
-	auto toolTipAction = menu.addAction( tr( "Nascondi le descrizioni dei pulsanti" ) );
+	auto toolTipAction = menu.addAction( NetLinkUi::text("Hide button tooltips") );
 	connect( toolTipAction, &QAction::triggered, this, &MainToolBar::toggleToolTips );
 #else
-	auto toolTipAction = menu.addAction( tr( "Nascondi le descrizioni dei pulsanti" ), this, &MainToolBar::toggleToolTips );
+	auto toolTipAction = menu.addAction( NetLinkUi::text("Hide button tooltips"), this, &MainToolBar::toggleToolTips );
 #endif
 	toolTipAction->setCheckable( true );
 	toolTipAction->setChecked( m_mainWindow->masterCore().userConfig().noToolTips() );
@@ -67,7 +68,7 @@ void MainToolBar::contextMenuEvent( QContextMenuEvent* event )
 	iconModeAction->setCheckable( true );
 	iconModeAction->setChecked( m_mainWindow->masterCore().userConfig().toolButtonIconOnlyMode() );
 	menu.addSeparator();
-	auto appearance=menu.addAction(QStringLiteral("Aspetto, colori e icone…"));
+	auto appearance=menu.addAction(NetLinkUi::text("Appearance, colors and icons…"));
 	connect(appearance,&QAction::triggered,this,[this]{NetLinkAppearance::install()->showSettings(m_mainWindow);});
 
 	menu.exec( event->globalPos() );

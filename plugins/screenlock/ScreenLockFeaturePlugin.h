@@ -25,6 +25,13 @@
 #pragma once
 
 #include "FeatureProviderInterface.h"
+#include "LockActivity.h"
+#include <QPointer>
+#include <QTimer>
+#include <QElapsedTimer>
+
+class QDialog;
+class QPlainTextEdit;
 
 class LockWidget;
 
@@ -74,6 +81,8 @@ public:
 
 	bool controlFeature( Feature::Uid featureUid, Operation operation, const QVariantMap& arguments,
 						const ComputerControlInterfaceList& computerControlInterfaces ) override;
+	bool startFeature(VeyonMasterInterface& master,const Feature& feature,const ComputerControlInterfaceList& clients) override;
+	bool handleFeatureMessage(ComputerControlInterface::Pointer client,const FeatureMessage& message) override;
 
 	bool handleFeatureMessage( VeyonServerInterface& server,
 							   const MessageContext& messageContext,
@@ -82,10 +91,14 @@ public:
 	bool handleFeatureMessage( VeyonWorkerInterface& worker, const FeatureMessage& message ) override;
 
 private:
+	friend class LockNotificationTests;
+	void flushActivity(VeyonWorkerInterface& worker);
+	void displayActivity(ComputerControlInterface::Pointer client,const QVariantMap& batch);
 	enum Commands
 	{
 		StartLockCommand,
 		StopLockCommand,
+		LockEventsCommand,
 		CommandCount
 	};
 
@@ -94,5 +107,15 @@ private:
 	const FeatureList m_features;
 
 	LockWidget* m_lockWidget;
+	QTimer m_activityTimer{this};
+	LockActivity m_activity;
+	QString m_workerToken,m_monitorToken;
+	quint64 m_workerSequence=0,m_monitorSequence=0;
+	Feature::Uid m_workerFeature,m_monitoredFeature;
+	MessageContext m_monitorContext;
+	QElapsedTimer m_receiveLimit;
+	QPointer<QWidget> m_masterWindow;
+	QPointer<QDialog> m_eventsWindow;
+	QPointer<QPlainTextEdit> m_eventsText;
 
 };

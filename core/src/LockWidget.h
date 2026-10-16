@@ -27,6 +27,7 @@
 #include <QPixmap>
 
 #include "VeyonCore.h"
+class KeyboardShortcutTrapper;
 
 
 class VEYON_CORE_EXPORT LockWidget : public QWidget
@@ -43,9 +44,33 @@ public:
 	explicit LockWidget( Mode mode, const QPixmap& background = QPixmap(), QWidget* parent = nullptr );
 	~LockWidget() override;
 
+Q_SIGNALS:
+	void activityObserved(const QString& code);
 
 private:
+	friend class NetLinkUiTests;
+	friend class LockNotificationTests;
+	LockWidget(Mode mode, const QPixmap& background, QWidget* parent, bool initializeRuntime);
 	void paintEvent( QPaintEvent * ) override;
+	void closeEvent(QCloseEvent*) override;
+	void changeEvent(QEvent*) override;
+	void scheduleRestore();
+	void restoreWindow();
+	void inspectInputDesktop();
+	void observeDesktopState(int state);
+#ifdef Q_OS_WIN
+#if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
+	bool nativeEvent(const QByteArray& eventType,void* message,qintptr* result) override;
+#else
+	bool nativeEvent(const QByteArray& eventType,void* message,long* result) override;
+#endif
+#endif
+	bool m_initializeRuntime=true;
+	bool m_restoreQueued=false;
+	bool m_closeWarningLogged=false;
+	KeyboardShortcutTrapper* m_shortcutTrapper=nullptr;
+	bool m_sessionNotifications=false;
+	int m_inputDesktopState=-1;
 
 	QPixmap m_background;
 	Mode m_mode;

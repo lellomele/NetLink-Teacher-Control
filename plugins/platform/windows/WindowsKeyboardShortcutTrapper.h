@@ -37,6 +37,7 @@ public:
 	~WindowsKeyboardShortcutTrapper() override;
 
 	void setEnabled( bool on ) override;
+	static Shortcut classifyShortcut(quint32 key,bool control,bool shift,bool alt);
 
 private:
 	void forwardTrappedShortcuts();

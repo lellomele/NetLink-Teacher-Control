@@ -1,0 +1,830 @@
+[
+  {
+    "source": "Attendance",
+    "it": "Appello"
+  },
+  {
+    "source": "Opens Internet controls for the selected computers. Apply or remove filters and read each client's feedback. Closing the panel does not remove the block.",
+    "it": "Apre il controllo Internet dei PC selezionati. Puoi attivare o rimuovere i filtri e leggere il riscontro di ogni client. Chiudere il pannello non rimuove il blocco."
+  },
+  {
+    "source": "Asks students on the selected computers to enter their names and displays them on thumbnails. Names are self-declared: they are not Windows account names or verified identities.",
+    "it": "Chiede agli studenti dei PC selezionati di inserire il proprio nome e lo mostra sulle miniature. Il nome è dichiarato dallo studente: non identifica l’account Windows e non verifica l’identità."
+  },
+  {
+    "source": "Finds remote clients using WS-Discovery and shows IPv4 addresses. Verify computers before importing: an announcement does not authenticate a client. Across subnets, configure the teacher's name/IP on the client.",
+    "it": "Cerca client remoti tramite WS-Discovery e mostra indirizzi IPv4. Verifica i PC prima di importarli: un annuncio non autentica il client. Tra subnet può servire il nome/IP del docente configurato sul client."
+  },
+  {
+    "source": "Shows updated thumbnails of configured, selected computers without sending control commands. If a thumbnail cannot connect, check its status and use Companion.",
+    "it": "Mostra le miniature aggiornate dei PC configurati e selezionati. Non invia comandi di controllo agli studenti. Se una miniatura non si collega, consulta lo stato e Companion."
+  },
+  {
+    "source": "Opens the selected computer's desktop with mouse and keyboard control. Requires authentication and client authorization. Close the window to end the session.",
+    "it": "Apre il desktop del PC selezionato e consente di usare mouse e tastiera. Richiede autenticazione e autorizzazione del client. Chiudi la finestra per terminare la sessione."
+  },
+  {
+    "source": "Opens the selected computer's desktop for viewing only, without sending mouse or keyboard input. Requires authentication and client authorization.",
+    "it": "Apre il desktop del PC selezionato in sola visualizzazione, senza inviare mouse o tastiera. Richiede autenticazione e autorizzazione del client."
+  },
+  {
+    "source": "Applies or removes the software screen cover on selected computers. Windows security screens and protected shortcuts remain accessible without the optional input driver. Check the actual client state.",
+    "it": "Attiva o rimuove la copertura software dei PC selezionati. Senza il driver opzionale restano accessibili le schermate di sicurezza e i tasti protetti di Windows. Verifica lo stato reale dei client."
+  },
+  {
+    "source": "Sends Wake-on-LAN to selected computers. Requires a configured MAC, compatible network adapter and BIOS. Wake-up over Wi-Fi is not guaranteed.",
+    "it": "Invia Wake-on-LAN ai PC selezionati. Richiede MAC configurato, scheda di rete e BIOS compatibili; non garantisce l’accensione tramite Wi-Fi."
+  },
+  {
+    "source": "Shuts down selected computers. This can interrupt students' work: verify recipients and save documents before confirming.",
+    "it": "Invia il comando di spegnimento ai PC selezionati. Può interrompere il lavoro degli studenti: verifica i destinatari e salva i documenti prima di confermare."
+  },
+  {
+    "source": "Restarts selected computers. This can interrupt students' work: verify recipients and save documents before confirming.",
+    "it": "Riavvia i PC selezionati. Può interrompere il lavoro degli studenti: verifica i destinatari e salva i documenti prima di confermare."
+  },
+  {
+    "source": "Sends a message to students on selected computers. It is displayed on the client; this is not a persistent chat.",
+    "it": "Invia un messaggio agli studenti dei PC selezionati. Il testo viene mostrato sul client; non è una chat permanente."
+  },
+  {
+    "source": "Saves a desktop image from selected computers. Screenshots may contain personal data: store and share them carefully.",
+    "it": "Salva un’immagine del desktop dei PC selezionati. Le schermate possono contenere dati personali: conserva e condividi i file con attenzione."
+  },
+  {
+    "source": "\nShares a screen with demonstration recipients. Check selected computers and end the mode when finished.",
+    "it": "\nCondivide uno schermo con i destinatari della dimostrazione. Verifica i PC selezionati e termina la modalità quando hai finito."
+  },
+  {
+    "source": "\nOperates on selected computers in the Console. A disconnected computer cannot confirm execution.",
+    "it": "\nOpera sui PC selezionati nella Console; un computer non connesso non conferma l’esecuzione del comando."
+  },
+  {
+    "source": "Appearance, colors and icons…",
+    "it": "Aspetto, colori e icone…"
+  },
+  {
+    "source": "Choose a theme, colors, icon set and button size. These are personal preferences and do not change keys or the service.",
+    "it": "Scegli tema, colori, set di icone e dimensione dei pulsanti. Sono preferenze personali, non modificano chiavi o servizio."
+  },
+  {
+    "source": "About, copyright and licenses…",
+    "it": "Informazioni, copyright e licenze…"
+  },
+  {
+    "source": "not listening",
+    "it": "non in ascolto"
+  },
+  {
+    "source": "local only",
+    "it": "solo locale"
+  },
+  {
+    "source": "Local server snapshot, not a network test. Use Companion to diagnose connection problems.",
+    "it": "Istantanea del server locale, non un test di rete. Per problemi di collegamento usa Companion."
+  },
+  {
+    "source": "\n\nAuthorized = connections with successful authentication and access control. Other TCP = connections not yet authorized.\nWSD = WS-Discovery configuration, not successful discovery. Listening does not prove reachability from another computer.\nThis does not verify Internet blocking. Use Companion for network, firewall and key diagnostics.",
+    "it": "\n\nAccessi = connessioni con autenticazione e autorizzazione riuscite. Altri TCP = connessioni non ancora autorizzate.\nWSD = WS-Discovery: indica la configurazione, non la riuscita della ricerca. In ascolto non prova la raggiungibilità da altri PC.\nQuesta non è una verifica del blocco Internet. Per rete, firewall e chiavi usa Companion."
+  },
+  {
+    "source": "Ocean",
+    "it": "Oceano"
+  },
+  {
+    "source": "Forest",
+    "it": "Bosco"
+  },
+  {
+    "source": "Plum",
+    "it": "Prugna"
+  },
+  {
+    "source": "Custom",
+    "it": "Personalizzato"
+  },
+  {
+    "source": "NetLink appearance",
+    "it": "Aspetto di NetLink"
+  },
+  {
+    "source": "System",
+    "it": "Sistema"
+  },
+  {
+    "source": "Light",
+    "it": "Chiaro"
+  },
+  {
+    "source": "Dark",
+    "it": "Scuro"
+  },
+  {
+    "source": "Theme",
+    "it": "Tema"
+  },
+  {
+    "source": "Palette",
+    "it": "Palette"
+  },
+  {
+    "source": "Accent color",
+    "it": "Colore d’accento"
+  },
+  {
+    "source": "Compact (28)",
+    "it": "Compatta (28)"
+  },
+  {
+    "source": "Comfortable (36)",
+    "it": "Comoda (36)"
+  },
+  {
+    "source": "Large (44)",
+    "it": "Grande (44)"
+  },
+  {
+    "source": "Icon set",
+    "it": "Set di icone"
+  },
+  {
+    "source": "Preview",
+    "it": "Anteprima"
+  },
+  {
+    "source": "Immediate preview. Preferences are personal and do not require administrator rights.\nCancel restores the previous appearance.",
+    "it": "Anteprima immediata. Le preferenze sono personali e non richiedono diritti amministrativi.\nAnnulla ripristina l’aspetto precedente."
+  },
+  {
+    "source": "Save",
+    "it": "Salva"
+  },
+  {
+    "source": "Cancel",
+    "it": "Annulla"
+  },
+  {
+    "source": "Defaults",
+    "it": "Predefiniti"
+  },
+  {
+    "source": "Could not save appearance preferences.",
+    "it": "Salvataggio delle preferenze non riuscito."
+  },
+  {
+    "source": "Master name/IP (clients on other subnets)",
+    "it": "Nome/IP del Master (client di altre subnet)"
+  },
+  {
+    "source": "Allowed resources: one IP or CIDR per line",
+    "it": "Risorse autorizzate: un IP o CIDR per riga"
+  },
+  {
+    "source": "Leave empty when teacher and client are on the same subnet. Across subnets, enter the teacher's name or IPv4 address. This is not an authentication key.",
+    "it": "Lascia vuoto se docente e client sono nella stessa subnet. In reti diverse inserisci il nome/IP IPv4 del docente. Non è una chiave di autenticazione."
+  },
+  {
+    "source": "Find clients discovers remote computers and can import them into the Console.\nOn the same subnet the Master name/IP can stay empty; across subnets configure it on the client.\nDiscovery does not replace keys, access rules or network permissions.",
+    "it": "Trova client cerca PC remoti e permette di importarli nella Console.\nNella stessa subnet il nome/IP del Master può restare vuoto; su altre subnet va configurato sul client.\nIl discovery non sostituisce chiavi, regole di accesso o autorizzazioni di rete."
+  },
+  {
+    "source": "InternetGuard reuses computers selected in the Master. Do not allow entire subnets unnecessarily: each allowed resource remains reachable on all ports.",
+    "it": "InternetGuard riutilizza i PC selezionati nel Master. Non inserire intere subnet senza necessità: ogni risorsa consentita resta raggiungibile su tutte le porte."
+  },
+  {
+    "source": "Invalid resource: ",
+    "it": "Risorsa non valida: "
+  },
+  {
+    "source": "WFP applies to selected clients. Filters expire after 90 seconds without renewal.\nFeedback confirms filter installation, not successful Internet-blocking tests.",
+    "it": "WFP applicato ai client selezionati. I filtri scadono dopo 90 secondi senza rinnovo.\nIl feedback conferma i filtri installati, non una prova di navigazione Internet."
+  },
+  {
+    "source": "Computers selected when opened",
+    "it": "PC selezionati all’apertura"
+  },
+  {
+    "source": "Status",
+    "it": "Stato"
+  },
+  {
+    "source": "unavailable",
+    "it": "non disponibile"
+  },
+  {
+    "source": "Block Internet",
+    "it": "Blocca Internet"
+  },
+  {
+    "source": "Unblock",
+    "it": "Sblocca"
+  },
+  {
+    "source": "error: incomplete resolution or invalid list",
+    "it": "errore: risoluzione incompleta o lista non valida"
+  },
+  {
+    "source": "not connected; no new filters applied",
+    "it": "non connesso; nessun nuovo filtro applicato"
+  },
+  {
+    "source": "InternetGuard client limit reached",
+    "it": "limite di client InternetGuard raggiunto"
+  },
+  {
+    "source": "not connected",
+    "it": "non connesso"
+  },
+  {
+    "source": "invalid InternetGuard reply",
+    "it": "risposta InternetGuard non valida"
+  },
+  {
+    "source": "service busy; retrying unblock...",
+    "it": "servizio occupato; nuovo tentativo di sblocco..."
+  },
+  {
+    "source": "Attendance — NetLink",
+    "it": "Appello — NetLink"
+  },
+  {
+    "source": "Enter your first and last name for the teacher's attendance request.",
+    "it": "Inserisci il tuo nome e cognome per l’appello del docente."
+  },
+  {
+    "source": "Names are self-declared, not verified.\nChoose an operation for the computers selected when opened.",
+    "it": "Il nome è dichiarato dallo studente, non verificato.\nScegli l’operazione per i PC selezionati all’apertura."
+  },
+  {
+    "source": "Export CSV",
+    "it": "Esporta CSV"
+  },
+  {
+    "source": "Export attendance",
+    "it": "Esporta appello"
+  },
+  {
+    "source": "Export failed.",
+    "it": "Esportazione non riuscita."
+  },
+  {
+    "source": "Only remote computers with IPv4 addresses are shown; this computer is excluded.\nAnnouncements are not authenticated. Verify computers before importing them.\nFor other subnets, distribute School/DiscoveryMaster to clients. ",
+    "it": "Sono mostrati soltanto i PC remoti con indirizzo IPv4; questo computer è escluso.\nGli annunci non sono autenticati. Verifica i PC prima di importarli.\nPer altre subnet distribuisci School/DiscoveryMaster ai client. "
+  },
+  {
+    "source": "Name reported by computer",
+    "it": "Nome dichiarato dal PC"
+  },
+  {
+    "source": "Import selected computer",
+    "it": "Importa PC selezionato"
+  },
+  {
+    "source": "Port differs from the configured port: add the computer manually.",
+    "it": "Porta diversa da quella configurata: aggiungi il PC manualmente."
+  },
+  {
+    "source": "Import computer",
+    "it": "Importa PC"
+  },
+  {
+    "source": "Computer already configured.",
+    "it": "PC già configurato."
+  },
+  {
+    "source": "Computer imported. Restart the Master to display it; key authentication is still required.",
+    "it": "PC importato. Riavvia il Master per visualizzarlo; l’autenticazione Veyon rimane necessaria."
+  },
+  {
+    "source": "Appearance",
+    "it": "Aspetto"
+  },
+  {
+    "source": "Choose a theme, colors, icon set and button size. Does not change keys, clients or the service.",
+    "it": "Scegli tema, colori, set di icone e dimensione dei pulsanti. Non modifica chiavi, client o servizio."
+  },
+  {
+    "source": "Shows or hides groups and computers. Select the computers targeted by Console commands here.",
+    "it": "Mostra o nasconde gruppi e computer. Seleziona qui i PC su cui usare i comandi della Console."
+  },
+  {
+    "source": "Shows or hides the rotating desktop slideshow panel.",
+    "it": "Mostra o nasconde il pannello per la visualizzazione a rotazione degli schermi."
+  },
+  {
+    "source": "Shows or hides the enlarged observation panel for selected computers.",
+    "it": "Mostra o nasconde il pannello di osservazione ingrandita dei computer selezionati."
+  },
+  {
+    "source": "Shows only connected computers. Does not power computers on or off.",
+    "it": "Filtra la vista mostrando soltanto i PC collegati. Non accende né spegne alcun computer."
+  },
+  {
+    "source": "Shows only computers with a detected user session. Windows accounts are separate from self-declared attendance names.",
+    "it": "Mostra soltanto i PC con una sessione utente rilevata. L’account Windows è distinto dal nome dichiarato nell’Appello."
+  },
+  {
+    "source": "Uses a custom computer layout. Does not change groups or network addresses.",
+    "it": "Usa la disposizione personalizzata dei PC nella vista. Non modifica gruppi o indirizzi di rete."
+  },
+  {
+    "source": "NetLink version, copyright and original component licenses.",
+    "it": "Versione di NetLink, copyright e licenze dei componenti originali."
+  },
+  {
+    "source": "Easy — keys and connection",
+    "it": "Facile — chiavi e collegamento"
+  },
+  {
+    "source": "Normal",
+    "it": "Normale"
+  },
+  {
+    "source": "Advanced",
+    "it": "Avanzata"
+  },
+  {
+    "source": "Configuration mode",
+    "it": "Modalità di configurazione"
+  },
+  {
+    "source": "Mode: ",
+    "it": "Modalità: "
+  },
+  {
+    "source": "Easy",
+    "it": "Facile"
+  },
+  {
+    "source": "Easy: keys, authentication, essential service settings, groups/computers and discovery. Normal and Advanced show more options. Switching views does not change or clear settings.",
+    "it": "Facile: chiavi, accesso, servizio, gruppi/PC e discovery. Normale e Avanzata mostrano altre opzioni. Cambiare vista non modifica né azzera la configurazione."
+  },
+  {
+    "source": "Already working keys? Keep them: appearance changes do not require new keys. For a new configuration:",
+    "it": "Chiavi già funzionanti? Conservale: il restyling non richiede di rigenerarle. Per una nuova configurazione:"
+  },
+  {
+    "source": "1. On the TEACHER computer, create a key pair with a recognizable name.",
+    "it": "1. Sul DOCENTE crea una coppia di chiavi con un nome riconoscibile."
+  },
+  {
+    "source": "2. On the TEACHER computer, restrict private-key read access to the authorized teachers' Windows group.",
+    "it": "2. Sul DOCENTE limita la lettura della privata al gruppo Windows dei docenti autorizzati."
+  },
+  {
+    "source": "3. Export only the PUBLIC key and import it on each CLIENT using the same name. Do not distribute the private key.",
+    "it": "3. Esporta soltanto la PUBBLICA e importala su ciascun CLIENT con lo stesso nome. La privata non va sui client."
+  },
+  {
+    "source": "Key and permission operations take effect immediately. Apply saves Configurator options; it does not undo created or imported keys.",
+    "it": "Le operazioni sulle chiavi e sui relativi permessi sono immediate. Applica salva le opzioni del Configurator, non annulla una chiave creata o importata."
+  },
+  {
+    "source": "Create a recognizably named key pair on the teacher computer. Do not regenerate an in-use key to resolve a network problem.",
+    "it": "Sul PC docente crea una coppia di chiavi con un nome riconoscibile. Non rigenerare una chiave già in uso per risolvere un problema di rete."
+  },
+  {
+    "source": "Export only the public key for clients. Keep the private key on the teacher computer, readable only by authorized users.",
+    "it": "Per configurare i client esporta soltanto la chiave pubblica. La chiave privata deve restare sul docente, leggibile solo dagli utenti autorizzati."
+  },
+  {
+    "source": "Import the teacher's public key on the student computer using the same name. Never import the private key on clients.",
+    "it": "Sul PC studente importa la chiave pubblica esportata dal docente, mantenendo lo stesso nome. Non importare la chiave privata sui client."
+  },
+  {
+    "source": "Allow private-key reading only for the authorized teachers' Windows group. Do not choose Everyone or unauthorized users.",
+    "it": "Consenti la lettura della chiave privata soltanto al gruppo Windows dei docenti autorizzati. Non scegliere Everyone o utenti non autorizzati."
+  },
+  {
+    "source": "Computers in selected group",
+    "it": "PC del gruppo selezionato"
+  },
+  {
+    "source": "Add",
+    "it": "Aggiungi"
+  },
+  {
+    "source": "Remove",
+    "it": "Rimuovi"
+  },
+  {
+    "source": "Add computer",
+    "it": "Aggiungi PC"
+  },
+  {
+    "source": "Remove computer",
+    "it": "Rimuovi PC"
+  },
+  {
+    "source": "Adds a group/classroom. Double-click its cell to edit the name.",
+    "it": "Aggiunge un gruppo/aula. Modifica il nome con doppio clic sulla cella."
+  },
+  {
+    "source": "Removes the selected group and its computers after confirmation. Does not uninstall NetLink from computers.",
+    "it": "Rimuove il gruppo selezionato e i PC contenuti, previa conferma. Non disinstalla NetLink dai computer."
+  },
+  {
+    "source": "Adds a row to the selected group. Enter the client's name and IP/hostname. A MAC is needed only for Wake-on-LAN.",
+    "it": "Aggiunge una riga al gruppo selezionato. Inserisci nome e indirizzo IP/hostname del client; il MAC serve soltanto per Wake-on-LAN."
+  },
+  {
+    "source": "Removes the selected computer row from configuration, not an individual cell. Does not change the remote computer.",
+    "it": "Rimuove dalla configurazione la riga del PC selezionato, non una singola cella. Non modifica il PC remoto."
+  },
+  {
+    "source": "Select a group on the left. Double-click a cell to edit. Name and IP/hostname identify a computer. MAC is optional, for Wake-on-LAN. Use Apply to save.",
+    "it": "Seleziona un gruppo a sinistra. Doppio clic su una cella per modificarla; Nome e IP/hostname identificano il PC. Il MAC è facoltativo e serve per Wake-on-LAN. Usa Applica per salvare."
+  },
+  {
+    "source": "Computer name",
+    "it": "Nome PC"
+  },
+  {
+    "source": "Remove group?",
+    "it": "Rimuovere il gruppo?"
+  },
+  {
+    "source": "Service status…",
+    "it": "Stato del servizio…"
+  },
+  {
+    "source": "NetLink — classroom management console\nBased on Veyon 4.7.5",
+    "it": "NetLink — console per la gestione dell’aula\nBasato su Veyon 4.7.5"
+  },
+  {
+    "source": "Support the original Veyon project",
+    "it": "Sostieni il progetto originale Veyon"
+  },
+  {
+    "source": "NetLink Service — %1\nTCP %2: %3\n%4 • WSD %5\nAuthorized %6 • other TCP %7",
+    "it": "NetLink Service — %1\nTCP %2: %3\n%4 • WSD %5\nAccessi %6 • altri TCP %7"
+  },
+  {
+    "source": "listening",
+    "it": "in ascolto"
+  },
+  {
+    "source": "NetLink — local status",
+    "it": "NetLink — stato locale"
+  },
+  {
+    "source": "\n\nVersion: ",
+    "it": "\n\nVersione: "
+  },
+  {
+    "source": "\nLast received: ",
+    "it": "\nUltimi dati ricevuti: "
+  },
+  {
+    "source": "Organic — soft coordinated shapes",
+    "it": "Organico — forme morbide e coordinate"
+  },
+  {
+    "source": "Outline — clean line icons",
+    "it": "Lineare — contorni essenziali"
+  },
+  {
+    "source": "Classic — previous icons",
+    "it": "Classico — icone precedenti"
+  },
+  {
+    "source": "Spectrum — distinct colors by function",
+    "it": "Spettro — colori distinti per funzione"
+  },
+  {
+    "source": "Button size",
+    "it": "Dimensione pulsanti"
+  },
+  {
+    "source": "Enable WS-Discovery",
+    "it": "Abilita WS-Discovery"
+  },
+  {
+    "source": "At most 128 additional resources.",
+    "it": "Massimo 128 risorse aggiuntive."
+  },
+  {
+    "source": "filters active",
+    "it": "filtri attivi"
+  },
+  {
+    "source": "unblocked",
+    "it": "libero"
+  },
+  {
+    "source": "error: ",
+    "it": "errore: "
+  },
+  {
+    "source": "WFP controls with client feedback",
+    "it": "Controllo WFP con feedback"
+  },
+  {
+    "source": "Self-declared student names",
+    "it": "Nomi dichiarati dagli studenti"
+  },
+  {
+    "source": "Find clients",
+    "it": "Trova client"
+  },
+  {
+    "source": "Check status",
+    "it": "Verifica stato"
+  },
+  {
+    "source": "resolution cancelled; no new filters applied",
+    "it": "risoluzione annullata; nessun nuovo filtro applicato"
+  },
+  {
+    "source": "resolving computers...",
+    "it": "risoluzione PC..."
+  },
+  {
+    "source": "pending...",
+    "it": "in attesa..."
+  },
+  {
+    "source": "no confirmation",
+    "it": "nessuna conferma"
+  },
+  {
+    "source": "Request names",
+    "it": "Richiedi nome"
+  },
+  {
+    "source": "End and clear names",
+    "it": "Termina e cancella nomi"
+  },
+  {
+    "source": "Discovery disabled in Configurator.",
+    "it": "Discovery disabilitato nel Configurator."
+  },
+  {
+    "source": "Discovered clients — WS-Discovery",
+    "it": "Client trovati — WS-Discovery"
+  },
+  {
+    "source": "\nConfirm that this computer belongs to the school?",
+    "it": "\nConfermi che appartiene alla scuola?"
+  },
+  {
+    "source": "Administrator rights are required to import a computer into configuration.",
+    "it": "Occorrono diritti amministrativi per importare un PC nella configurazione."
+  },
+  {
+    "source": "%1 — Teacher Console",
+    "it": "%1 — Console docente"
+  },
+  {
+    "source": "Shows saved screenshots. Images may contain personal data: check where they are stored.",
+    "it": "Mostra le schermate salvate. Le immagini possono contenere dati personali: controlla dove vengono conservate."
+  },
+  {
+    "source": "Automatically fits thumbnails to the available Console space.",
+    "it": "Adatta automaticamente le miniature allo spazio disponibile nella Console."
+  },
+  {
+    "source": "Aligns thumbnails in the current layout without sending commands to clients.",
+    "it": "Allinea le miniature nella disposizione corrente. Non invia comandi ai client."
+  },
+  {
+    "source": "Hide button tooltips",
+    "it": "Nascondi le descrizioni dei pulsanti"
+  },
+  {
+    "source": "About NetLink",
+    "it": "Informazioni su NetLink"
+  },
+  {
+    "source": "Groups / classrooms",
+    "it": "Gruppi / aule"
+  },
+  {
+    "source": "Groups and computers",
+    "it": "Gruppi e computer"
+  },
+  {
+    "source": "The selected group and all its computers will be removed from configuration. Programs on those computers are not uninstalled. Continue?",
+    "it": "Il gruppo selezionato e tutti i suoi PC verranno rimossi dalla configurazione. Non vengono disinstallati programmi dai PC. Continuare?"
+  },
+  {
+    "source": "Detected IP",
+    "it": "IP rilevato"
+  },
+  {
+    "source": "Port",
+    "it": "Porta"
+  },
+  {
+    "source": "IP / hostname",
+    "it": "IP / hostname"
+  },
+  {
+    "source": "MAC (optional)",
+    "it": "MAC (facoltativo)"
+  },
+  {
+    "source": "Name",
+    "it": "Nome"
+  },
+  {
+    "source": "Computer",
+    "it": "PC"
+  },
+  {
+    "source": "Warning",
+    "it": "Attenzione"
+  },
+  {
+    "source": "Key",
+    "it": "Chiave"
+  },
+  {
+    "source": "configured",
+    "it": "config."
+  },
+  {
+    "source": "off",
+    "it": "spento"
+  },
+  {
+    "source": "Attendance: ",
+    "it": "Appello: "
+  },
+  {
+    "source": "[IG: ",
+    "it": "[IG: "
+  },
+  {
+    "source": "Close",
+    "it": "Chiudi"
+  },
+  {
+    "source": "This test requires a readable private key on the teacher computer. A public-key-only client cannot run this local test.",
+    "it": "Per il test serve una chiave privata leggibile sul PC docente. Sul client la sola chiave pubblica non permette questo test locale."
+  },
+  {
+    "source": "Teacher Console",
+    "it": "Console docente"
+  },
+  {
+    "source": "Detected IPv4",
+    "it": "IPv4 rilevato"
+  },
+  {
+    "source": "<br>Attendance: %1<br>InternetGuard: %2",
+    "it": "<br>Appello: %1<br>InternetGuard: %2"
+  },
+  {
+    "source": "The selected language is shared by the Console and Configurator. Apply changes, then restart the applications to update all labels and tooltips.",
+    "it": "La lingua selezionata è condivisa da Console e Configurator. Applica le modifiche, quindi riavvia le applicazioni per aggiornare tutte le etichette e i tooltip."
+  },
+  {
+    "source": "OK",
+    "it": "OK"
+  },
+  {
+    "source": "Save All",
+    "it": "Salva tutto"
+  },
+  {
+    "source": "Open",
+    "it": "Apri"
+  },
+  {
+    "source": "&Yes",
+    "it": "&Sì"
+  },
+  {
+    "source": "Yes to &All",
+    "it": "Sì a &tutti"
+  },
+  {
+    "source": "&No",
+    "it": "&No"
+  },
+  {
+    "source": "N&o to All",
+    "it": "N&o a tutti"
+  },
+  {
+    "source": "Abort",
+    "it": "Interrompi"
+  },
+  {
+    "source": "Retry",
+    "it": "Riprova"
+  },
+  {
+    "source": "Ignore",
+    "it": "Ignora"
+  },
+  {
+    "source": "Discard",
+    "it": "Scarta"
+  },
+  {
+    "source": "Help",
+    "it": "Aiuto"
+  },
+  {
+    "source": "Apply",
+    "it": "Applica"
+  },
+  {
+    "source": "Reset",
+    "it": "Ripristina"
+  },
+  {
+    "source": "Restore Defaults",
+    "it": "Ripristina predefiniti"
+  },
+  {
+    "source": "Show Details...",
+    "it": "Mostra dettagli..."
+  },
+  {
+    "source": "Hide Details...",
+    "it": "Nascondi dettagli..."
+  },
+  {
+    "source": "PC;Student;Connection\r\n",
+    "it": "PC;Studente;Connessione\r\n"
+  },
+  {
+    "source": "Alt+Tab detected during NetLink lock",
+    "it": "Alt+Tab rilevato durante il blocco NetLink"
+  },
+  {
+    "source": "Alt+Esc detected during NetLink lock",
+    "it": "Alt+Esc rilevato durante il blocco NetLink"
+  },
+  {
+    "source": "Alt+Space detected during NetLink lock",
+    "it": "Alt+Spazio rilevato durante il blocco NetLink"
+  },
+  {
+    "source": "Alt+F4 detected during NetLink lock",
+    "it": "Alt+F4 rilevato durante il blocco NetLink"
+  },
+  {
+    "source": "Ctrl+Esc detected during NetLink lock",
+    "it": "Ctrl+Esc rilevato durante il blocco NetLink"
+  },
+  {
+    "source": "Windows key detected during NetLink lock (combination unknown)",
+    "it": "Tasto Windows rilevato durante il blocco NetLink (combinazione sconosciuta)"
+  },
+  {
+    "source": "Window-close request ignored during NetLink lock",
+    "it": "Richiesta di chiusura della finestra ignorata durante il blocco NetLink"
+  },
+  {
+    "source": "Windows session locked; the triggering keys are unknown",
+    "it": "Sessione Windows bloccata; la combinazione utilizzata non è nota"
+  },
+  {
+    "source": "Windows session unlocked; NetLink lock is still requested",
+    "it": "Sessione Windows sbloccata; il blocco NetLink è ancora richiesto"
+  },
+  {
+    "source": "Windows protected screen active (Ctrl+Alt+Del, UAC or another cause; exact cause unknown)",
+    "it": "Schermata protetta di Windows attiva (Ctrl+Alt+Canc, UAC o altra causa; causa esatta sconosciuta)"
+  },
+  {
+    "source": "Input moved away from the NetLink desktop; cause unknown",
+    "it": "L'input è passato a un desktop diverso da quello NetLink; causa sconosciuta"
+  },
+  {
+    "source": "Input desktop cannot be inspected; this does not prove a shortcut was used",
+    "it": "Il desktop di input non è verificabile; questo non dimostra l'uso di una scorciatoia"
+  },
+  {
+    "source": "Returned to the ordinary desktop; NetLink cover restored",
+    "it": "Ritorno al desktop ordinario; schermata di blocco NetLink ripristinata"
+  },
+  {
+    "source": "Windows session notifications unavailable; desktop checks remain active",
+    "it": "Notifiche di sessione Windows non disponibili; restano attive le verifiche del desktop"
+  },
+  {
+    "source": "Lock events",
+    "it": "Eventi durante il blocco"
+  },
+  {
+    "source": "Live events during NetLink lock only. Exact protected shortcuts cannot be identified. No typed text is collected; disconnected periods are not recorded. Last 200 lines, in memory only.",
+    "it": "Solo eventi in diretta durante il blocco NetLink. Le scorciatoie protette non sono identificabili con certezza. Nessun testo digitato viene raccolto; i periodi disconnessi non sono registrati. Ultime 200 righe, solo in memoria."
+  },
+  {
+    "source": "Applies or removes the software screen cover on selected computers. Ordinary shortcuts are filtered during lock. Windows security screens remain accessible: their exact triggering shortcut cannot be identified. Lock events require updated NetLink on both PCs.",
+    "it": "Applica o rimuove la schermata software di blocco sui PC selezionati. Le scorciatoie ordinarie vengono filtrate durante il blocco. Le schermate di sicurezza di Windows restano accessibili: la combinazione esatta che le apre non è identificabile. Gli eventi richiedono NetLink aggiornato su entrambi i PC."
+  },
+  {
+    "source": "Ctrl+Shift+Esc detected during NetLink lock",
+    "it": "Ctrl+Maiusc+Esc rilevato durante il blocco NetLink"
+  },
+  {
+    "source": "Ordinary shortcut filter could not be installed; keyboard monitoring is unavailable",
+    "it": "Impossibile installare il filtro delle scorciatoie ordinarie; monitoraggio della tastiera non disponibile"
+  }
+]

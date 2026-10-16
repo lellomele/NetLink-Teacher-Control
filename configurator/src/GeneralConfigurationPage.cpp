@@ -36,6 +36,7 @@
 #include "PluginManager.h"
 #include "VeyonServiceControl.h"
 #include "VeyonCore.h"
+#include "NetLinkUi.h"
 #include "VeyonConfiguration.h"
 
 #include "ui_GeneralConfigurationPage.h"
@@ -68,6 +69,7 @@ GeneralConfigurationPage::GeneralConfigurationPage() :
 	std::sort( languages.begin(), languages.end() );
 
 	ui->uiLanguage->addItems( languages );
+	ui->uiLanguage->setToolTip(NetLinkUi::text("The selected language is shared by the Console and Configurator. Apply changes, then restart the applications to update all labels and tooltips."));
 
 	connect( ui->testAuthenticationButton, &QPushButton::clicked, this, &GeneralConfigurationPage::testAuthentication );
 	connect( ui->openLogFileDirectory, &QPushButton::clicked, this, &GeneralConfigurationPage::openLogFileDirectory );

@@ -50,17 +50,17 @@ BuiltinDirectoryConfigurationPage::BuiltinDirectoryConfigurationPage( BuiltinDir
 	grid->addLayout(ui->horizontalLayout_2,1,0);grid->addLayout(ui->horizontalLayout,1,1);
 	grid->addWidget(ui->locationTableWidget,2,0);grid->addWidget(ui->computerTableWidget,2,1);
 	grid->setRowStretch(1,0);grid->setRowStretch(2,1);grid->setColumnStretch(0,1);grid->setColumnStretch(1,3);
-	ui->label->setText(QStringLiteral("Gruppi / aule"));ui->label_2->setText(QStringLiteral("PC del gruppo selezionato"));
-	ui->groupBox->setTitle(QStringLiteral("Gruppi e computer"));
-	ui->addLocationButton->setText(QStringLiteral("Aggiungi"));ui->removeLocationButton->setText(QStringLiteral("Rimuovi"));
-	ui->addComputerButton->setText(QStringLiteral("Aggiungi PC"));ui->removeComputerButton->setText(QStringLiteral("Rimuovi PC"));
-	ui->addLocationButton->setToolTip(QStringLiteral("Aggiunge un gruppo/aula. Modifica il nome con doppio clic sulla cella."));
-	ui->removeLocationButton->setToolTip(QStringLiteral("Rimuove il gruppo selezionato e i PC contenuti, previa conferma. Non disinstalla NetLink dai computer."));
-	ui->addComputerButton->setToolTip(QStringLiteral("Aggiunge una riga al gruppo selezionato. Inserisci nome e indirizzo IP/hostname del client; il MAC serve soltanto per Wake-on-LAN."));
-	ui->removeComputerButton->setToolTip(QStringLiteral("Rimuove dalla configurazione la riga del PC selezionato, non una singola cella. Non modifica il PC remoto."));
-	ui->label_3->setText(QStringLiteral("Seleziona un gruppo a sinistra. Doppio clic su una cella per modificarla; Nome e IP/hostname identificano il PC. Il MAC è facoltativo e serve per Wake-on-LAN. Usa Applica per salvare."));
+	ui->label->setText(NetLinkUi::text("Groups / classrooms"));ui->label_2->setText(NetLinkUi::text("Computers in selected group"));
+	ui->groupBox->setTitle(NetLinkUi::text("Groups and computers"));
+	ui->addLocationButton->setText(NetLinkUi::text("Add"));ui->removeLocationButton->setText(NetLinkUi::text("Remove"));
+	ui->addComputerButton->setText(NetLinkUi::text("Add computer"));ui->removeComputerButton->setText(NetLinkUi::text("Remove computer"));
+	ui->addLocationButton->setToolTip(NetLinkUi::text("Adds a group/classroom. Double-click its cell to edit the name."));
+	ui->removeLocationButton->setToolTip(NetLinkUi::text("Removes the selected group and its computers after confirmation. Does not uninstall NetLink from computers."));
+	ui->addComputerButton->setToolTip(NetLinkUi::text("Adds a row to the selected group. Enter the client's name and IP/hostname. A MAC is needed only for Wake-on-LAN."));
+	ui->removeComputerButton->setToolTip(NetLinkUi::text("Removes the selected computer row from configuration, not an individual cell. Does not change the remote computer."));
+	ui->label_3->setText(NetLinkUi::text("Select a group on the left. Double-click a cell to edit. Name and IP/hostname identify a computer. MAC is optional, for Wake-on-LAN. Use Apply to save."));
 	auto helpFont=font();helpFont.setItalic(false);ui->label_3->setFont(helpFont);
-	ui->computerTableWidget->setHorizontalHeaderLabels({QStringLiteral("Nome PC"),QStringLiteral("IP / hostname"),QStringLiteral("MAC (facoltativo)")});
+	ui->computerTableWidget->setHorizontalHeaderLabels({NetLinkUi::text("Computer name"),NetLinkUi::text("IP / hostname"),NetLinkUi::text("MAC (optional)")});
 	for(auto table:{ui->locationTableWidget,ui->computerTableWidget}) {
 		table->setAlternatingRowColors(true);table->setSelectionBehavior(QAbstractItemView::SelectRows);
 		table->setSelectionMode(QAbstractItemView::SingleSelection);table->setMinimumSize(120,120);
@@ -153,7 +153,7 @@ void BuiltinDirectoryConfigurationPage::removeLocation()
 {
 	const auto uid=currentLocationObject().uid();
 	if(uid.isNull()) return;
-	if(QMessageBox::question(this,QStringLiteral("Rimuovere il gruppo?"),QStringLiteral("Il gruppo selezionato e tutti i suoi PC verranno rimossi dalla configurazione. Non vengono disinstallati programmi dai PC. Continuare?"),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes) return;
+	if(QMessageBox::question(this,NetLinkUi::text("Remove group?"),NetLinkUi::text("The selected group and all its computers will be removed from configuration. Programs on those computers are not uninstalled. Continue?"),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes) return;
 	ObjectManager<NetworkObject> objectManager( m_configuration.networkObjects() );
 	objectManager.remove( uid, true );
 	m_configuration.setNetworkObjects( objectManager.objects() );

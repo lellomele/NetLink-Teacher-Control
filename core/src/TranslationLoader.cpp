@@ -40,14 +40,10 @@ TranslationLoader::TranslationLoader( const QString& resourceName )
 
 bool TranslationLoader::load( const QString& resourceName )
 {
-	QLocale configuredLocale( QLocale::C );
-
-	const auto configuredLocaleMatch = QRegularExpression{ QStringLiteral( "[^(]*\\(([^)]*)\\)") }
-										   .match( VeyonCore::config().uiLanguage() );
-	if( configuredLocaleMatch.hasMatch() )
-	{
-		configuredLocale = QLocale( configuredLocaleMatch.captured( 1 ) );
-	}
+	const auto configuredLocale = localeForConfiguration(VeyonCore::config().uiLanguage());
+	// Also set English explicitly on an Italian Windows installation. A missing
+	// translation must not silently switch an explicit language to the OS locale.
+	QLocale::setDefault(configuredLocale);
 
 	if( configuredLocale.language() != QLocale::English &&
 		VeyonCore::instance()->findChild<QTranslator *>( resourceName ) == nullptr )
@@ -59,18 +55,10 @@ bool TranslationLoader::load( const QString& resourceName )
 		auto translator = new QTranslator( VeyonCore::instance() );
 		translator->setObjectName( resourceName );
 
-		if( configuredLocale == QLocale::C ||
-			translator->load( QStringLiteral( "%1_%2.qm" ).arg( resourceName, configuredLocale.name() ),
-							  translationsDirectory ) == false )
+		if( !translator->load(configuredLocale, resourceName, QStringLiteral("_"), translationsDirectory) )
 		{
-			configuredLocale = QLocale::system(); // Flawfinder: ignore
-
-			if( translator->load( QStringLiteral( "%1_%2.qm" ).arg( resourceName, configuredLocale.name() ),
-								  translationsDirectory ) == false )
-			{
-				delete translator;
-				return false;
-			}
+			delete translator;
+			return false;
 		}
 
 		QLocale::setDefault( configuredLocale );
@@ -79,4 +67,13 @@ bool TranslationLoader::load( const QString& resourceName )
 	}
 
 	return true;
+}
+
+QLocale TranslationLoader::localeForConfiguration(const QString& selection,const QLocale& systemLocale)
+{
+	const auto match=QRegularExpression(QStringLiteral("\\(([^()]*)\\)\\s*$")).match(selection);
+	const auto value=match.hasMatch()?match.captured(1):selection.trimmed();
+	if(value.isEmpty()) return systemLocale;
+	const QLocale locale(value);
+	return locale.language()==QLocale::C ? systemLocale : locale;
 }

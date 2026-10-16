@@ -25,6 +25,7 @@
 #include <QPainter>
 
 #include "ComputerControlListModel.h"
+#include "NetLinkUi.h"
 #include "ComputerManager.h"
 #include "FeatureManager.h"
 #include "VeyonMaster.h"
@@ -397,7 +398,7 @@ QString ComputerControlListModel::computerToolTipRole( const ComputerControlInte
 															 : controlInterface->computer().hostAddress() ) );
 	const QString user( loggedOnUserInformation( controlInterface ).toHtmlEscaped() );
 	const QString features( tr( "Active features: %1" ).arg( activeFeatures( controlInterface ) ).toHtmlEscaped() );
-	const QString school = QStringLiteral("<br>Appello: %1<br>InternetGuard: %2")
+	const QString school = NetLinkUi::text("<br>Attendance: %1<br>InternetGuard: %2")
 		.arg(controlInterface->studentName().toHtmlEscaped(),controlInterface->networkPolicyStatus().toHtmlEscaped());
 
 	if( user.isEmpty() )

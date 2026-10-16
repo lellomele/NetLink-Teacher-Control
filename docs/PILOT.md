@@ -18,19 +18,57 @@ Non pubblicare chiavi private, password o esportazioni di configurazione.
    servizio dopo modifiche. Nel Master la miniatura deve aggiornarsi.
 5. Annotare build OS, antivirus/firewall, latenza e carico CPU a riposo.
 
-## Aggiornamento ad alpha.10
+## Aggiornamento ad alpha.11
 
 Su entrambi i PC esportare prima la configurazione dal Configurator e conservare
 al sicuro le chiavi esistenti. Chiudere Console, Configurator e Companion.
 Installare l’installer completo come amministratore prima sul DELL client,
 quindi sul MATEBOOK docente, senza disinstallare o rigenerare chiavi. Riavviare
 entrambi. Aprire le applicazioni dalla cartella **Start → NetLink** e verificare
-la versione alpha.10. La chiave `netlink_test` e i PC configurati devono restare
+la versione alpha.11. La chiave `netlink_test` e i PC configurati devono restare
 invariati. Confermare miniatura e controllo remoto prima delle prove successive.
 
-## Restyling dell’interfaccia alpha.10
+## Collaudo alpha.11: MATEBOOK docente e DELL client
 
-1. In **NetLink → Aspetto, colori e icone** provare Organico, Lineare e Classico,
+Riferimenti attuali: MATEBOOK14S-RMELE, 192.168.1.195 (docente), e DELL,
+192.168.1.109 (client). Gli indirizzi DHCP possono cambiare: verificarli prima
+delle prove. Entrambi sono Windows 10 x64 su Wi-Fi nella stessa subnet.
+Eseguire soltanto dopo aver aggiornato entrambi con il nuovo installer completo.
+Non copiare singoli eseguibili o DLL dalla
+cartella di compilazione sopra l'installazione esistente.
+
+1. Nel Configurator selezionare English US, Applica, poi chiudere e riaprire le
+   applicazioni: Console, Attendance, Find clients e Appearance devono essere
+   coerenti. Ripetere con italiano. I dialoghi nativi Windows possono mantenere
+   la lingua del sistema operativo. Il titolo della Console non deve contenere
+   Veyon né duplicare NetLink; restano le attribuzioni legali in Informazioni.
+2. Provare Spectrum/Spettro, chiaro/scuro, scale 100/150/200%, finestra stretta e
+   ridimensionamento. Le etichette devono essere complete; la freccia di overflow
+   deve rendere utilizzabili anche gli ultimi comandi, espandendo righe o menu.
+3. Dal MATEBOOK attivare Lock sul DELL. Sul DELL provare Alt+Tab, Alt+F4,
+   Ctrl+Esc, Ctrl+Maiusc+Esc e tasto Windows. Nella Console verificare il pannello
+   non bloccante Eventi durante il blocco, con PC, orario di ricezione e contatore.
+   Gli avvisi sono raggruppati circa ogni due secondi e non raccolgono testo.
+4. Provare Ctrl+Alt+Canc mantenendo visibile la schermata per almeno due secondi:
+   attendersi un evento di schermata protetta (oppure desktop non verificabile),
+   NON l'affermazione che siano stati identificati quei tasti. Tornare al desktop:
+   deve ricomparire la copertura NetLink e l'avviso di ritorno. Ripetere con Win+L
+   se consentito da Windows: gli eventi di sessione non provano la combinazione.
+5. Aprire volontariamente una richiesta UAC durante il blocco, se possibile:
+   deve essere distinta come transizione Windows dalla pressione osservata di una
+   scorciatoia. Nessun avviso deve accusare lo studente di aver premuto Ctrl+Alt+Canc.
+6. Ripetere rapidamente le scorciatoie, chiudere/riaprire il riepilogo tramite un
+   nuovo evento, poi Unlock dal docente. Nessun blocco della Console; tastiera,
+   mouse e normali combinazioni devono tornare operativi. Gli eventi devono
+   cessare con Unlock. Il riepilogo conserva solo 200 righe in memoria.
+7. Scollegare il Wi-Fi del DELL e ricollegarlo: non promettere recupero di eventi
+   persi. Dopo riconnessione, Unlock/Lock riavvia le segnalazioni del blocco nuovo.
+   Verificare miniatura, Appello, InternetGuard e controllo remoto anche dopo
+   diversi cicli. Un client Veyon originale non invia queste nuove segnalazioni.
+
+## Ulteriori prove dell’interfaccia
+
+1. In **NetLink → Aspetto, colori e icone** provare Organico, Lineare, Spettro e Classico,
    le tre dimensioni e i temi chiaro/scuro. Salva deve persistere al riavvio;
    Annulla deve annullare anche il cambio di icone/dimensioni. Nessuna nuova chiave.
 2. Provare display Windows al 100%, 150% e 200%, poi spostare la Console fra

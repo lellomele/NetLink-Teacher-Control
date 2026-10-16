@@ -22,6 +22,7 @@
  *
  */
 
+#include "NetLinkUi.h"
 #include <QFileDialog>
 #include <QInputDialog>
 #include <QMessageBox>
@@ -43,17 +44,17 @@ AuthKeysConfigurationPage::AuthKeysConfigurationPage() :
 	m_keyFilesFilter( tr( "Key files (*.pem)" ) )
 {
 	ui->setupUi(this);
-	ui->label_2->setText(QStringLiteral("Chiavi già funzionanti? Conservale: il restyling non richiede di rigenerarle. Per una nuova configurazione:"));
-	ui->label_3->setText(QStringLiteral("1. Sul DOCENTE crea una coppia di chiavi con un nome riconoscibile."));
-	ui->label_4->setText(QStringLiteral("2. Sul DOCENTE limita la lettura della privata al gruppo Windows dei docenti autorizzati."));
-	ui->label_5->setText(QStringLiteral("3. Esporta soltanto la PUBBLICA e importala su ciascun CLIENT con lo stesso nome. La privata non va sui client."));
+	ui->label_2->setText(NetLinkUi::text("Already working keys? Keep them: appearance changes do not require new keys. For a new configuration:"));
+	ui->label_3->setText(NetLinkUi::text("1. On the TEACHER computer, create a key pair with a recognizable name."));
+	ui->label_4->setText(NetLinkUi::text("2. On the TEACHER computer, restrict private-key read access to the authorized teachers' Windows group."));
+	ui->label_5->setText(NetLinkUi::text("3. Export only the PUBLIC key and import it on each CLIENT using the same name. Do not distribute the private key."));
 	ui->label_6->setTextFormat(Qt::PlainText);
-	ui->label_6->setText(QStringLiteral("Le operazioni sulle chiavi e sui relativi permessi sono immediate. Applica salva le opzioni del Configurator, non annulla una chiave creata o importata."));
+	ui->label_6->setText(NetLinkUi::text("Key and permission operations take effect immediately. Apply saves Configurator options; it does not undo created or imported keys."));
 	ui->deleteKey->setProperty("netlinkEasyHidden",true);
-	ui->createKeyPair->setToolTip(QStringLiteral("Sul PC docente crea una coppia di chiavi con un nome riconoscibile. Non rigenerare una chiave già in uso per risolvere un problema di rete."));
-	ui->exportKey->setToolTip(QStringLiteral("Per configurare i client esporta soltanto la chiave pubblica. La chiave privata deve restare sul docente, leggibile solo dagli utenti autorizzati."));
-	ui->importKey->setToolTip(QStringLiteral("Sul PC studente importa la chiave pubblica esportata dal docente, mantenendo lo stesso nome. Non importare la chiave privata sui client."));
-	ui->setAccessGroup->setToolTip(QStringLiteral("Consenti la lettura della chiave privata soltanto al gruppo Windows dei docenti autorizzati. Non scegliere Everyone o utenti non autorizzati."));
+	ui->createKeyPair->setToolTip(NetLinkUi::text("Create a recognizably named key pair on the teacher computer. Do not regenerate an in-use key to resolve a network problem."));
+	ui->exportKey->setToolTip(NetLinkUi::text("Export only the public key for clients. Keep the private key on the teacher computer, readable only by authorized users."));
+	ui->importKey->setToolTip(NetLinkUi::text("Import the teacher's public key on the student computer using the same name. Never import the private key on clients."));
+	ui->setAccessGroup->setToolTip(NetLinkUi::text("Allow private-key reading only for the authorized teachers' Windows group. Do not choose Everyone or unauthorized users."));
 
 	Configuration::UiMapping::setFlags( ui->keyFileDirectories, Configuration::Property::Flag::Advanced );
 

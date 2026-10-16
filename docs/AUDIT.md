@@ -1,7 +1,85 @@
-# Audit and release gates — NetLink 0.1.0-alpha.10
+# Audit and release gates — NetLink 0.1.0-alpha.11
 
 Status: **partial audit and preliminary implementation, not a completed security
 audit, certified WS-Discovery implementation or production-ready release**.
+
+## Alpha 11 focused changes
+
+Legacy `UI/ApplicationName=Veyon` and the unchanged upstream default no longer
+override NetLink branding. Custom school names remain supported; native window
+titles end with the display name to avoid Qt adding it a second time. Toolbar
+buttons use explicit natural-width minimums after font/style changes. Overflow
+must expose complete operable buttons (Qt may expand into rows or use a menu).
+Spectrum adds semantic colors using the existing vector engine, respecting
+palette contrast and high-contrast monochrome fallback.
+
+Configured language now sets QLocale even for English, loads regional catalogs
+with language fallback, and cannot silently fall back to the Windows language
+when an explicit selection is missing. Embedded English/Italian NetLink UI
+strings use stable English source IDs; preset storage IDs are unchanged.
+Apply and restart applications to change language. Native Windows dialogs can
+still use the OS language; Companion diagnostic prose is not fully localized.
+
+ScreenLock reuses the existing ordinary-key hook only while its worker is active.
+The callback suppresses repeat events, bounds the queue and does not emit under
+its mutex. Disabled trappers stop their timers; installation failure is reported.
+The cover ignores ordinary close, restores on return to its desktop and does not
+switch/take over Winlogon/UAC, change Windows policies or synthesize SAS.
+
+New optional lock-event messages use the existing authenticated feature channel:
+worker IPC nonce verification, current lock token, monotonic sequence, fixed
+allowlist/count validation and rate limit precede relay to the initiating Master.
+Only the most recent initiating Master receives events. Remote peers cannot
+inject worker events. Existing Lock/Unlock command values and feature UIDs are
+unchanged; legacy Veyon clients simply do not produce these optional messages.
+There is no new listener, runtime library, driver or persisted input log.
+
+During lock only, WTS reports session lock/unlock and a 500 ms read-only input
+desktop check distinguishes Winlogon, another desktop and query failure. These
+are observations, not proof of the exact triggering shortcut: Ctrl+Alt+Del,
+Win+L, UAC, system actions and other transitions can overlap. Very short desktop
+transitions can be missed. Ordinary reported shortcuts contain no typed text;
+the Windows-key event does not infer a Win+letter combination. Counts aggregate
+in two-second batches; timestamps shown are receipt times. The nonmodal Master
+panel retains at most 200 plain-text lines in memory; no offline delivery,
+durable audit trail or tamper-proof endpoint is claimed. Both PCs need updated
+NetLink for event reporting. Native shortcut/session behavior remains subject
+to the physical Windows two-PC pilot; isolated tests never install a real hook.
+
+Local verification of this follow-up passed all 24 CTest suites: 241 Qt passes
+(including setup/cleanup and three scale runs), no failures/skips, and all six
+discovery XML schema checks. Lock-notification and GUI-scale suites also passed
+five consecutive repetitions. The WITH_TESTS=OFF production build passed. The
+published alpha.10 installer hash remains unchanged. Native desktop/session/hook behavior
+has not yet been validated on the DELL/MATEBOOK pair.
+
+## Beta acceptance gates
+
+Beta is a limited field-test milestone, not a claim of a completed security audit
+or inviolable classroom controls. Freeze the feature scope and require:
+
+- Guided Windows 10 x64 installation/upgrade/reboot on MATEBOOK and DELL with
+  preserved configuration/keys, visible tray, working authentication and remote
+  control; separately verify clean install, uninstall and recovery from failure
+  on disposable systems. Automated installer fixtures do not replace this.
+- Native lock/Unlock, ordinary shortcuts, Win+L, Ctrl+Alt+Del and UAC transitions,
+  with correct and bounded event reporting, no false identification of a protected
+  shortcut, no stuck input after Unlock and no full-desktop flicker/crash.
+- InternetGuard allow/block/release/expiry under active connections, client/Master
+  restart, Wi-Fi loss, IPv4/IPv6, and relevant firewall/antivirus configurations;
+  verify actual traffic separately from successful WFP filter installation.
+- Attendance/discovery regressions, language/DPI/overflow tests on native Windows,
+  repeated classroom-like sessions and a representative multi-client load with
+  recorded latency, CPU/memory and no unresolved critical/high-severity faults.
+- Real routed-subnet/VLAN discovery and ACL tests before calling that scenario
+  beta-supported. The current two Wi-Fi PCs on 192.168.1.x cannot establish it.
+- Targeted security/dependency review of authentication, worker IPC, parsers,
+  WFP authorization/leases, native input cleanup and diagnostic data handling;
+  known limitations and reproducible release sources/hashes must be documented.
+
+Code signing is recommended for distributing beyond controlled pilots, but a
+signature is not evidence of correctness or a substitute for these tests. No
+beta date is committed until the blocking native/resilience tests are complete.
 
 ## Alpha 10 focused GUI changes
 

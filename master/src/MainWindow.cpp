@@ -66,8 +66,8 @@ MainWindow::MainWindow( VeyonMaster &masterCore, QWidget* parent ) :
 	NetLinkUi::addInformationMenu(this);
 	auto appearanceButton = new QToolButton(this);
 	appearanceButton->setObjectName(QStringLiteral("netlinkAppearanceButton"));
-	appearanceButton->setText(QStringLiteral("Aspetto"));
-	appearanceButton->setToolTip(QStringLiteral("Scegli tema, colori, set di icone e dimensione dei pulsanti. Non modifica chiavi, client o servizio."));
+	appearanceButton->setText(NetLinkUi::text("Appearance"));
+	appearanceButton->setToolTip(NetLinkUi::text("Choose a theme, colors, icon set and button size. Does not change keys, clients or the service."));
 	appearanceButton->setIcon(style()->standardIcon(QStyle::SP_DesktopIcon));
 	appearanceButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 	connect(appearanceButton, &QToolButton::clicked, this, [this, appearance] { appearance->showSettings(this); });
@@ -75,7 +75,8 @@ MainWindow::MainWindow( VeyonMaster &masterCore, QWidget* parent ) :
 	connect(appearance, &NetLinkAppearance::changed, this, &MainWindow::refreshFeatureAppearance);
 	ui->computerMonitoringWidget->refreshAppearance();
 
-	setWindowTitle( NetLinkUi::windowTitle(QStringLiteral( "%1 — Console docente" ).arg( VeyonCore::applicationName() )) );
+	// Qt appends the display name unless already at the end: include it once.
+	setWindowTitle(NetLinkUi::windowTitle(NetLinkUi::text("Teacher Console"))+QStringLiteral(" — ")+VeyonCore::applicationName());
 
 	restoreState( QByteArray::fromBase64( m_master.userConfig().windowState().toUtf8() ) );
 	restoreGeometry( QByteArray::fromBase64( m_master.userConfig().windowGeometry().toUtf8() ) );
@@ -581,21 +582,22 @@ void MainWindow::refreshFeatureAppearance()
 		button->setIcon(NetLinkUi::icon(it.value(),preferences.iconSet,preferences.accent,button->property("netlinkClassicIcon").value<QIcon>()));
 		button->setIconSize(QSize(20,20));
 	}
-	ui->computerSelectPanelButton->setToolTip(QStringLiteral("Mostra o nasconde gruppi e computer. Seleziona qui i PC su cui usare i comandi della Console."));
-	ui->screenshotManagementPanelButton->setToolTip(QStringLiteral("Mostra le schermate salvate. Le immagini possono contenere dati personali: controlla dove vengono conservate."));
-	ui->slideshowPanelButton->setToolTip(QStringLiteral("Mostra o nasconde il pannello per la visualizzazione a rotazione degli schermi."));
-	ui->spotlightPanelButton->setToolTip(QStringLiteral("Mostra o nasconde il pannello di osservazione ingrandita dei computer selezionati."));
-	ui->filterPoweredOnComputersButton->setToolTip(QStringLiteral("Filtra la vista mostrando soltanto i PC collegati. Non accende né spegne alcun computer."));
-	ui->filterComputersWithLoggedOnUsersButton->setToolTip(QStringLiteral("Mostra soltanto i PC con una sessione utente rilevata. L’account Windows è distinto dal nome dichiarato nell’Appello."));
-	ui->autoAdjustComputerIconSizeButton->setToolTip(QStringLiteral("Adatta automaticamente le miniature allo spazio disponibile nella Console."));
-	ui->useCustomComputerArrangementButton->setToolTip(QStringLiteral("Usa la disposizione personalizzata dei PC nella vista. Non modifica gruppi o indirizzi di rete."));
-	ui->alignComputersButton->setToolTip(QStringLiteral("Allinea le miniature nella disposizione corrente. Non invia comandi ai client."));
-	ui->aboutButton->setToolTip(QStringLiteral("Versione di NetLink, copyright e licenze dei componenti originali."));
+	ui->computerSelectPanelButton->setToolTip(NetLinkUi::text("Shows or hides groups and computers. Select the computers targeted by Console commands here."));
+	ui->screenshotManagementPanelButton->setToolTip(NetLinkUi::text("Shows saved screenshots. Images may contain personal data: check where they are stored."));
+	ui->slideshowPanelButton->setToolTip(NetLinkUi::text("Shows or hides the rotating desktop slideshow panel."));
+	ui->spotlightPanelButton->setToolTip(NetLinkUi::text("Shows or hides the enlarged observation panel for selected computers."));
+	ui->filterPoweredOnComputersButton->setToolTip(NetLinkUi::text("Shows only connected computers. Does not power computers on or off."));
+	ui->filterComputersWithLoggedOnUsersButton->setToolTip(NetLinkUi::text("Shows only computers with a detected user session. Windows accounts are separate from self-declared attendance names."));
+	ui->autoAdjustComputerIconSizeButton->setToolTip(NetLinkUi::text("Automatically fits thumbnails to the available Console space."));
+	ui->useCustomComputerArrangementButton->setToolTip(NetLinkUi::text("Uses a custom computer layout. Does not change groups or network addresses."));
+	ui->alignComputersButton->setToolTip(NetLinkUi::text("Aligns thumbnails in the current layout without sending commands to clients."));
+	ui->aboutButton->setToolTip(NetLinkUi::text("NetLink version, copyright and original component licenses."));
 	for(const auto& feature:m_master.features()) {
 		auto button=ui->toolBar->findChild<QToolButton*>(feature.name());
 		if(!button) continue;
 		button->setIcon(NetLinkUi::icon(feature.name(),preferences.iconSet,preferences.accent,QIcon(feature.iconUrl())));
 		button->setIconSize(QSize(preferences.toolbarIconSize,preferences.toolbarIconSize));
+		if(auto featureButton=qobject_cast<ToolButton*>(button)) featureButton->updateMinimumSize();
 		for(auto action:ui->toolBar->actions()) if(ui->toolBar->widgetForAction(action)==button) action->setIcon(button->icon());
 	}
 	reloadSubFeatures();

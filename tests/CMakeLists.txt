@@ -2,6 +2,19 @@ if(WITH_FUZZERS)
 	add_subdirectory(libfuzzer)
 endif()
 if(WITH_TESTS)
+    add_executable(netlink-lock-notification-tests LockNotificationTests.cpp
+        ../plugins/screenlock/ScreenLockFeaturePlugin.cpp ../plugins/screenlock/ScreenLockFeaturePlugin.h
+        ../plugins/screenlock/screenlock.qrc)
+    set_default_target_properties(netlink-lock-notification-tests)
+    target_include_directories(netlink-lock-notification-tests PRIVATE ../plugins/screenlock)
+    target_link_libraries(netlink-lock-notification-tests PRIVATE veyon-core Qt${QT_MAJOR_VERSION}::Test)
+    add_test(NAME netlink-lock-notification-tests COMMAND netlink-lock-notification-tests -o "${CMAKE_CURRENT_BINARY_DIR}/netlink-lock-notification-tests-results.txt,txt")
+    set_tests_properties(netlink-lock-notification-tests PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    if(WIN32)
+        target_sources(netlink-lock-notification-tests PRIVATE
+            ../plugins/platform/windows/WindowsKeyboardShortcutTrapper.cpp ../plugins/platform/windows/WindowsKeyboardShortcutTrapper.h)
+        target_include_directories(netlink-lock-notification-tests PRIVATE ../plugins/platform/windows)
+    endif()
     add_executable(netlink-ui-tests NetLinkUiTests.cpp
         ../plugins/builtindirectory/BuiltinDirectoryConfigurationPage.cpp
         ../plugins/builtindirectory/BuiltinDirectoryConfigurationPage.h

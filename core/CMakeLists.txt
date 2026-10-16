@@ -94,7 +94,7 @@ endif()
 
 if(VEYON_BUILD_WINDOWS)
 	# add Windows Socket library required by libvncclient
-	target_link_libraries(veyon-core PRIVATE ws2_32 fwpuclnt advapi32 iphlpapi ole32 oleaut32 uuid)
+	target_link_libraries(veyon-core PRIVATE ws2_32 fwpuclnt advapi32 iphlpapi ole32 oleaut32 uuid wtsapi32)
 	set_target_properties(veyon-core PROPERTIES PREFIX "")
 	if(NOT WITH_CORE_ONLY)
 		install(TARGETS veyon-core RUNTIME DESTINATION ${VEYON_LIB_DIR})

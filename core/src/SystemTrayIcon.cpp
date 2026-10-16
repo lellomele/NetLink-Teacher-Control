@@ -148,7 +148,7 @@ bool SystemTrayIcon::handleFeatureMessage( VeyonWorkerInterface& worker, const F
 		auto menu=new QMenu;
 		// QSystemTrayIcon does not own its context menu.
 		connect(this,&QObject::destroyed,menu,&QObject::deleteLater);
-		auto status=menu->addAction(QStringLiteral("Stato del servizio…"));
+		auto status=menu->addAction(NetLinkUi::text("Service status…"));
 		connect(status,&QAction::triggered,this,[this] {
 			NetLinkUi::showTrayDetails(m_lastToolTip,VeyonCore::versionString(),m_systemTrayIcon->property("netlinkStatusTime").toString());
 		});

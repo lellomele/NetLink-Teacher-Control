@@ -25,11 +25,14 @@
 #include <windows.h>
 
 #include "WindowsKeyboardShortcutTrapper.h"
+#include <QMap>
+#include <QPointer>
 
 // clazy:excludeall=non-pod-global-static
 
 static QMutex __trappedShortcutsMutex;
 static QList<WindowsKeyboardShortcutTrapper::Shortcut> __trappedShortcuts;
+static QMap<DWORD,KeyboardShortcutTrapper::Shortcut> __pressedShortcutKeys;
 
 QMutex WindowsKeyboardShortcutTrapper::s_refCntMutex;
 int WindowsKeyboardShortcutTrapper::s_refCnt = 0;
@@ -37,70 +40,46 @@ int WindowsKeyboardShortcutTrapper::s_refCnt = 0;
 
 static HHOOK __lowLevelKeyboardHookHandle = nullptr; // hook handle
 
+KeyboardShortcutTrapper::Shortcut WindowsKeyboardShortcutTrapper::classifyShortcut(quint32 key,bool control,bool shift,bool alt)
+{
+    if(key==VK_ESCAPE && control) return shift?CtrlShiftEsc:CtrlEsc;
+    if(key==VK_TAB && alt) return AltTab;
+    if(key==VK_ESCAPE && alt) return AltEsc;
+    if(key==VK_SPACE && alt) return AltSpace;
+    if(key==VK_F4 && alt) return AltF4;
+    if(key==VK_LWIN || key==VK_RWIN) return SuperKeyDown;
+    return NoShortcut; // especially Ctrl+Alt+Del: never synthesize or claim it
+}
+
 
 LRESULT CALLBACK TaskKeyHookLL( int nCode, WPARAM wp, LPARAM lp )
 {
-	auto pkh = reinterpret_cast<KBDLLHOOKSTRUCT *>( static_cast<intptr_t>( lp ) );
-	static QList<KeyboardShortcutTrapper::Shortcut> pressed;
-
-	if( nCode == HC_ACTION )
-	{
-		BOOL isCtrlKeyDown = GetAsyncKeyState( VK_CONTROL ) >> ( ( sizeof( SHORT ) * 8 ) - 1 );
-		QMutexLocker m( &__trappedShortcutsMutex );
-
-		KeyboardShortcutTrapper::Shortcut shortcut = KeyboardShortcutTrapper::NoShortcut;
-
-		if( pkh->vkCode == VK_ESCAPE && isCtrlKeyDown )
-		{
-			shortcut = KeyboardShortcutTrapper::CtrlEsc;
-		}
-		else if( pkh->vkCode == VK_TAB && pkh->flags & LLKHF_ALTDOWN )
-		{
-			shortcut = KeyboardShortcutTrapper::AltTab;
-		}
-		else if( pkh->vkCode == VK_ESCAPE && pkh->flags & LLKHF_ALTDOWN )
-		{
-			shortcut = KeyboardShortcutTrapper::AltEsc;
-		}
-		else if( pkh->vkCode == VK_SPACE && pkh->flags & LLKHF_ALTDOWN )
-		{
-			shortcut = KeyboardShortcutTrapper::AltSpace;
-		}
-		else if( pkh->vkCode == VK_F4 && pkh->flags & LLKHF_ALTDOWN )
-		{
-			shortcut = KeyboardShortcutTrapper::AltF4;
-		}
-		else if( pkh->vkCode == VK_LWIN || pkh->vkCode == VK_RWIN )
-		{
-			pressed.removeAll( KeyboardShortcutTrapper::SuperKeyDown );
-			pressed.removeAll( KeyboardShortcutTrapper::SuperKeyUp );
-			if( wp == WM_KEYDOWN )
-			{
-				shortcut = KeyboardShortcutTrapper::SuperKeyDown;
-			}
-			else
-			{
-				shortcut = KeyboardShortcutTrapper::SuperKeyUp;
-			}
-		}
-
-		if( shortcut != KeyboardShortcutTrapper::NoShortcut )
-		{
-			if( pressed.contains( shortcut ) == false )
-			{
-				__trappedShortcuts.push_back( shortcut );
-				pressed << shortcut;
-			}
-			else
-			{
-				pressed.removeAll( shortcut );
-			}
-			return 1;
-		}
-	}
-	return CallNextHookEx( __lowLevelKeyboardHookHandle, nCode, wp, lp );
+    if(nCode != HC_ACTION) return CallNextHookEx(__lowLevelKeyboardHookHandle,nCode,wp,lp);
+    const auto key=reinterpret_cast<const KBDLLHOOKSTRUCT*>(lp);
+    const bool down=wp==WM_KEYDOWN || wp==WM_SYSKEYDOWN;
+    const bool up=wp==WM_KEYUP || wp==WM_SYSKEYUP;
+    if(!down && !up) return CallNextHookEx(__lowLevelKeyboardHookHandle,nCode,wp,lp);
+    const bool ctrl=(GetAsyncKeyState(VK_CONTROL)&0x8000)!=0;
+    QMutexLocker locker(&__trappedShortcutsMutex);
+    if(up) {
+        const auto found=__pressedShortcutKeys.find(key->vkCode);
+        if(found==__pressedShortcutKeys.end()) {locker.unlock();return CallNextHookEx(__lowLevelKeyboardHookHandle,nCode,wp,lp);}
+        const auto shortcut=found.value();__pressedShortcutKeys.erase(found);
+        if(shortcut==KeyboardShortcutTrapper::SuperKeyDown && __trappedShortcuts.size()<128)
+            __trappedShortcuts.append(KeyboardShortcutTrapper::SuperKeyUp);
+        return 1;
+    }
+    if(__pressedShortcutKeys.contains(key->vkCode)) return 1; // suppress auto-repeat, not duplicate events
+    const auto shortcut=WindowsKeyboardShortcutTrapper::classifyShortcut(key->vkCode,ctrl,
+        (GetAsyncKeyState(VK_SHIFT)&0x8000)!=0,(key->flags&LLKHF_ALTDOWN)!=0);
+    if(shortcut!=KeyboardShortcutTrapper::NoShortcut) {
+        __pressedShortcutKeys.insert(key->vkCode,shortcut);
+        if(__trappedShortcuts.size()<128) __trappedShortcuts.append(shortcut);
+        return 1;
+    }
+    locker.unlock();
+    return CallNextHookEx(__lowLevelKeyboardHookHandle,nCode,wp,lp);
 }
-
 
 
 WindowsKeyboardShortcutTrapper::WindowsKeyboardShortcutTrapper( QObject* parent ) :
@@ -136,9 +115,17 @@ void WindowsKeyboardShortcutTrapper::setEnabled( bool on )
 		{
 			if( __lowLevelKeyboardHookHandle == nullptr )
 			{
+				{QMutexLocker pending(&__trappedShortcutsMutex);__trappedShortcuts.clear();__pressedShortcutKeys.clear();}
 				HINSTANCE hAppInstance = GetModuleHandle( nullptr );
 				// set lowlevel-keyboard-hook
 				__lowLevelKeyboardHookHandle = SetWindowsHookEx( WH_KEYBOARD_LL, TaskKeyHookLL, hAppInstance, 0 );
+				if(!__lowLevelKeyboardHookHandle) {
+					qWarning("NetLink keyboard shortcut hook could not be installed: Windows error %lu",GetLastError());
+					m_enabled=false;
+					s_refCntMutex.unlock();
+					Q_EMIT shortcutMonitoringFailed();
+					return;
+				}
 			}
 		}
 
@@ -147,12 +134,13 @@ void WindowsKeyboardShortcutTrapper::setEnabled( bool on )
 	}
 	else
 	{
+		m_pollTimer.stop();
 		--s_refCnt;
 		if( !s_refCnt )
 		{
 			UnhookWindowsHookEx( __lowLevelKeyboardHookHandle );
 			__lowLevelKeyboardHookHandle = nullptr;
-			m_pollTimer.stop();
+			QMutexLocker pending(&__trappedShortcutsMutex);__trappedShortcuts.clear();__pressedShortcutKeys.clear();
 		}
 	}
 	s_refCntMutex.unlock();
@@ -162,10 +150,12 @@ void WindowsKeyboardShortcutTrapper::setEnabled( bool on )
 
 void WindowsKeyboardShortcutTrapper::forwardTrappedShortcuts()
 {
-	QMutexLocker m( &__trappedShortcutsMutex );
-
-	while( __trappedShortcuts.isEmpty() == false )
-	{
-		Q_EMIT shortcutTrapped( __trappedShortcuts.takeFirst() );
-	}
+	QList<Shortcut> pending;
+    {QMutexLocker locker(&__trappedShortcutsMutex);pending.swap(__trappedShortcuts);}
+    // Callbacks may disable/re-arm the trapper: never emit while holding its mutex.
+    QPointer<WindowsKeyboardShortcutTrapper> live(this);
+    for(const auto shortcut:pending) {
+        if(!live || !live->m_enabled) break;
+        Q_EMIT shortcutTrapped(shortcut);
+    }
 }

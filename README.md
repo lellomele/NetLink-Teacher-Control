@@ -5,7 +5,7 @@ InternetGuard basato su Windows Filtering Platform, Appello con il nome dichiara
 dallo studente sulle miniature e ricerca dei client tramite WS-Discovery 1.1.
 Le funzioni sono integrate: non occorre installare un plugin esterno.
 
-**Versione preliminare 0.1.0-alpha.10: destinata a PC di prova, non al laboratorio in uso.**
+**Versione preliminare 0.1.0-alpha.11: destinata a PC di prova, non al laboratorio in uso.**
 
 ## Installazione
 
@@ -47,13 +47,22 @@ docenti. Non distribuire la chiave privata ai client.
 ## Uso
 
 - **Aspetto:** temi Sistema, Chiaro e Scuro; palette Oceano, Bosco, Prugna o colore
-  personalizzato; set coordinati di icone Organico, Lineare e Classico, con tre
+  personalizzato; set coordinati di icone Organico, Lineare, Spettro (colorato) e Classico, con tre
   dimensioni dei pulsanti. Il menu **NetLink → Aspetto, colori e icone** salva
   preferenze personali, senza elevazione o riavvio del servizio.
   Eventuali colori delle miniature già personalizzati nel Configurator restano prioritari.
 - **Configurator:** viste Facile, Normale e Avanzata. Facile mostra autenticazione,
   chiavi, servizio essenziale, gruppi/PC e discovery senza alterare le opzioni
   nascoste. I comandi per aggiungere e rimuovere gruppi o PC sono sopra le tabelle.
+- **Lingua:** scegliere la lingua nel Configurator, applicare e riavviare le
+  applicazioni. Console, Configurator e pannelli NetLink condividono la selezione;
+  le nuove voci sono disponibili in italiano e inglese. Dialoghi nativi Windows
+  e alcune descrizioni diagnostiche del Companion possono seguire altre regole.
+- **Blocco schermo:** copertura software con filtro delle scorciatoie ordinarie,
+  attivo solo durante il blocco. Il pannello non bloccante **Eventi durante il
+  blocco** indica PC, orario di ricezione e conteggio degli eventi osservabili.
+  Richiede questa versione su entrambi i PC; un client Veyon originale non
+  produce gli eventi aggiuntivi. Nessun testo digitato viene raccolto.
 - **Stato del servizio:** l’icona nell’area di notifica mostra un riepilogo locale;
   il suo menu apre i dettagli. “In ascolto” non prova la raggiungibilità da altri PC.
 - **InternetGuard:** selezionare i PC, aprire InternetGuard e scegliere Blocca,
@@ -200,9 +209,13 @@ Limiti: 256 client per operazione, 255 destinazioni totali, 128 risorse aggiunti
 
 Non sono inclusi Interception né la DLL binaria DeskDupEngine. Si usa l’acquisizione
 schermo software: verificare fluidità e carico CPU sui PC di destinazione. Il blocco
-degli input non ha la stessa forza della modalità con driver Interception.
-Interception è il filtro di tastiera/mouse che rafforza il blocco degli input,
-incluse combinazioni speciali; non serve per rete, autenticazione o InternetGuard.
+software non è una modalità chiosco inviolabile: le schermate protette di Windows
+restano accessibili. Un evento di schermata protetta non identifica con certezza
+Ctrl+Alt+Canc: può dipendere anche da UAC o dal sistema. I cambi molto brevi possono
+non essere rilevati. Gli avvisi sono raggruppati circa ogni due secondi, inviati
+solo al Master che ha richiesto più recentemente il blocco e conservati in un
+riepilogo di massimo 200 righe in memoria. Non sono un registro forense e non
+recuperano i periodi disconnessi. Dopo una riconnessione, ripetere Unlock/Lock.
 Le nuove funzioni richiedono il fork NetLink (già Veyon School) sui client.
 
 I ritardi dell'interfaccia superiori a due secondi vengono segnalati nel normale

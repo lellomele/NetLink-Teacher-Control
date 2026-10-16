@@ -39,7 +39,8 @@ public:
 		AltF4,
 		CtrlEsc,
 		SuperKeyDown,
-		SuperKeyUp
+		SuperKeyUp,
+		CtrlShiftEsc
 	} ;
 	Q_ENUM(Shortcut)
 
@@ -52,5 +53,6 @@ public:
 
 Q_SIGNALS:
 	void shortcutTrapped( KeyboardShortcutTrapper::Shortcut );
+	void shortcutMonitoringFailed();
 
 } ;

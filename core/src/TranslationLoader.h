@@ -34,5 +34,6 @@ public:
 	TranslationLoader( const QString& resourceName );
 
 	static bool load( const QString& resourceName );
+	static QLocale localeForConfiguration(const QString& selection, const QLocale& systemLocale = QLocale::system());
 
 };

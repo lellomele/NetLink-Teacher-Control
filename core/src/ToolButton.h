@@ -4,8 +4,10 @@
  */
 #pragma once
 #include <QToolButton>
+#include <QPointer>
 #include "VeyonCore.h"
 class QToolBar;
+class QWidgetAction;
 
 class VEYON_CORE_EXPORT ToolButton : public QToolButton {
     Q_OBJECT
@@ -17,11 +19,16 @@ public:
     static void setToolTipsDisabled(bool disabled) { s_toolTipsDisabled=disabled; }
     static bool toolTipsDisabled() { return s_toolTipsDisabled; }
     void addTo(QToolBar* toolBar);
+    QSize minimumSizeHint() const override;
+    void updateMinimumSize();
 protected:
     bool event(QEvent* event) override;
 Q_SIGNALS:
     void mouseLeftButton();
 private:
+    void syncToolbarAction();
+    QPointer<QWidgetAction> m_toolbarAction;
+    bool m_syncingToolbarAction=false;
     static bool s_toolTipsDisabled;
     static bool s_iconOnlyMode;
 };

@@ -63,9 +63,9 @@ MainWindow::MainWindow( QWidget* parent ) :
 	auto appearance = NetLinkAppearance::install();
 	Q_UNUSED(appearance)
 	NetLinkUi::addInformationMenu(this);
-	ui->actionAboutVeyon->setText(QStringLiteral("Informazioni su NetLink"));
+	ui->actionAboutVeyon->setText(NetLinkUi::text("About NetLink"));
 
-	setWindowTitle( NetLinkUi::windowTitle(tr( "%1 Configurator %2" ).arg( VeyonCore::applicationName(), VeyonCore::versionString() )) );
+	setWindowTitle(NetLinkUi::windowTitle(QStringLiteral("Configurator %1").arg(VeyonCore::versionString()))+QStringLiteral(" — ")+VeyonCore::applicationName());
 
 	loadConfigurationPagePlugins();
 
@@ -91,22 +91,22 @@ MainWindow::MainWindow( QWidget* parent ) :
 	connect( ui->actionSaveSettings, &QAction::triggered, this, &MainWindow::saveSettingsToFile );
 
 	auto viewModeGroup = new QActionGroup( this );
-	m_viewModeEasy=new QAction(QStringLiteral("Facile — chiavi e collegamento"),this);m_viewModeEasy->setCheckable(true);
+	m_viewModeEasy=new QAction(NetLinkUi::text("Easy — keys and connection"),this);m_viewModeEasy->setCheckable(true);
 	m_viewModeEasy->setObjectName(QStringLiteral("viewModeEasy"));
 	ui->menu_View->insertAction(ui->viewModeStandard,m_viewModeEasy);
 	viewModeGroup->addAction(m_viewModeEasy);
 	viewModeGroup->addAction( ui->viewModeStandard );
 	viewModeGroup->addAction( ui->viewModeAdvanced );
 	viewModeGroup->setExclusive( true );
-	ui->viewModeStandard->setText(QStringLiteral("Normale"));ui->viewModeAdvanced->setText(QStringLiteral("Avanzata"));
+	ui->viewModeStandard->setText(NetLinkUi::text("Normal"));ui->viewModeAdvanced->setText(NetLinkUi::text("Advanced"));
 	QSettings viewSettings(QSettings::NativeFormat,QSettings::UserScope,QStringLiteral("Veyon"),QStringLiteral("NetLinkAppearance"));
 	const auto savedMode=viewSettings.value(QStringLiteral("ConfiguratorView"),QStringLiteral("Easy")).toString();
 	(savedMode==QStringLiteral("Advanced")?ui->viewModeAdvanced:savedMode==QStringLiteral("Standard")?ui->viewModeStandard:m_viewModeEasy)->setChecked(true);
-	auto viewBar=addToolBar(QStringLiteral("Modalità di configurazione"));viewBar->setObjectName(QStringLiteral("netlinkConfiguratorViewBar"));viewBar->setMovable(false);
-	viewBar->addWidget(new QLabel(QStringLiteral("Modalità: "),viewBar));
+	auto viewBar=addToolBar(NetLinkUi::text("Configuration mode"));viewBar->setObjectName(QStringLiteral("netlinkConfiguratorViewBar"));viewBar->setMovable(false);
+	viewBar->addWidget(new QLabel(NetLinkUi::text("Mode: "),viewBar));
 	m_viewModeSelector=new QComboBox(viewBar);m_viewModeSelector->setObjectName(QStringLiteral("netlinkConfiguratorView"));
-	m_viewModeSelector->addItem(QStringLiteral("Facile"));m_viewModeSelector->addItem(QStringLiteral("Normale"));m_viewModeSelector->addItem(QStringLiteral("Avanzata"));
-	m_viewModeSelector->setToolTip(QStringLiteral("Facile: chiavi, accesso, servizio, gruppi/PC e discovery. Normale e Avanzata mostrano altre opzioni. Cambiare vista non modifica né azzera la configurazione."));
+	m_viewModeSelector->addItem(NetLinkUi::text("Easy"));m_viewModeSelector->addItem(NetLinkUi::text("Normal"));m_viewModeSelector->addItem(NetLinkUi::text("Advanced"));
+	m_viewModeSelector->setToolTip(NetLinkUi::text("Easy: keys, authentication, essential service settings, groups/computers and discovery. Normal and Advanced show more options. Switching views does not change or clear settings."));
 	viewBar->addWidget(m_viewModeSelector);
 	connect(m_viewModeSelector,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[this](int index){
 		(index==2?ui->viewModeAdvanced:index==1?ui->viewModeStandard:m_viewModeEasy)->setChecked(true);updateView();

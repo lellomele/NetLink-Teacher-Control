@@ -90,7 +90,7 @@ private Q_SLOTS:
         QTimer::singleShot(0,this,[] {
             QDialog* dialog=nullptr;for(auto widget:QApplication::topLevelWidgets()) if(widget->objectName()=="netLinkAppearanceDialog") dialog=qobject_cast<QDialog*>(widget);
             QVERIFY(dialog);dialog->findChild<QComboBox*>("appearanceMode")->setCurrentIndex(2);
-            dialog->findChild<QComboBox*>("appearancePreset")->setCurrentText("Bosco");
+            auto preset=dialog->findChild<QComboBox*>("appearancePreset");preset->setCurrentIndex(preset->findData("Bosco"));
             dialog->findChild<QComboBox*>("appearanceIconSet")->setCurrentIndex(1);
             dialog->findChild<QComboBox*>("appearanceIconSize")->setCurrentIndex(2);
             const auto output=qEnvironmentVariable("NETLINK_APPEARANCE_SCREENSHOTS");

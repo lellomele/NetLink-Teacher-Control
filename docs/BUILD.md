@@ -39,7 +39,7 @@ The offscreen appearance tests accept `NETLINK_APPEARANCE_SCREENSHOTS` for PNG
 output; on Windows offscreen rendering, set `QT_QPA_FONTDIR=C:\Windows\Fonts`
 to make system fonts available. Neither variable is needed by the installed GUI.
 
-The alpha.10 GUI restyling adds Organic/Outline/Classic icon preferences,
+The GUI restyling offers Organic/Outline/Spectrum/Classic icon preferences,
 28/36/44 logical-pixel toolbar sizes and Configurator Easy/Standard/Advanced
 views. These preferences use the same separate per-user appearance store;
 switching views does not reset hidden system values. Original vector glyph
@@ -54,6 +54,13 @@ tool buttons, view preservation, group removal confirmation and non-quitting tra
 status dialogs. Set `NETLINK_UI_SCREENSHOTS` for PNG output. Console preview
 images use real toolbar controls with synthetic cards, not a connected Master.
 These offscreen tests do not replace native Windows tray/DPI/remote-input pilots.
+
+`netlink-lock-notification-tests` uses inert lock widgets, isolated workers and
+authenticated-channel fixtures. Shortcut classification is tested without
+installing a real keyboard hook. Session events use Windows' built-in WTS APIs;
+input-desktop checks are read-only and do not take over the protected desktop.
+The production core links the system Wtsapi32 library; no new redistributable is
+required. Consult `PILOT.md` and `AUDIT.md` for native tests and beta gates.
 
 `branding/render-companion-icon.ps1` generates the Companion icon from the retained
 `companion.svg` design using Windows drawing APIs. Companion is built as

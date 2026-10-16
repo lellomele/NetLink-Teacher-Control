@@ -48,6 +48,7 @@
 #include "PlatformSessionFunctions.h"
 #include "PluginManager.h"
 #include "TranslationLoader.h"
+#include "NetLinkUi.h"
 #include "UserGroupsBackendManager.h"
 #include "VeyonConfiguration.h"
 #include "VncConnection.h"
@@ -580,10 +581,10 @@ void VeyonCore::initConfiguration()
 		config().setInstallationID( formattedUuid( QUuid::createUuid() ) );
 	}
 
-	if( config().applicationName().isEmpty() == false )
-	{
-		m_applicationName = config().applicationName();
-	}
+	// Read-only compatibility with legacy branding; do not change stored settings.
+	m_applicationName = NetLinkUi::applicationName(config().applicationName());
+	if(qobject_cast<QGuiApplication*>(QCoreApplication::instance()))
+		QGuiApplication::setApplicationDisplayName(m_applicationName);
 }
 
 
@@ -616,6 +617,7 @@ void VeyonCore::initLocaleAndTranslation()
 	}
 
 	TranslationLoader::load( QStringLiteral("veyon") );
+	NetLinkUi::installStandardTranslations();
 
 	const auto app = qobject_cast<QGuiApplication *>( QCoreApplication::instance() );
 	if( app )

@@ -82,6 +82,14 @@ private:
         SchoolDiscovery::Record record;record.endpoint=endpoint;record.name="PC di prova";record.address="198.51.100.99";record.port=11100;record.client=true;message.records.append(record);return message;
     }
 private Q_SLOTS:
+    void selectedLanguageChangesLabelsNotFeatureIdentifiers() {
+        struct Restore {QLocale value;~Restore(){QLocale::setDefault(value);}} restore{QLocale()};
+        QLocale::setDefault(QLocale("en_US"));SchoolFeatures features(nullptr,false);
+        QCOMPARE(features.featureList()[1].name(),QString("Appello"));
+        QCOMPARE(features.featureList()[1].displayName(),QString("Attendance"));
+        QCOMPARE(features.featureList()[2].name(),QString("Discovery"));
+        QCOMPARE(features.featureList()[2].displayName(),QString("Find clients"));
+    }
     void attendanceLastWindowDeliversReplyBeforeWorkerExits_data() {QTest::addColumn<bool>("accept");QTest::newRow("confirmed")<<true;QTest::newRow("cancelled")<<false;}
     void attendanceLastWindowDeliversReplyBeforeWorkerExits() {
         QFETCH(bool,accept);QTcpServer server;QVERIFY(server.listen(QHostAddress::LocalHost,0));QList<FeatureMessage> messages;

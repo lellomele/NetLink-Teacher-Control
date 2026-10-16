@@ -1,5 +1,6 @@
 <RCC>
   <qresource prefix="/core">
+    <file>netlink-ui.json</file>
     <file>../../COPYING</file>
     <file>icon64.png</file>
     <file alias="veyon.png">../../branding/icon256.png</file>
