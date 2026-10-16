@@ -46,12 +46,15 @@ durable audit trail or tamper-proof endpoint is claimed. Both PCs need updated
 NetLink for event reporting. Native shortcut/session behavior remains subject
 to the physical Windows two-PC pilot; isolated tests never install a real hook.
 
-Local verification of this follow-up passed all 24 CTest suites: 241 Qt passes
+Local verification of this follow-up passed all 24 CTest suites: 243 Qt passes
 (including setup/cleanup and three scale runs), no failures/skips, and all six
 discovery XML schema checks. Lock-notification and GUI-scale suites also passed
 five consecutive repetitions. The WITH_TESTS=OFF production build passed. The
 published alpha.10 installer hash remains unchanged. Native desktop/session/hook behavior
 has not yet been validated on the DELL/MATEBOOK pair.
+The lifecycle locale fixtures exercise Italian and English explicitly, rather
+than depending on the build host's default language. Headless CI uses Windows'
+installed font directory, not an additional redistributable font requirement.
 
 ## Beta acceptance gates
 

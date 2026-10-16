@@ -189,9 +189,17 @@ private Q_SLOTS:
         features.policy({selected},false);QVERIFY(!features.m_resolution);QCOMPARE(dns.aborted,QList<int>({1}));QVERIFY(features.m_resolutionClients.isEmpty());
         dns.reply(1,{QHostAddress("192.0.2.25")});QVERIFY(features.m_guardTargets.isEmpty());
     }
+    void disconnectedClientIsNeverAddedToLeaseRenewals_data() {
+        QTest::addColumn<QString>("locale");QTest::addColumn<QString>("expectedStatus");
+        QTest::newRow("Italian")<<QString("it_IT")<<QString("non connesso");
+        QTest::newRow("English")<<QString("en_US")<<QString("not connected");
+    }
     void disconnectedClientIsNeverAddedToLeaseRenewals() {
+        QFETCH(QString,locale);QFETCH(QString,expectedStatus);
+        struct Restore {QLocale value;~Restore(){QLocale::setDefault(value);}} restore{QLocale()};
+        QLocale::setDefault(QLocale(locale));
         SchoolFeatures features(nullptr,false);const auto ci=client();features.beginPolicyResolution({ci},{});
-        QVERIFY(features.m_guardTargets.isEmpty());QVERIFY(!features.m_resolution);QVERIFY(ci->networkPolicyStatus().contains("non connesso"));
+        QVERIFY(features.m_guardTargets.isEmpty());QVERIFY(!features.m_resolution);QVERIFY(ci->networkPolicyStatus().contains(expectedStatus));
     }
     void studentDialogDoesNotOutliveWorkerOrReplyToDeadWorker() {
         SchoolFeatures features(nullptr,false);int replies=0;auto worker=new IsolatedSchoolWorker(replies);
@@ -318,7 +326,15 @@ private Q_SLOTS:
             auto ipv4=discoveryPacket("Hello",endpoint,3);agent.process(SchoolDiscovery::encode(ipv4),QHostAddress("172.24.176.21"),false);QCOMPARE(agent.records().first().address,QString("172.24.176.21"));
         }
     }
+    void discoveryTableRetainsSelectionAndClosesWithPendingTimers_data() {
+        QTest::addColumn<QString>("locale");QTest::addColumn<QString>("expectedHeader");
+        QTest::newRow("Italian")<<QString("it_IT")<<QString("IPv4 rilevato");
+        QTest::newRow("English")<<QString("en_US")<<QString("Detected IPv4");
+    }
     void discoveryTableRetainsSelectionAndClosesWithPendingTimers() {
+        QFETCH(QString,locale);QFETCH(QString,expectedHeader);
+        struct Restore {QLocale value;~Restore(){QLocale::setDefault(value);}} restore{QLocale()};
+        QLocale::setDefault(QLocale(locale));
         IsolatedSchoolMaster master;SchoolFeatures features(nullptr,false);
         features.m_discovery=new SchoolDiscovery::Agent(true,{},11100,&features,false);
         SchoolDiscovery::Record first;first.endpoint="urn:uuid:00000000-0000-0000-0000-000000000001";first.name="<b>Nome non attendibile</b>";first.address="192.0.2.25";
@@ -328,7 +344,7 @@ private Q_SLOTS:
         features.m_discovery->m_localIpv4.insert(QHostAddress("192.168.1.195").toIPv4Address());
         auto self=first;self.endpoint="urn:uuid:00000000-0000-0000-0000-000000000004";self.address="192.168.1.195";features.m_discovery->m_records.insert(self.endpoint,self);
         features.discovery(master);QPointer<QDialog> dialog=features.m_discoveryDialog;QVERIFY(dialog);
-        auto table=dialog->findChild<QTableWidget*>();QVERIFY(table);QCOMPARE(table->rowCount(),2);QCOMPARE(table->horizontalHeaderItem(1)->text(),QString("IPv4 rilevato"));table->selectRow(1);
+        auto table=dialog->findChild<QTableWidget*>();QVERIFY(table);QCOMPARE(table->rowCount(),2);QCOMPARE(table->horizontalHeaderItem(1)->text(),expectedHeader);table->selectRow(1);
         auto original=table->item(0,0);auto timer=dialog->findChild<QTimer*>();QVERIFY(timer);timer->start(10);QTest::qWait(25);QCOMPARE(table->item(0,0),original);
         first.name="PC aggiornato";features.m_discovery->m_records.insert(first.endpoint,first);
         QTRY_COMPARE_WITH_TIMEOUT(table->item(0,0)->text(),QString("PC aggiornato"),1000);QCOMPARE(table->currentRow(),1);QCOMPARE(table->item(1,1)->text(),second.address);

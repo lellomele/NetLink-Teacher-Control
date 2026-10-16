@@ -37,6 +37,7 @@ jobs:
         shell: msys2 {0}
         run: |
           export PATH="$PWD/build-school/core:$PATH"
+          export QT_QPA_FONTDIR="$(cygpath -m "$SYSTEMROOT")/Fonts"
           export VEYON_SCHOOL_SCHEMA_FIXTURES="$(cygpath -w "$PWD/build-school/schema-fixtures")"
           test_status=0
           ctest --test-dir build-school --output-on-failure || test_status=$?
