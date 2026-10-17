@@ -1,0 +1,10 @@
+if(VEYON_BUILD_WINDOWS)
+    # Recovery must work without Qt, the installed runtime, or extra software.
+    add_executable(netlink-maintenance Maintenance.cpp ${CMAKE_CURRENT_BINARY_DIR}/netlink-maintenance.rc)
+    set_target_properties(netlink-maintenance PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+    target_compile_features(netlink-maintenance PRIVATE cxx_std_17)
+    target_compile_options(netlink-maintenance PRIVATE -fexceptions)
+    target_compile_definitions(netlink-maintenance PRIVATE UNICODE _UNICODE _WIN32_WINNT=0x0601)
+    target_link_libraries(netlink-maintenance PRIVATE advapi32 shell32 ole32 oleaut32 uuid)
+    target_link_options(netlink-maintenance PRIVATE -static -municode)
+endif()

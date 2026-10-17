@@ -3,6 +3,15 @@
 The application base remains Veyon 4.7.5; all modules are rebuilt together.
 Do not mix DLLs/plugins from upstream installers or another Qt/compiler ABI.
 
+The Windows installer includes `netlink-maintenance.exe`, statically linked to
+the C++ runtime and using Windows APIs only (no Qt). It backs up machine registry
+configuration before stopping/replacing a damaged installation, verifies the
+payload SHA-256 list before starting the CLI, and handles uninstall cleanup.
+The native maintenance tests and the full NSIS round-trip fixture operate on
+private build directories and exact HKCU test subtrees only. Service/firewall
+operations are simulated in the fixture; they do not constitute a privileged
+installation/reboot test. Run the PILOT.md sequence on isolated Windows PCs.
+
 Install MSYS2 MinGW64 build packages:
 
 ```

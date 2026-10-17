@@ -1,7 +1,36 @@
-# Audit and release gates — NetLink 0.1.0-alpha.11
+# Audit and release gates — NetLink 0.1.0-alpha.12
 
 Status: **partial audit and preliminary implementation, not a completed security
 audit, certified WS-Discovery implementation or production-ready release**.
+
+## Alpha 12 installer recovery and removal
+
+Recovery no longer starts an installed Qt CLI before replacing its missing
+runtime. A statically linked Windows-only maintenance helper exports the machine
+configuration registry (both views) and preserves previous backups in an
+administrators/SYSTEM-only ProgramData recovery directory. The installer verifies
+the payload's SHA-256 list before starting the new CLI. Stop/delete waits are
+bounded and validate the exact fork service executable path; another service
+location is never stopped automatically. A mutex prevents concurrent installer
+and uninstaller instances. Pending removals under the fixed installation path
+block reinstallation until reboot, avoiding deletion of freshly installed files.
+
+Uninstall offers configuration retention or explicit purge. The fixed application
+tree is removed, including unknown/manual files; junction targets are never
+traversed. In-use files and their directories are scheduled for reboot. Custom
+authentication paths inside that tree, unresolved paths or redirected key paths
+stop removal first, rather than risking key loss. External key files are never
+opened/copied/deleted by the helper. Purge retains only configured key-location
+values in product settings, protects detected original Veyon shared settings and
+cleans fork appearance settings in loaded profiles plus owned event-source
+registrations. Unloaded profiles and OS-managed caches/history are not purged.
+Firewall cleanup is restricted by the rule's actual application path.
+
+The unit fixture uses exact HKCU-only test subtrees and private build directories;
+the full production NSIS script is also exercised with a test-only helper/CLI.
+Those fixtures deliberately simulate SCM and firewall operations and do not
+establish privileged installation, in-use reboot cleanup or full rollback on a
+real PC. Follow PILOT.md before treating this alpha as validated for a classroom.
 
 ## Alpha 11 focused changes
 

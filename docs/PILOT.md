@@ -18,14 +18,55 @@ Non pubblicare chiavi private, password o esportazioni di configurazione.
    servizio dopo modifiche. Nel Master la miniatura deve aggiornarsi.
 5. Annotare build OS, antivirus/firewall, latenza e carico CPU a riposo.
 
-## Aggiornamento ad alpha.11
+## Ripristino e aggiornamento ad alpha.12
+
+Sul MATEBOOK con l'installer alpha.11 bloccato: chiudere errore e installer,
+chiudere tutte le app della suite e avviare direttamente l'installer alpha.12
+come amministratore. Non cancellare manualmente la cartella e non disinstallare
+di nuovo prima del ripristino. Il backup non dipende dal vecchio eseguibile Qt.
+L'installer verifica gli hash dei file prima di avviare la nuova CLI.
+
+Controllare versione, PC configurati e chiave `netlink_test`, quindi miniatura,
+controllo remoto, Appello, discovery e InternetGuard. Annotare eventuali errori
+mostrati nei dettagli dell'installer; il dettaglio dell'ultimo errore nativo è
+in `C:\ProgramData\NetLink\maintenance-error.txt` (cartella protetta).
+
+### Prova guidata di disinstallazione/reinstallazione su PC di prova
+
+1. Dopo il ripristino esportare il JSON dal Configurator. Conservare separatamente
+   le chiavi esistenti: il JSON e i `.reg` non contengono le chiavi private.
+2. Rilevare nel Configurator i percorsi di chiavi pubbliche/private; normalmente
+   sono sotto `C:\ProgramData\Veyon\keys`. Le chiavi non devono stare nella
+   cartella del programma: in quel caso la rimozione si ferma prima di cancellare.
+3. Disinstallare da Windows. **No** conserva le impostazioni; **Sì** le elimina
+   mantenendo solo i percorsi delle chiavi. Entrambe le scelte eliminano l'intera
+   cartella del programma, inclusi file aggiunti manualmente. La copia di recupero
+   delle impostazioni di sistema e dei vecchi backup resta protetta in
+   `C:\ProgramData\NetLink\Recovery`.
+4. Riavviare se richiesto. Verificare l'assenza di `C:\Program Files\Veyon School`,
+   del servizio `VeyonSchoolService`, delle scorciatoie e delle regole firewall
+   riferite a quel percorso. Non basta che l'app non compaia più nell'elenco Windows.
+5. Con rimozione completa verificare nelle viste registro 64/32 bit la rimozione
+   delle impostazioni della suite. Sono intenzionalmente conservati i percorsi
+   `Authentication/PrivateKeyBaseDir` e `PublicKeyBaseDir`, se personalizzati,
+   le impostazioni condivise con Veyon originale e i profili non caricati.
+   Non cancellare a mano voci trovate cercando genericamente "Veyon" o "NetLink".
+6. Reinstallare alpha.12. Dopo la rimozione completa reimportare il JSON e applicare
+   dal Configurator; dopo la rimozione con conservazione le impostazioni devono
+   essere già presenti. Verificare l'identità delle chiavi e la connessione al DELL.
+
+I test automatizzati eseguono il flusso NSIS reale con file e HKCU isolati,
+simulando servizio/firewall. Il ciclo amministrativo sui PC reali, i file in uso e
+il riavvio richiedono questa prova: non vengono dichiarati collaudati dai test isolati.
+
+## Procedura generale di aggiornamento
 
 Su entrambi i PC esportare prima la configurazione dal Configurator e conservare
 al sicuro le chiavi esistenti. Chiudere Console, Configurator e Companion.
 Installare l’installer completo come amministratore prima sul DELL client,
 quindi sul MATEBOOK docente, senza disinstallare o rigenerare chiavi. Riavviare
 entrambi. Aprire le applicazioni dalla cartella **Start → NetLink** e verificare
-la versione alpha.11. La chiave `netlink_test` e i PC configurati devono restare
+la versione alpha.12. La chiave `netlink_test` e i PC configurati devono restare
 invariati. Confermare miniatura e controllo remoto prima delle prove successive.
 
 ## Collaudo alpha.11: MATEBOOK docente e DELL client

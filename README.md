@@ -5,7 +5,7 @@ InternetGuard basato su Windows Filtering Platform, Appello con il nome dichiara
 dallo studente sulle miniature e ricerca dei client tramite WS-Discovery 1.1.
 Le funzioni sono integrate: non occorre installare un plugin esterno.
 
-**Versione preliminare 0.1.0-alpha.11: destinata a PC di prova, non al laboratorio in uso.**
+**Versione preliminare 0.1.0-alpha.12: destinata a PC di prova, non al laboratorio in uso.**
 
 ## Installazione
 
@@ -33,12 +33,36 @@ directory delle chiavi e identificativo interno `VeyonSchoolService`.
 Il programma usa la configurazione Veyon esistente e installa il servizio separato
 `VeyonSchoolService`. Non eseguire contemporaneamente i due servizi: usano le stesse
 porte. L’installazione originale, le chiavi e la configurazione non vengono eliminate.
-L’installer salva la configurazione in una cartella Backups accessibile solo agli
-amministratori. Se il servizio originale è presente, ne disabilita l’avvio automatico
+L’installer salva la configurazione del registro e i vecchi backup in
+`C:\ProgramData\NetLink\Recovery`, accessibile solo ad amministratori e SYSTEM.
+Ripristina anche un'installazione incompleta senza avviare i vecchi eseguibili:
+verifica tutti i file prima di avviare gli strumenti di configurazione.
+Se il servizio originale è presente, ne disabilita l’avvio automatico
 con conferma e ripristina il tipo di avvio alla disinstallazione.
 La configurazione è condivisa: il fork disabilita Interception e DeskDupEngine.
 La disinstallazione non reimporta automaticamente il backup della configurazione;
 per tornare alle impostazioni precedenti usare il Configurator originale.
+
+### Disinstallazione
+
+Chiudere le applicazioni e avviare la disinstallazione da Windows. Si può scegliere
+se conservare le impostazioni per reinstallare oppure rimuoverle. In entrambi i casi
+vengono rimossi i file e la cartella `C:\Program Files\Veyon School`, comprese le
+vecchie DLL e i file aggiunti manualmente: non usarla per documenti personali.
+I file in uso e la cartella vengono eliminati al riavvio; reinstallare solo dopo
+aver riavviato se richiesto. Le chiavi di autenticazione esterne alla cartella del
+programma non vengono lette né eliminate; restano anche i loro percorsi configurati.
+Se le chiavi sono state collocate nella cartella del programma, la disinstallazione
+si ferma: trasferirle prima in una posizione protetta tramite Configurator.
+
+La rimozione delle impostazioni riguarda le voci gestite dalla suite (registro
+32/64 bit e preferenze dei profili caricati). Non cancella configurazioni condivise
+con un Veyon originale rilevato, profili Windows non caricati, cronologia/eventi
+gestiti da Windows, criteri di sistema condivisi (come SoftwareSASGeneration)
+o file personali fuori dalla cartella del programma.
+Le copie di recupero protette restano disponibili in ProgramData; i file `.reg`
+contengono impostazioni, non una copia delle chiavi private. Per una reinstallazione
+da zero conservare anche un'esportazione JSON dal Configurator e reimportarla dopo.
 
 Nel Configurator mantenere le aule, i PC, l’autenticazione e le regole di accesso
 già configurati. È consigliata l’autenticazione a chiave con diritti limitati ai

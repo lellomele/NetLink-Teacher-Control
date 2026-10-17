@@ -3,7 +3,7 @@ $ErrorActionPreference='Stop'
 $repoRoot=Split-Path $PSScriptRoot
 $buildRoot=(Resolve-Path (Join-Path $repoRoot $Build)).Path
 $distRoot=Join-Path $repoRoot 'dist'
-$packageRoot=Join-Path $distRoot 'NetLink-0.1.0-alpha.11-win64'
+$packageRoot=Join-Path $distRoot 'NetLink-0.1.0-alpha.12-win64'
 if(Test-Path -LiteralPath $packageRoot){throw "Use a fresh package directory; existing files will not be overwritten: $packageRoot"}
 New-Item -ItemType Directory -Path $packageRoot | Out-Null
 foreach($dir in @('plugins','platforms','imageformats','crypto','translations','licenses')){New-Item -ItemType Directory -Path (Join-Path $packageRoot $dir) | Out-Null}
@@ -12,6 +12,7 @@ foreach($component in @('master','configurator','service','server','worker','cli
     Copy-Item -LiteralPath (Join-Path $buildRoot "$directory/netlink-$component.exe") -Destination $packageRoot
 }
 Copy-Item -LiteralPath (Join-Path $buildRoot 'core/veyon-core.dll') -Destination $packageRoot
+Copy-Item -LiteralPath (Join-Path $buildRoot 'packaging/netlink-maintenance.exe') -Destination $packageRoot
 Get-ChildItem -LiteralPath (Join-Path $buildRoot 'plugins') -Recurse -File -Filter '*.dll' | ForEach-Object {
     $destination=if($_.Name.StartsWith('lib') -or $_.Name-eq'vnchooks.dll'){$packageRoot}else{Join-Path $packageRoot 'plugins'}
     Copy-Item -LiteralPath $_.FullName -Destination $destination
@@ -61,12 +62,13 @@ foreach($source in @((Join-Path $Toolchain 'share/licenses'))){
     if(Test-Path -LiteralPath $source){Copy-Item -LiteralPath $source -Destination (Join-Path $packageRoot 'licenses/toolchain') -Recurse}
 }
 $manifest=Get-ChildItem -LiteralPath $packageRoot -Recurse -File | ForEach-Object {[pscustomobject]@{path=$_.FullName.Substring($packageRoot.Length+1).Replace('\','/');bytes=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}}
+$payloadHashes=$manifest | ForEach-Object {$_.sha256.ToLowerInvariant()+'  '+$_.path}
+[IO.File]::WriteAllLines((Join-Path $packageRoot 'payload.sha256'),[string[]]$payloadHashes,[Text.UTF8Encoding]::new($false))
+$manifest+= [pscustomobject]@{path='payload.sha256';bytes=(Get-Item -LiteralPath (Join-Path $packageRoot 'payload.sha256')).Length;sha256=(Get-FileHash -LiteralPath (Join-Path $packageRoot 'payload.sha256') -Algorithm SHA256).Hash}
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $distRoot 'package-manifest.json') -Encoding UTF8
-$uninstallLines=$manifest | ForEach-Object {'Delete "$INSTDIR\'+$_.path.Replace('/','\').Replace('$','$$')+'"'}
-$uninstallLines | Set-Content -LiteralPath (Join-Path $distRoot 'uninstall-files.nsh') -Encoding UTF8
 # Build-generated manifest is not source code. Use a reproducible installer payload.
 if(!$SkipInstaller){
-    & (Join-Path $Toolchain 'bin/makensis.exe') "/DPAYLOAD=$packageRoot" "/DOUTPUT=$distRoot" "/DREPOROOT=$repoRoot" (Join-Path $PSScriptRoot 'veyon-school.nsi')
+    & (Join-Path $Toolchain 'bin/makensis.exe') '/INPUTCHARSET' 'UTF8' "/DPAYLOAD=$packageRoot" "/DOUTPUT=$distRoot" "/DREPOROOT=$repoRoot" (Join-Path $PSScriptRoot 'veyon-school.nsi')
     if($LASTEXITCODE-ne0){throw 'Installer compilation failed'}
 }
 Write-Output $packageRoot
