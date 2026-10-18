@@ -6,6 +6,7 @@
 #include <QDir>
 #include <QComboBox>
 #include <QDialog>
+#include <QContextMenuEvent>
 #include <QMenu>
 #include <QPointer>
 #include <QSettings>
@@ -28,7 +29,7 @@ class RemoteAccessToolBarTests : public QObject
     static void verifyButtons(RemoteAccessToolBar& bar) {
         const auto panel=bar.findChild<QWidget*>("remoteToolbarPanel");
         QVERIFY(panel);
-        for(auto control:panel->findChildren<QToolButton*>()) if(!control->isHidden()) {
+        for(auto control:bar.findChildren<QToolButton*>()) if(!control->isHidden()) {
             QVERIFY2(!control->icon().isNull(),qPrintable(control->objectName()));
             QCOMPARE(control->size(),QSize(44,44));
             QCOMPARE(control->toolButtonStyle(),Qt::ToolButtonIconOnly);
@@ -44,8 +45,11 @@ private Q_SLOTS:
         auto palette=desktop.palette(); palette.setColor(QPalette::Window,QColor("#83b6ce"));desktop.setPalette(palette);
         const auto original=desktop.grab().toImage();
         RemoteAccessToolBar bar(&desktop,false,true);desktop.show();bar.appear();QApplication::processEvents();
-        QCOMPARE(bar.height(),56); QVERIFY(bar.width()<450); QCOMPARE(bar.y(),8);
+        QCOMPARE(bar.height(),104); QVERIFY(bar.width()<450); QCOMPARE(bar.y(),0);
+        QCOMPARE(bar.findChild<QWidget*>("remoteToolbarPanel")->height(),56);
         QCOMPARE(bar.x(),(desktop.width()-bar.width())/2);
+        QVERIFY(desktop.childAt(bar.pos()+QPoint(2,2))==nullptr);
+        QVERIFY(bar.mask().contains(button(bar,"remotePin")->geometry().center()));
         verifyButtons(bar);
         QVERIFY(!bar.isWindow()); QVERIFY(!bar.isModal());
         const auto image=desktop.grab().toImage();
@@ -57,28 +61,71 @@ private Q_SLOTS:
     }
     void pinUnpinAndCancellableHide() {
         QWidget desktop;desktop.resize(900,600);RemoteAccessToolBar bar(&desktop,false,true);desktop.show();
+        const auto pin=button(bar,"remotePin");const auto initialPin=pin->mapTo(&desktop,QPoint());
         leave(bar);QTRY_VERIFY_WITH_TIMEOUT(!bar.isExpanded(),1400);
         bar.appear();leave(bar);QTest::qWait(200);
         bar.appear();bar.setPinned(true);leave(bar);QTest::qWait(800);
         QVERIFY(bar.isExpanded());QVERIFY(bar.isPinned());
         QCOMPARE(button(bar,"remotePin")->isChecked(),true);
         bar.setPinned(false);leave(bar);QTRY_VERIFY_WITH_TIMEOUT(!bar.isExpanded(),1400);
-        QCOMPARE(bar.size(),QSize(64,16));
-        button(bar,"remoteToolbarHandle")->click();QVERIFY(bar.isExpanded());
+        QCOMPARE(bar.size(),QSize(44,44));QVERIFY(pin->isVisible());
+        QCOMPARE(pin->mapTo(&desktop,QPoint()),initialPin);
+        pin->click();QVERIFY(bar.isExpanded());QVERIFY(bar.isPinned());
+        QCOMPARE(pin->mapTo(&desktop,QPoint()),initialPin);
     }
     void edgeHoverAndCancellation() {
         QWidget desktop;desktop.resize(900,600);RemoteAccessToolBar bar(&desktop,false,true);desktop.show();
         leave(bar);QTRY_VERIFY_WITH_TIMEOUT(!bar.isExpanded(),1400);
         bar.requestRevealAt({0,200});bar.requestRevealAt({200,200});QTest::qWait(450);QVERIFY(!bar.isExpanded());
+        QCOMPARE(bar.dockEdge(),Qt::TopEdge);
+        for(const auto p:{QPoint(0,250),QPoint(899,250),QPoint(400,599)}) {
+            bar.requestRevealAt(p);QTest::qWait(450);QVERIFY(!bar.isExpanded());QCOMPARE(bar.dockEdge(),Qt::TopEdge);
+        }
         const QList<QPair<QPoint,Qt::Edge>> edges{{{400,0},Qt::TopEdge},{{400,599},Qt::BottomEdge},{{0,250},Qt::LeftEdge},{{899,250},Qt::RightEdge}};
         for(const auto& entry:edges) {
+            bar.setDockEdge(entry.second);
             bar.requestRevealAt(entry.first);QTest::qWait(100);QVERIFY(!bar.isExpanded());
             QTRY_VERIFY_WITH_TIMEOUT(bar.isExpanded(),800);QCOMPARE(bar.dockEdge(),entry.second);
             verifyButtons(bar);QVERIFY(desktop.rect().contains(bar.geometry()));
-            if(entry.second==Qt::LeftEdge || entry.second==Qt::RightEdge) QCOMPARE(bar.width(),56);
-            else QCOMPARE(bar.height(),56);
+            if(entry.second==Qt::LeftEdge || entry.second==Qt::RightEdge) QCOMPARE(bar.width(),104);
+            else QCOMPARE(bar.height(),104);
             leave(bar);QTRY_VERIFY_WITH_TIMEOUT(!bar.isExpanded(),1400);
         }
+    }
+    void persistentPinFadesAndWakesWithoutDisappearing() {
+        QWidget desktop;desktop.resize(900,600);RemoteAccessToolBar bar(&desktop,false,true);desktop.show();
+        auto pin=button(bar,"remotePin");leave(bar);QTest::qWait(250);
+        QVERIFY(!pin->property("netlinkPinIdle").toBool());
+        QTRY_VERIFY_WITH_TIMEOUT(!bar.isExpanded(),1400);
+        const auto bright=pin->grab().toImage();
+        QTRY_VERIFY_WITH_TIMEOUT(pin->property("netlinkPinIdle").toBool(),2200);QTest::qWait(300);
+        QVERIFY(pin->isVisible());QVERIFY(pin->grab().toImage()!=bright);
+        QEvent enter(QEvent::Enter);QApplication::sendEvent(&bar,&enter);QApplication::sendEvent(pin,&enter);
+        QVERIFY(!pin->property("netlinkPinIdle").toBool());
+        QTRY_VERIFY_WITH_TIMEOUT(bar.isExpanded(),800);QVERIFY(pin->isVisible());
+        bar.setPinned(true);leave(bar);
+        QTRY_VERIFY_WITH_TIMEOUT(pin->property("netlinkPinIdle").toBool(),2400);QVERIFY(bar.isExpanded());
+    }
+    void rightClickCyclesOnlyOnceAndNeverTriggersCommands() {
+        QWidget desktop;desktop.resize(900,600);RemoteAccessToolBar bar(&desktop,false,true);desktop.show();bar.setPinned(true);
+        auto pin=button(bar,"remotePin");
+        QSignalSpy shots(&bar,&RemoteAccessToolBar::screenshotRequested),close(&bar,&RemoteAccessToolBar::disconnectRequested),
+            full(&bar,&RemoteAccessToolBar::fullScreenChanged),mode(&bar,&RemoteAccessToolBar::viewOnlyChanged);
+        const QList<QToolButton*> targets{pin,button(bar,"remoteScreenshot"),button(bar,"remoteDisconnect"),button(bar,"remoteShortcuts")};
+        const QList<Qt::Edge> edges{Qt::LeftEdge,Qt::BottomEdge,Qt::RightEdge,Qt::TopEdge};
+        for(int i=0;i<targets.size();++i) {
+            QTest::mouseClick(targets[i],Qt::RightButton);QCOMPARE(bar.dockEdge(),edges[i]);
+            QVERIFY(pin->isVisible());QVERIFY(bar.isPinned());QVERIFY(desktop.rect().contains(bar.geometry()));
+        }
+        QCOMPARE(shots.count(),0);QCOMPARE(close.count(),0);QCOMPARE(full.count(),0);QCOMPARE(mode.count(),0);
+        QVERIFY(!button(bar,"remoteShortcuts")->menu()->isVisible());
+        QTest::mouseClick(bar.findChild<QWidget*>("remoteToolbarPanel"),Qt::RightButton,{},QPoint(2,2));
+        QCOMPARE(bar.dockEdge(),Qt::LeftEdge);
+        bar.setPinned(false);leave(bar);QTRY_VERIFY_WITH_TIMEOUT(!bar.isExpanded(),1400);
+        QTest::mouseClick(pin,Qt::RightButton);QCOMPARE(bar.dockEdge(),Qt::BottomEdge);
+        QVERIFY(!bar.isPinned());QVERIFY(pin->isVisible());QVERIFY(!bar.isExpanded());
+        bar.requestRevealAt({0,250});QTest::qWait(450);QVERIFY(!bar.isExpanded());
+        bar.requestRevealAt({400,599});QTRY_VERIFY_WITH_TIMEOUT(bar.isExpanded(),800);
     }
     void popupAndKeyboardFocusPreventHiding() {
         QWidget desktop;desktop.resize(900,600);RemoteAccessToolBar bar(&desktop,false,true);desktop.show();bar.appear();
@@ -87,6 +134,27 @@ private Q_SLOTS:
         menu->hide();leave(bar);QTRY_VERIFY_WITH_TIMEOUT(!bar.isExpanded(),1400);
         bar.appear();button(bar,"remotePin")->setFocus();bar.disappear();QTest::qWait(800);QVERIFY(bar.isExpanded());
         leave(bar);QTRY_VERIFY_WITH_TIMEOUT(!bar.isExpanded(),1400);
+    }
+    void contextMenuDoesNotDoubleRotateAndPendingRevealIsCancelled() {
+        QWidget desktop;desktop.resize(900,600);RemoteAccessToolBar bar(&desktop,false,true);desktop.show();
+        auto pin=button(bar,"remotePin");leave(bar);QTRY_VERIFY_WITH_TIMEOUT(!bar.isExpanded(),1400);
+        bar.requestRevealAt({100,0});QTest::qWait(100);
+        QTest::mouseClick(pin,Qt::RightButton);QCOMPARE(bar.dockEdge(),Qt::LeftEdge);
+        QTest::qWait(450);QVERIFY(!bar.isExpanded());
+        QContextMenuEvent mouseMenu(QContextMenuEvent::Mouse,{1,1});QApplication::sendEvent(pin,&mouseMenu);
+        QCOMPARE(bar.dockEdge(),Qt::LeftEdge);
+        QContextMenuEvent keyboardMenu(QContextMenuEvent::Keyboard,{1,1});QApplication::sendEvent(pin,&keyboardMenu);
+        QCOMPARE(bar.dockEdge(),Qt::BottomEdge);QVERIFY(pin->isVisible());
+    }
+    void highContrastKeepsPinReadableAndFadeDestructionIsSafe() {
+        struct Restore {QVariant value=qApp->property("netlinkHighContrast");~Restore(){qApp->setProperty("netlinkHighContrast",value);}} restore;
+        qApp->setProperty("netlinkHighContrast",true);
+        QWidget desktop;desktop.resize(900,600);auto bar=new RemoteAccessToolBar(&desktop,false,true);desktop.show();
+        auto pin=button(*bar,"remotePin");leave(*bar);QTest::qWait(2150);
+        QVERIFY(pin->isVisible());QVERIFY(!pin->property("netlinkPinIdle").toBool());
+        qApp->setProperty("netlinkHighContrast",false);bar->appear();leave(*bar);
+        QTRY_VERIFY_WITH_TIMEOUT(pin->property("netlinkPinIdle").toBool(),2300);
+        QPointer<RemoteAccessToolBar> pointer(bar);delete bar;QVERIFY(pointer.isNull());QTest::qWait(350);
     }
     void actionsAndViewOnly() {
         QWidget desktop;desktop.resize(900,600);RemoteAccessToolBar bar(&desktop,false,true);desktop.show();bar.appear();
@@ -156,8 +224,8 @@ private Q_SLOTS:
     }
     void pendingTimersAreOwnedAndDoNotOutliveWindow() {
         QWidget desktop;desktop.resize(900,600);auto bar=new RemoteAccessToolBar(&desktop,false,true);desktop.show();
-        leave(*bar);QTRY_VERIFY_WITH_TIMEOUT(!bar->isExpanded(),1400);bar->requestRevealAt({0,200});
-        QPointer<RemoteAccessToolBar> pointer(bar);delete bar;QVERIFY(pointer.isNull());QTest::qWait(750);
+        leave(*bar);QTRY_VERIFY_WITH_TIMEOUT(!bar->isExpanded(),1400);bar->requestRevealAt({400,0});
+        QPointer<RemoteAccessToolBar> pointer(bar);delete bar;QVERIFY(pointer.isNull());QTest::qWait(2100);
     }
     void languagesUseSharedCatalog() {
         for(const auto locale:{"en_US","it_IT"}) {

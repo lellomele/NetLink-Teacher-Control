@@ -14,6 +14,8 @@ class QMessageBox;
 namespace NetLinkUi {
 VEYON_CORE_EXPORT QString copyrightText();
 VEYON_CORE_EXPORT QString applicationName(const QString& configuredName);
+// Product version for UI only; preserve the underlying Veyon protocol version.
+VEYON_CORE_EXPORT QString displayVersion(const QString& technicalVersion);
 // Shared UI catalog: canonical English, Italian fallback, then Qt translations.
 VEYON_CORE_EXPORT QString text(const QString& source);
 VEYON_CORE_EXPORT QString text(const char* source);

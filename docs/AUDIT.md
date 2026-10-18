@@ -1,7 +1,30 @@
-# Audit and release gates — NetLink 0.1.0-alpha.16
+# Audit and release gates — NetLink 1.0.0-alpha.18
 
 Status: **partial audit and preliminary implementation, not a completed security
 audit, certified WS-Discovery implementation or production-ready release**.
+
+## Alpha 18 persistent pin and explicit edge selection
+
+Only the selected edge reveals the controls, starting at the top in each new
+session. Right-click is consumed locally on the panel, pin and command buttons,
+and rotates once on release: top/left/bottom/right. It must not open shortcut
+menus, toggle view-only/fullscreen, disconnect or forward input to the client.
+Changing edge cancels pending reveal requests; no position is stored in system
+configuration and no network protocol, service or authentication identity changes.
+
+The pin is a separate, always-visible 44-pixel control outside the command panel.
+Its parent-relative position is stable between expansion and collapse. An owned
+idle timer and 220-ms animation attenuate only the pin to 38% opacity after 1.8 s.
+Hover/focus/menu use restores visibility immediately; high contrast disables the
+fade. No graphics effect, whole-window opacity, desktop overlay or capture change
+is used. Pinning keeps the commands open but does not disable the idle pin fade.
+
+Real-widget tests cover active/inactive edges, right clicks on backgrounds and
+buttons, stable pin position, fade/wake, click-command isolation, layout, focus
+and disposal at three DPI scales. They are not a native VNC keyboard/mouse pilot.
+NetLink product names and UI use 1.0.0-alpha.18; internal Veyon version numbers
+remain 4.7.5 for compatibility. The change in product version is not a stability
+claim, and the installer remains an unsigned alpha for test PCs.
 
 ## Alpha 16 compact remote controls
 

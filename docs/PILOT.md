@@ -18,6 +18,30 @@ Non pubblicare chiavi private, password o esportazioni di configurazione.
    servizio dopo modifiche. Nel Master la miniatura deve aggiornarsi.
 5. Annotare build OS, antivirus/firewall, latenza e carico CPU a riposo.
 
+## 1.0.0-alpha.18: puntina permanente e un solo bordo attivo
+
+1. Conservare JSON e chiavi; chiudere le applicazioni e aggiornare il Master con
+   il pacchetto completo. Se richiesto, riavviare e rilanciare l'installer. Non
+   rigenerare chiavi. Il client non richiede modifiche per il nuovo menu.
+2. Aprire il controllo remoto del DELL: inizialmente solo il bordo superiore deve
+   richiamare la barra. Provare gli altri tre bordi senza provocarne lo spostamento.
+3. Uscire dalla barra: i comandi si richiudono ma la puntina resta nel medesimo
+   punto. Dopo circa 1,8 s si attenua, senza scomparire. Tornando sopra la puntina
+   deve diventare subito nitida e richiamare i comandi dopo una breve sosta.
+4. Clic sinistro sulla puntina: fissare e sbloccare la barra aperta. Clic destro
+   sulla puntina, sullo sfondo della barra e sui suoi pulsanti: devono spostarsi
+   insieme alto → sinistra → basso → destra → alto, una volta per clic e senza
+   inviare comandi al DELL. Provare anche quando la barra è chiusa o fissata.
+5. Dopo ogni spostamento solo il nuovo bordo deve richiamare la barra. Verificare
+   orientamento, posizione della puntina invariata tra apertura/chiusura, fullscreen,
+   finestre strette, DPI 100/150/200%, lingua e cambio di aspetto in tempo reale.
+6. Tenere aperto un menu o navigare nei pulsanti con la tastiera: barra e puntina
+   devono restare leggibili. Provare contrasto elevato Windows: niente attenuazione.
+   Richiudere la sessione e riaprirla: si riparte dall'alto, senza nuove impostazioni.
+7. In Informazioni e nei dettagli dell'icona verificare **1.0.0-alpha.18**. La base
+   tecnica e il protocollo restano Veyon 4.7.5: le versioni tecniche nei rapporti/CLI
+   conservano quel prefisso. Non equivale al passaggio a una versione stabile.
+
 ## Alpha.16: barra compatta del controllo remoto
 
 1. Salvare JSON e chiavi; chiudere le applicazioni e aggiornare con il pacchetto

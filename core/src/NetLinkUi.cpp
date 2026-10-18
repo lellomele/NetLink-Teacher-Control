@@ -113,6 +113,11 @@ private: QString m_symbol;bool m_soft;QColor m_color;bool m_colorful;
 }
 
 QString NetLinkUi::copyrightText() { return QString::fromUtf8("© 2026 prof. Ing. Raffaele Mele"); }
+QString NetLinkUi::displayVersion(const QString& technicalVersion) {
+    const auto marker=QStringLiteral("-netlink.");
+    const auto position=technicalVersion.indexOf(marker);
+    return position>=0 && position+marker.size()<technicalVersion.size() ? technicalVersion.mid(position+marker.size()) : technicalVersion;
+}
 QString NetLinkUi::applicationName(const QString& configuredName) {
     const auto name=configuredName.trimmed();
     return name.isEmpty() || name.compare("Veyon",Qt::CaseInsensitive)==0 ||
@@ -215,7 +220,7 @@ QMessageBox* NetLinkUi::showTrayDetails(const QString& snapshot,const QString& v
         box->setAttribute(Qt::WA_DeleteOnClose);box->setAttribute(Qt::WA_QuitOnClose,false);
         box->setWindowIcon(QIcon(":/core/veyon.png"));box->setTextInteractionFlags(Qt::TextSelectableByMouse);
     }
-    box->setText(snapshot.section("\n\n",0,0).left(512)+NetLinkUi::text("\n\nVersion: ")+version.left(100)+NetLinkUi::text("\nLast received: ")+updated.left(32));
+    box->setText(snapshot.section("\n\n",0,0).left(512)+NetLinkUi::text("\n\nVersion: ")+displayVersion(version).left(100)+NetLinkUi::text("\nLast received: ")+updated.left(32));
     box->setInformativeText(NetLinkUi::text("Local server snapshot, not a network test. Use Companion to diagnose connection problems."));
     box->setDetailedText(snapshot.section("\n\n",1).left(1536)+NetLinkUi::text("\n\nAuthorized = connections with successful authentication and access control. Other TCP = connections not yet authorized.\nWSD = WS-Discovery configuration, not successful discovery. Listening does not prove reachability from another computer.\nThis does not verify Internet blocking. Use Companion for network, firewall and key diagnostics."));
     box->show();box->raise();box->activateWindow();return box;

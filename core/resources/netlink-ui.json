@@ -1,4 +1,6 @@
 [
+  {"source":"Hover to show controls. Left-click to pin or unpin. Right-click to move the pin and toolbar to the next edge.","it":"Passa il mouse per mostrare i comandi. Clic sinistro per fissare o sbloccare la barra. Clic destro per spostare puntina e barra al bordo successivo."},
+  {"source":"Toolbar pinned. Left-click to enable automatic hiding. Right-click to move to the next edge.","it":"Barra fissata. Clic sinistro per riattivare la scomparsa automatica. Clic destro per spostarla al bordo successivo."},
   {"source":"Remote access controls","it":"Comandi del controllo remoto"},
   {"source":"View only","it":"Sola visualizzazione"},
   {"source":"Fullscreen","it":"Schermo intero"},

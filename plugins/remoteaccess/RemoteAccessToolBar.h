@@ -28,6 +28,7 @@ public:
     bool isExpanded() const { return m_expanded; }
     Qt::Edge dockEdge() const { return m_edge; }
     void setDockEdge(Qt::Edge edge);
+    void cycleDockEdge();
     void updatePosition();
 
 Q_SIGNALS:
@@ -60,16 +61,18 @@ private:
     bool interactionActive() const;
     void refreshAppearance();
     void updatePinDescription();
+    void wakePin();
+    void schedulePinFade();
     QWidget* m_panel;
     QGridLayout* m_layout;
     QToolButton* m_pinButton;
-    QToolButton* m_handle;
     QTimer m_revealTimer;
     QTimer m_hideTimer;
+    QTimer m_pinFadeTimer;
     Qt::Edge m_edge = Qt::TopEdge;
-    Qt::Edge m_pendingEdge = Qt::TopEdge;
     bool m_pinned = false;
     bool m_expanded = true;
     bool m_pointerInside = false;
     bool m_positioning = false;
+    bool m_rightClickPressed = false;
 };

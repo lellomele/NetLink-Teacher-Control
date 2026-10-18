@@ -5,19 +5,53 @@
 #include "NetLinkUi.h"
 #include <QApplication>
 #include <QEvent>
+#include <QContextMenuEvent>
 #include <QGridLayout>
 #include <QMenu>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QScopedValueRollback>
+#include <QRegion>
 #include <QSignalBlocker>
 #include <QStyle>
+#include <QStyleOptionToolButton>
 #include <QToolButton>
+#include <QVariantAnimation>
 
 namespace {
 constexpr int ButtonExtent = 44;
 constexpr int Spacing = 4;
 constexpr int PanelMargin = 6;
 constexpr int EdgeMargin = 8;
+
+// Fade this 44x44 control only, not the remote view or a backing overlay.
+// Native style drawing keeps the Console's palette, icon set and focus ring.
+class RemoteAccessPinButton final : public QToolButton
+{
+public:
+    explicit RemoteAccessPinButton(QWidget* parent) : QToolButton(parent), m_fade(this) {
+        m_fade.setDuration(220);
+        connect(&m_fade,&QVariantAnimation::valueChanged,this,[this](const QVariant& value) {
+            m_opacity=value.toReal();update();
+        });
+    }
+    void setIdle(bool idle) {
+        idle=idle && !qApp->property("netlinkHighContrast").toBool();
+        if(property("netlinkPinIdle").toBool()==idle && (!idle || m_opacity<1.)) return;
+        setProperty("netlinkPinIdle",idle);m_fade.stop();
+        if(idle) {m_fade.setStartValue(m_opacity);m_fade.setEndValue(.38);m_fade.start();}
+        else {m_opacity=1.;update();}
+    }
+protected:
+    void paintEvent(QPaintEvent*) override {
+        QStyleOptionToolButton option;initStyleOption(&option);
+        QPainter painter(this);painter.setOpacity(m_opacity);
+        style()->drawComplexControl(QStyle::CC_ToolButton,&option,&painter,this);
+    }
+private:
+    QVariantAnimation m_fade;
+    qreal m_opacity=1.;
+};
 }
 
 RemoteAccessToolBar::RemoteAccessToolBar(QWidget* parent, bool viewOnly, bool showViewOnlyToggle) :
@@ -29,14 +63,16 @@ RemoteAccessToolBar::RemoteAccessToolBar(QWidget* parent, bool viewOnly, bool sh
     m_fullScreenButton(new QToolButton),
     m_exitButton(new QToolButton),
     m_panel(new QWidget(this)), m_layout(new QGridLayout(m_panel)),
-    m_pinButton(new QToolButton), m_handle(new QToolButton(this))
+    m_pinButton(new RemoteAccessPinButton(this))
 {
     setObjectName(QStringLiteral("netlinkRemoteToolbar"));
     setAccessibleName(NetLinkUi::text("Remote access controls"));
     setAttribute(Qt::WA_NoMousePropagation);
+    installEventFilter(this);
     m_panel->setObjectName(QStringLiteral("remoteToolbarPanel"));
+    m_panel->installEventFilter(this);
     const auto setup = [this](QToolButton* button, const char* name, const char* label, const char* description) {
-        button->setParent(m_panel);
+        button->setParent(button==m_pinButton ? this : m_panel);
         button->setObjectName(QString::fromLatin1(name));
         button->setProperty("netlinkCompactButton", true);
         button->setText(NetLinkUi::text(label));
@@ -68,7 +104,7 @@ RemoteAccessToolBar::RemoteAccessToolBar(QWidget* parent, bool viewOnly, bool sh
     }
     setup(m_screenshotButton, "remoteScreenshot", "Screenshot", "Save a screenshot of the remote computer.");
     setup(m_fullScreenButton, "remoteFullscreen", "Fullscreen", "Switch this remote session between fullscreen and windowed mode.");
-    setup(m_pinButton, "remotePin", "Pin toolbar", "Keep the remote controls open. Click again to enable automatic hiding.");
+    setup(m_pinButton, "remotePin", "Pin toolbar", "Hover to show controls. Left-click to pin or unpin. Right-click to move the pin and toolbar to the next edge.");
     setup(m_exitButton, "remoteDisconnect", "Disconnect", "End this remote session. The remote computer and its applications remain running.");
     m_exitButton->setProperty("netlinkDisconnectButton", true);
     m_fullScreenButton->setCheckable(true);
@@ -82,28 +118,25 @@ RemoteAccessToolBar::RemoteAccessToolBar(QWidget* parent, bool viewOnly, bool sh
         auto menu = new QMenu(button);
         button->setMenu(menu);
         button->setPopupMode(QToolButton::InstantPopup);
-        connect(menu, &QMenu::aboutToShow, this, [this] { m_hideTimer.stop(); cancelReveal(); });
+        connect(menu, &QMenu::aboutToShow, this, [this] { m_hideTimer.stop(); cancelReveal(); wakePin(); });
         connect(menu, &QMenu::aboutToHide, this, [this] {
             QTimer::singleShot(0, this, [this] { Q_EMIT returnFocusToView(); disappear(); });
         });
     }
-    m_handle->setObjectName(QStringLiteral("remoteToolbarHandle"));
-    m_handle->setAccessibleName(NetLinkUi::text("Show remote controls"));
-    m_handle->setToolTip(NetLinkUi::text("Show remote controls. Use the pin to keep the toolbar open."));
-    m_handle->setAutoRaise(true);
-    m_handle->installEventFilter(this);
-    connect(m_handle, &QToolButton::clicked, this, [this] {
-        appear();QTimer::singleShot(0,this,[this] { Q_EMIT returnFocusToView(); disappear(); });
-    });
     m_revealTimer.setSingleShot(true);
     m_revealTimer.setInterval(350);
     m_hideTimer.setSingleShot(true);
     m_hideTimer.setInterval(650);
     connect(&m_revealTimer, &QTimer::timeout, this, [this] {
-        if(!m_pinned) { setDockEdge(m_pendingEdge); appear(); }
+        if(!m_pinned) appear();
     });
     connect(&m_hideTimer, &QTimer::timeout, this, [this] {
         if(!m_pinned && !interactionActive()) setExpanded(false);
+    });
+    m_pinFadeTimer.setSingleShot(true);
+    m_pinFadeTimer.setInterval(1800);
+    connect(&m_pinFadeTimer,&QTimer::timeout,this,[this] {
+        if(!interactionActive()) static_cast<RemoteAccessPinButton*>(m_pinButton)->setIdle(true);
     });
     m_layout->setContentsMargins(PanelMargin, PanelMargin, PanelMargin, PanelMargin);
     m_layout->setSpacing(Spacing);
@@ -113,7 +146,7 @@ RemoteAccessToolBar::RemoteAccessToolBar(QWidget* parent, bool viewOnly, bool sh
         connect(appearance, &NetLinkAppearance::changed, this, &RemoteAccessToolBar::refreshAppearance);
     updateControls(viewOnly);
     refreshAppearance();
-    m_handle->hide();
+    updatePinDescription();
     show();
     updatePosition();
     disappear();
@@ -121,7 +154,7 @@ RemoteAccessToolBar::RemoteAccessToolBar(QWidget* parent, bool viewOnly, bool sh
 
 void RemoteAccessToolBar::appear()
 {
-    cancelReveal(); m_hideTimer.stop(); setExpanded(true);
+    cancelReveal(); m_hideTimer.stop(); wakePin(); setExpanded(true);
     // If the pointer just touched an edge and stays on the desktop, do not
     // leave a transient toolbar open forever. Entering it cancels this timer.
     disappear();
@@ -130,6 +163,7 @@ void RemoteAccessToolBar::appear()
 void RemoteAccessToolBar::disappear()
 {
     if(!m_pinned && m_expanded && !interactionActive() && !m_hideTimer.isActive()) m_hideTimer.start();
+    schedulePinFade();
 }
 
 void RemoteAccessToolBar::cancelReveal() { m_revealTimer.stop(); }
@@ -138,22 +172,18 @@ void RemoteAccessToolBar::requestRevealAt(const QPoint& position)
 {
     if(m_pinned || m_expanded || !parentWidget()->rect().contains(position)) { cancelReveal(); return; }
     const auto area = parentWidget()->rect();
-    Qt::Edge edge;
-    if(position.y() <= 3) edge = Qt::TopEdge;
-    else if(position.y() >= area.bottom()-3) edge = Qt::BottomEdge;
-    else if(position.x() <= 3) edge = Qt::LeftEdge;
-    else if(position.x() >= area.right()-3) edge = Qt::RightEdge;
-    else { cancelReveal(); return; }
-    if(!m_revealTimer.isActive() || edge != m_pendingEdge) {
-        m_pendingEdge = edge; m_revealTimer.start();
-    }
+    const bool activeEdge = m_edge==Qt::TopEdge ? position.y()<=3 :
+        m_edge==Qt::BottomEdge ? position.y()>=area.bottom()-3 :
+        m_edge==Qt::LeftEdge ? position.x()<=3 : position.x()>=area.right()-3;
+    if(!activeEdge) {cancelReveal();return;}
+    if(!m_revealTimer.isActive()) m_revealTimer.start();
 }
 
 void RemoteAccessToolBar::setExpanded(bool expanded)
 {
     m_expanded = expanded;
     m_panel->setVisible(expanded);
-    m_handle->setVisible(!expanded);
+    m_pinButton->show();
     updatePosition();
     raise();
     update();
@@ -170,8 +200,8 @@ void RemoteAccessToolBar::setPinned(bool pinned)
 
 void RemoteAccessToolBar::updatePinDescription()
 {
-    m_pinButton->setToolTip(m_pinned ? NetLinkUi::text("Toolbar pinned. Click to enable automatic hiding.") :
-        NetLinkUi::text("Keep the remote controls open. Click again to enable automatic hiding."));
+    m_pinButton->setToolTip(m_pinned ? NetLinkUi::text("Toolbar pinned. Left-click to enable automatic hiding. Right-click to move to the next edge.") :
+        NetLinkUi::text("Hover to show controls. Left-click to pin or unpin. Right-click to move the pin and toolbar to the next edge."));
     m_pinButton->setAccessibleDescription(m_pinButton->toolTip());
 }
 
@@ -204,7 +234,25 @@ bool RemoteAccessToolBar::interactionActive() const
 void RemoteAccessToolBar::setDockEdge(Qt::Edge edge)
 {
     if(edge != Qt::TopEdge && edge != Qt::BottomEdge && edge != Qt::LeftEdge && edge != Qt::RightEdge) return;
-    m_edge = edge; updatePosition();
+    cancelReveal();m_edge = edge; updatePosition();
+}
+
+void RemoteAccessToolBar::cycleDockEdge()
+{
+    setDockEdge(m_edge==Qt::TopEdge ? Qt::LeftEdge : m_edge==Qt::LeftEdge ? Qt::BottomEdge :
+        m_edge==Qt::BottomEdge ? Qt::RightEdge : Qt::TopEdge);
+    m_pointerInside=false;wakePin();
+    QTimer::singleShot(0,this,[this] {Q_EMIT returnFocusToView();disappear();});
+}
+
+void RemoteAccessToolBar::wakePin()
+{
+    m_pinFadeTimer.stop();static_cast<RemoteAccessPinButton*>(m_pinButton)->setIdle(false);
+}
+
+void RemoteAccessToolBar::schedulePinFade()
+{
+    if(!interactionActive() && !m_pinFadeTimer.isActive()) m_pinFadeTimer.start();
 }
 
 void RemoteAccessToolBar::updatePosition()
@@ -212,12 +260,12 @@ void RemoteAccessToolBar::updatePosition()
     if(m_positioning || !parentWidget()) return;
     QScopedValueRollback<bool> guard(m_positioning, true);
     const bool horizontal = m_edge == Qt::TopEdge || m_edge == Qt::BottomEdge;
-    QSize extent;
+    QSize extent, panelExtent;
     if(m_expanded) {
         while(auto item = m_layout->takeAt(0)) delete item;
         QList<QToolButton*> buttons{m_selectScreenButton, m_sendShortcutButton};
         if(m_viewOnlyButton) buttons.append(m_viewOnlyButton);
-        buttons << m_screenshotButton << m_fullScreenButton << m_pinButton << m_exitButton;
+        buttons << m_screenshotButton << m_fullScreenButton << m_exitButton;
         const int available = horizontal ? parentWidget()->width() : parentWidget()->height();
         const int perLine = qMax(1, (available-2*EdgeMargin-2*PanelMargin+Spacing)/(ButtonExtent+Spacing));
         int count = 0;
@@ -231,31 +279,57 @@ void RemoteAccessToolBar::updatePosition()
         const int major = qMin(count, perLine), minor = (count+perLine-1)/perLine;
         const QSize grid(2*PanelMargin+major*ButtonExtent+qMax(0,major-1)*Spacing,
             2*PanelMargin+minor*ButtonExtent+qMax(0,minor-1)*Spacing);
-        extent = horizontal ? grid : QSize(grid.height(), grid.width());
-    } else extent = horizontal ? QSize(64,16) : QSize(16,64);
+        panelExtent = horizontal ? grid : QSize(grid.height(), grid.width());
+        extent = horizontal ? QSize(qMax(ButtonExtent,panelExtent.width()),ButtonExtent+Spacing+panelExtent.height()) :
+            QSize(ButtonExtent+Spacing+panelExtent.width(),qMax(ButtonExtent,panelExtent.height()));
+    } else extent = QSize(ButtonExtent,ButtonExtent);
     extent = extent.boundedTo(parentWidget()->size());
     resize(extent);
-    m_panel->setGeometry(rect()); m_handle->setGeometry(rect());
+    if(horizontal) {
+        m_pinButton->move((width()-ButtonExtent)/2,m_edge==Qt::TopEdge ? 0 : height()-ButtonExtent);
+        m_panel->setGeometry((width()-panelExtent.width())/2,m_edge==Qt::TopEdge ? ButtonExtent+Spacing : 0,panelExtent.width(),panelExtent.height());
+    } else {
+        m_pinButton->move(m_edge==Qt::LeftEdge ? 0 : width()-ButtonExtent,(height()-ButtonExtent)/2);
+        m_panel->setGeometry(m_edge==Qt::LeftEdge ? ButtonExtent+Spacing : 0,(height()-panelExtent.height())/2,panelExtent.width(),panelExtent.height());
+    }
     m_layout->activate();
-    m_handle->setArrowType(m_edge == Qt::TopEdge ? Qt::DownArrow : m_edge == Qt::BottomEdge ? Qt::UpArrow :
-        m_edge == Qt::LeftEdge ? Qt::RightArrow : Qt::LeftArrow);
+    // Transparent space beside the permanent pin must remain clickable on
+    // the remote desktop, not become an invisible input-catching overlay.
+    auto inputRegion=QRegion(m_pinButton->geometry());
+    if(m_expanded) inputRegion=inputRegion.united(QRegion(m_panel->geometry()));
+    setMask(inputRegion);
     const int x = horizontal ? (parentWidget()->width()-width())/2 :
-        m_edge == Qt::LeftEdge ? (m_expanded ? EdgeMargin : 0) : parentWidget()->width()-width()-(m_expanded ? EdgeMargin : 0);
+        m_edge == Qt::LeftEdge ? 0 : parentWidget()->width()-width();
     const int y = !horizontal ? (parentWidget()->height()-height())/2 :
-        m_edge == Qt::TopEdge ? (m_expanded ? EdgeMargin : 0) : parentWidget()->height()-height()-(m_expanded ? EdgeMargin : 0);
+        m_edge == Qt::TopEdge ? 0 : parentWidget()->height()-height();
     move(qBound(0,x,qMax(0,parentWidget()->width()-width())), qBound(0,y,qMax(0,parentWidget()->height()-height())));
     raise();
 }
 
 bool RemoteAccessToolBar::eventFilter(QObject* watched, QEvent* event)
 {
+    if(event->type()==QEvent::UngrabMouse || event->type()==QEvent::WindowDeactivate) m_rightClickPressed=false;
+    if(watched!=parentWidget()) {
+        if(event->type()==QEvent::MouseButtonPress || event->type()==QEvent::MouseButtonDblClick) {
+            if(static_cast<QMouseEvent*>(event)->button()==Qt::RightButton) {
+                m_rightClickPressed=true;m_hideTimer.stop();cancelReveal();wakePin();return true;
+            }
+        }
+        if(event->type()==QEvent::MouseButtonRelease && static_cast<QMouseEvent*>(event)->button()==Qt::RightButton && m_rightClickPressed) {
+            m_rightClickPressed=false;cycleDockEdge();return true;
+        }
+        if(event->type()==QEvent::ContextMenu) {
+            if(static_cast<QContextMenuEvent*>(event)->reason()==QContextMenuEvent::Keyboard) cycleDockEdge();
+            return true;
+        }
+    }
     if(watched == parentWidget() && event->type() == QEvent::Resize) updatePosition();
-    if(watched == m_handle) {
-        if(event->type() == QEvent::Enter) { m_pendingEdge = m_edge; m_revealTimer.start(); }
+    if(watched == m_pinButton) {
+        if(event->type() == QEvent::Enter) { wakePin();if(!m_expanded) m_revealTimer.start(); }
         if(event->type() == QEvent::Leave) cancelReveal();
     }
     if(watched != parentWidget()) {
-        if(event->type() == QEvent::FocusIn) m_hideTimer.stop();
+        if(event->type() == QEvent::FocusIn) {m_hideTimer.stop();wakePin();}
         if(event->type() == QEvent::FocusOut)
             QTimer::singleShot(0,this,[this] { disappear(); });
     }
@@ -268,7 +342,7 @@ void RemoteAccessToolBar::enterEvent(QEnterEvent* event)
 void RemoteAccessToolBar::enterEvent(QEvent* event)
 #endif
 {
-    m_pointerInside = true; m_hideTimer.stop(); QWidget::enterEvent(event);
+    m_pointerInside = true; m_hideTimer.stop();wakePin(); QWidget::enterEvent(event);
 }
 void RemoteAccessToolBar::leaveEvent(QEvent* event)
 {
@@ -278,12 +352,12 @@ void RemoteAccessToolBar::leaveEvent(QEvent* event)
 void RemoteAccessToolBar::paintEvent(QPaintEvent*)
 {
     QPainter painter(this); painter.setRenderHint(QPainter::Antialiasing);
-    painter.setPen(palette().color(QPalette::Mid));
-    painter.setBrush(palette().color(QPalette::Window));
-    painter.drawRoundedRect(QRectF(rect()).adjusted(.5,.5,-.5,-.5),8,8);
     // The disconnect command has its own outline and breathing space; no
     // ambiguous power/shutdown icon and no whole-desktop dimming layer.
     if(m_expanded) {
+        painter.setPen(palette().color(QPalette::Mid));
+        painter.setBrush(palette().color(QPalette::Window));
+        painter.drawRoundedRect(QRectF(m_panel->geometry()).adjusted(.5,.5,-.5,-.5),8,8);
         const auto box = QRect(m_exitButton->mapTo(this,QPoint()),m_exitButton->size()).adjusted(-1,-1,1,1);
         painter.setPen(palette().color(QPalette::Highlight)); painter.setBrush(Qt::NoBrush);
         painter.drawRoundedRect(box,6,6);
@@ -309,6 +383,7 @@ void RemoteAccessToolBar::refreshAppearance()
     m_screenshotButton->setIcon(NetLinkUi::icon(QStringLiteral("Screenshot"),set,color,classic("camera-photo.png")));
     m_fullScreenButton->setIcon(NetLinkUi::icon(QStringLiteral("fullscreen"),set,color,classic("view-fullscreen.png")));
     m_pinButton->setIcon(NetLinkUi::icon(QStringLiteral("pin"),set,color));
+    if(qApp->property("netlinkHighContrast").toBool()) static_cast<RemoteAccessPinButton*>(m_pinButton)->setIdle(false);
     m_exitButton->setIcon(NetLinkUi::icon(QStringLiteral("UserLogoff"),set,color,classic("application-exit.png")));
     update();
 }

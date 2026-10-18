@@ -38,9 +38,10 @@ AboutDialog::AboutDialog( QWidget *parent ) :
 {
 	ui->setupUi( this );
 
-	setWindowTitle( NetLinkUi::windowTitle(tr( "About %1 %2" ).arg( VeyonCore::applicationName(), VeyonCore::versionString() )) );
+	const auto productVersion=NetLinkUi::displayVersion(VeyonCore::versionString());
+	setWindowTitle( NetLinkUi::windowTitle(tr( "About %1 %2" ).arg( VeyonCore::applicationName(), productVersion )) );
 
-	ui->versionLabel->setText( VeyonCore::versionString() );
+	ui->versionLabel->setText( productVersion );
 
 	QFile authors( QStringLiteral( ":/CONTRIBUTORS" ) );
 	authors.open( QFile::ReadOnly ); // Flawfinder: ignore
