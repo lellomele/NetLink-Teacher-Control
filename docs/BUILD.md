@@ -18,6 +18,14 @@ Install MSYS2 MinGW64 build packages:
 pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja mingw-w64-x86_64-qt5-base mingw-w64-x86_64-qt5-tools mingw-w64-x86_64-qca-qt5 mingw-w64-x86_64-openssl mingw-w64-x86_64-openldap mingw-w64-x86_64-lzo2 mingw-w64-x86_64-libjpeg-turbo mingw-w64-x86_64-libpng mingw-w64-x86_64-zlib mingw-w64-x86_64-nsis
 ```
 
+If the live MinGW64 index no longer offers `qca-qt5` or `openldap`, install the
+other listed packages first, then run in the MSYS2 MinGW64 shell:
+`bash .github/scripts/install-school-build-libraries.sh`.
+The script retrieves the official QCA 2.3.10-2 and OpenLDAP 2.6.12-1 package
+archives, checks pinned SHA-256 hashes and lets pacman validate signatures and
+dependencies. This is a developer/CI step only; the installer already bundles
+the required runtime. Do not mix UCRT64 and MinGW64 libraries in one build.
+
 In PowerShell, add `C:\msys64\mingw64\bin` to PATH and configure:
 
 ```

@@ -5,3 +5,5 @@
 patches-*.diff text eol=lf -whitespace
 # Official schemas are retained without whitespace-only rewrites.
 tests/schemas/*.xsd -whitespace
+# Bash scripts must also remain executable by bash after a Windows checkout.
+.github/scripts/*.sh text eol=lf
