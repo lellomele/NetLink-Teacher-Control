@@ -20,10 +20,11 @@ Var MaintenanceMutex
  !define LOCKNAME "Global\NetLinkInstallerMaintenance"
  RequestExecutionLevel admin
 !endif
-Name "NetLink 0.1.0 alpha.14"
-OutFile "${OUTPUT}\NetLink-0.1.0-alpha.14-win64-setup.exe"
+Name "NetLink 0.1.0 alpha.15"
+OutFile "${OUTPUT}\NetLink-0.1.0-alpha.15-win64-setup.exe"
 InstallDir "$PROGRAMFILES64\Veyon School"
 SetCompressor /SOLID lzma
+AllowSkipFiles off
 !define MUI_ICON "${REPOROOT}\branding\netlink.ico"
 !define MUI_UNICON "${REPOROOT}\branding\netlink.ico"
 !insertmacro MUI_PAGE_WELCOME
@@ -33,10 +34,10 @@ SetCompressor /SOLID lzma
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "Italian"
-VIProductVersion "4.7.5.14"
+VIProductVersion "4.7.5.15"
 VIAddVersionKey /LANG=1040 "ProductName" "NetLink"
 VIAddVersionKey /LANG=1040 "FileDescription" "NetLink installer (pre-release)"
-VIAddVersionKey /LANG=1040 "FileVersion" "0.1.0-alpha.14"
+VIAddVersionKey /LANG=1040 "FileVersion" "0.1.0-alpha.15"
 VIAddVersionKey /LANG=1040 "LegalCopyright" "Copyright (c) 2025-26 prof. Ing. Raffaele Mele; Veyon e contributori"
 Function .onInit
  System::Call 'kernel32::CreateMutexW(p 0, i 0, w "${LOCKNAME}") p .r0 ?e'
@@ -114,6 +115,26 @@ FunctionEnd
    Abort "${MESSAGE} (codice $0). Dettagli: C:\ProgramData\NetLink\maintenance-error.txt"
  ${EndIf}
 !macroend
+!macro CheckInstallerReady ACTION EXTRA
+ ClearErrors
+ nsExec::ExecToLog /TIMEOUT=45000 '"$PLUGINSDIR\netlink-maintenance.exe" ${ACTION}${MAINTARGS}${EXTRA}'
+ Pop $0
+ ${If} $0 == 3010
+   DetailPrint "Riavvio necessario prima della copia dei file. Configurazione e chiavi conservate."
+   SetRebootFlag true
+   SetErrorLevel 3010
+   IfSilent +2
+   MessageBox MB_OK|MB_ICONEXCLAMATION "Riavvio necessario.$\r$\n$\r$\nAlcuni file di NetLink sono ancora in uso oppure attendono la rimozione al riavvio.$\r$\nNessun file del programma è stato sovrascritto. Configurazione e chiavi NetLink sono conservate.$\r$\n$\r$\nChiudi questo installer, scegli Riavvia in Windows e poi esegui nuovamente l'installer completo.$\r$\nNon cancellare DLL e non rigenerare le chiavi."
+   Quit
+ ${ElseIf} ${Errors}
+ ${OrIf} $0 != 0
+   DetailPrint "Controllo preventivo non riuscito (codice $0). Copia non iniziata."
+   SetErrorLevel 1
+   IfSilent +2
+   MessageBox MB_OK|MB_ICONSTOP "Impossibile verificare i file da sostituire (codice $0).$\r$\nLa copia non è iniziata.$\r$\n$\r$\nChiudi le applicazioni NetLink e verifica le autorizzazioni. Dettagli: C:\ProgramData\NetLink\maintenance-error.txt"
+   Quit
+ ${EndIf}
+!macroend
 Section "NetLink"
  SetShellVarContext all
  ; Never execute a leftover Qt CLI before restoring its runtime. This helper
@@ -121,8 +142,11 @@ Section "NetLink"
  InitPluginsDir
  SetOutPath "$PLUGINSDIR"
  File /oname=netlink-maintenance.exe "${PAYLOAD}\netlink-maintenance.exe"
- !insertmacro RunMaintenance "check-pending" "Riavviare Windows prima di reinstallare: rimozioni precedenti ancora in sospeso"
+ File /oname=replacement.sha256 "${PAYLOAD}\payload.sha256"
+ !insertmacro CheckInstallerReady "check-pending" ""
  !insertmacro RunMaintenance "backup" "Backup delle impostazioni non riuscito; nessun file è stato sostituito"
+ !insertmacro RunMaintenance "quiesce" "Impossibile arrestare il servizio per verificare i file; chiudere le applicazioni e riavviare"
+ !insertmacro CheckInstallerReady "check-files" ' "$PLUGINSDIR\replacement.sha256"'
  !insertmacro RunMaintenance "stop" "Impossibile arrestare/rimuovere il servizio precedente; chiudere le applicazioni e riavviare"
  SetOutPath "$INSTDIR"
  ClearErrors
@@ -187,7 +211,7 @@ Section "NetLink"
  Delete "$SMPROGRAMS\Veyon School\Configurator.lnk"
  RMDir "$SMPROGRAMS\Veyon School"
  !endif
- WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayName" "NetLink 0.1.0 alpha.14"
+ WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayName" "NetLink 0.1.0 alpha.15"
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayIcon" "$INSTDIR\netlink-master.exe"
 SectionEnd

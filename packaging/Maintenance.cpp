@@ -209,7 +209,7 @@ void backup(const fs::path& root) {
     std::wofstream latest(recoveryRoot() / L"latest.txt"); latest << destination.wstring();
     require(bool(latest), "Write recovery location");
 }
-void stopService(const fs::path& root) {
+void stopService(const fs::path& root, bool unregister = true) {
     SC_HANDLE manager = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT);
     require(manager != nullptr, "Open service manager");
     SC_HANDLE service = OpenServiceW(manager, L"VeyonSchoolService", SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS | SERVICE_STOP | DELETE);
@@ -234,6 +234,8 @@ void stopService(const fs::path& root) {
             Sleep(100);
         } while(GetTickCount64()<deadline);
         require(status.dwCurrentState==SERVICE_STOPPED, "Service stop timed out");
+        // Pre-copy checks must not unregister an otherwise working installation.
+        if(!unregister) { CloseServiceHandle(service); CloseServiceHandle(manager); return; }
         require(DeleteService(service), "Unregister NetLink service");
     } catch(...) { CloseServiceHandle(service); CloseServiceHandle(manager); throw; }
     CloseServiceHandle(service);
@@ -332,6 +334,65 @@ bool pendingRemoval(const fs::path& root) {
     }
     return false;
 }
+std::string pathText(const fs::path& path) {
+    const auto bytes=path.u8string();
+    return std::string(bytes.begin(),bytes.end());
+}
+void checkReplacementFiles(const fs::path& root, const fs::path& manifestPath) {
+    noLinks(root); noLinks(manifestPath);
+    require(fs::file_size(manifestPath)>0 && fs::file_size(manifestPath)<=1024*1024,"Invalid replacement manifest size");
+    std::ifstream manifest(manifestPath,std::ios::binary);
+    require(bool(manifest),"Replacement manifest missing");
+    std::vector<fs::path> files;
+    std::string line;
+    while(std::getline(manifest,line)) {
+        if(!line.empty() && line.back()=='\r') line.pop_back();
+        require(files.size()<4096 && line.size()>66 && line.size()<=4096 && line.substr(64,2)=="  " &&
+            line.find('\0')==std::string::npos && std::all_of(line.begin(),line.begin()+64,
+                [](unsigned char c){return std::isxdigit(c)!=0;}),"Invalid replacement manifest");
+        const auto relative=fs::u8path(line.substr(66));
+        require(!relative.has_root_path() && relative.native().find(L':')==std::wstring::npos &&
+            within(root/relative,root),"Unsafe replacement path");
+        for(const auto& part:relative)
+            require(part!=L"." && part!=L".." && !part.empty() && part.native().back()!=L' ' &&
+                part.native().back()!=L'.',"Unsafe replacement component");
+        files.push_back(root/relative);
+    }
+    require(manifest.eof() && !files.empty(),"Incomplete replacement manifest");
+    files.push_back(root/L"payload.sha256");
+    files.push_back(root/L"Uninstall.exe");
+    // Only installer-owned destinations, never authentication files or arbitrary
+    // data from the installed manifest. Also check the exact legacy retirements.
+    for(const auto name:{L"veyon-master.exe",L"veyon-configurator.exe",L"veyon-service.exe",
+                        L"veyon-server.exe",L"veyon-worker.exe",L"veyon-cli.exe",L"veyon-wcli.exe"})
+        files.push_back(root/name);
+    for(const auto& path:files) {
+        noLinks(path);
+        const auto attributes=GetFileAttributesW(path.c_str());
+        if(attributes==INVALID_FILE_ATTRIBUTES) {
+            const auto error=GetLastError();
+            if(error==ERROR_FILE_NOT_FOUND || error==ERROR_PATH_NOT_FOUND) continue;
+            throw Error(("Cannot inspect replacement file: "+pathText(path)).c_str(),error);
+        }
+        require(!(attributes & FILE_ATTRIBUTE_DIRECTORY),"Replacement destination is a directory");
+        if(attributes & FILE_ATTRIBUTE_READONLY)
+            throw Error(("Read-only replacement file: "+pathText(path)).c_str(),ERROR_ACCESS_DENIED);
+        // OPEN_EXISTING does not truncate, write, delete, rename or change ACLs.
+        // Exclusive write access detects both open handles and mapped DLL images.
+        const auto file=CreateFileW(path.c_str(),GENERIC_WRITE,0,nullptr,OPEN_EXISTING,
+                                    FILE_ATTRIBUTE_NORMAL|FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
+        if(file==INVALID_HANDLE_VALUE) {
+            const auto error=GetLastError();
+            if(error==ERROR_FILE_NOT_FOUND || error==ERROR_PATH_NOT_FOUND) continue;
+            const bool busy=error==ERROR_SHARING_VIOLATION || error==ERROR_LOCK_VIOLATION ||
+                error==ERROR_USER_MAPPED_FILE || error==ERROR_DELETE_PENDING;
+            throw Error(((busy?"File still in use; restart Windows: ":"Cannot replace application file: ")+
+                         pathText(path)+" (Windows "+std::to_string(error)+")").c_str(),
+                        busy?ERROR_SUCCESS_REBOOT_REQUIRED:error);
+        }
+        CloseHandle(file);
+    }
+}
 void verify(const fs::path& root) {
     noLinks(root);
     HCRYPTPROV provider=0; require(CryptAcquireContextW(&provider,nullptr,nullptr,PROV_RSA_AES,CRYPT_VERIFYCONTEXT),"SHA256 provider");
@@ -392,11 +453,17 @@ void cleanupFirewall(const fs::path& root) {
 int wmain(int argc,wchar_t** argv) {
     using namespace Maintenance;
     try {
-        if(argc!=2) return ERROR_INVALID_PARAMETER;
+        if(argc!=2 && argc!=3) return ERROR_INVALID_PARAMETER;
         const std::wstring action=argv[1]; const auto root=installRoot();
+        if(action==L"check-files" && argc==3) {
+            if(pendingRemoval(root)) return ERROR_SUCCESS_REBOOT_REQUIRED;
+            checkReplacementFiles(root,argv[2]); return 0;
+        }
+        if(argc!=2) return ERROR_INVALID_PARAMETER;
         if(action==L"verify") { verify(root); return 0; }
         if(action==L"check-pending") return pendingRemoval(root) ? ERROR_SUCCESS_REBOOT_REQUIRED : 0;
         if(action==L"check-keys") { checkKeysOutside(root); return 0; }
+        if(action==L"quiesce") { stopService(root,false); return 0; }
         if(action==L"backup") backup(root);
         else if(action==L"stop") stopService(root);
         else if(action==L"clean-settings") cleanupRegistry();

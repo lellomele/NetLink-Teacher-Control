@@ -32,6 +32,42 @@ int wmain(int argc,wchar_t** argv) {
         rejected([&]{verify(root/L"runtime");},"Manifest cannot escape root");
         write(root/L"runtime"/L"payload.sha256","");
         rejected([&]{verify(root/L"runtime");},"Empty manifest refused");
+        const auto replacements=root/L"replacement.sha256";
+        const auto application=root/L"preflight";
+        write(replacements,std::string(64,'0')+"  vnchooks.dll\n");
+        checkReplacementFiles(application,replacements); ++passed;
+        write(application/L"vnchooks.dll","PRESERVE CONTENTS");
+        const auto attributesBefore=GetFileAttributesW((application/L"vnchooks.dll").c_str());
+        checkReplacementFiles(application,replacements); ++passed;
+        check(fs::file_size(application/L"vnchooks.dll")==17,"Preflight never truncates existing files");
+        check(GetFileAttributesW((application/L"vnchooks.dll").c_str())==attributesBefore,"Preflight preserves attributes");
+        auto heldReplacement=CreateFileW((application/L"vnchooks.dll").c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);
+        check(heldReplacement!=INVALID_HANDLE_VALUE,"Hold replacement open");
+        DWORD busyCode=0;
+        try {checkReplacementFiles(application,replacements);} catch(const Error& error) {busyCode=error.code;}
+        CloseHandle(heldReplacement);
+        check(busyCode==ERROR_SUCCESS_REBOOT_REQUIRED,"Locked replacement explicitly requires reboot");
+        checkReplacementFiles(application,replacements); ++passed;
+        fs::remove(application/L"vnchooks.dll");
+        fs::copy_file(known(FOLDERID_System)/L"version.dll",application/L"vnchooks.dll");
+        auto image=LoadLibraryW((application/L"vnchooks.dll").c_str());
+        check(image!=nullptr,"Load real DLL image fixture");
+        busyCode=0;
+        try {checkReplacementFiles(application,replacements);} catch(const Error& error) {busyCode=error.code;}
+        FreeLibrary(image);
+        check(busyCode==ERROR_SUCCESS_REBOOT_REQUIRED,"Mapped DLL image explicitly requires reboot");
+        checkReplacementFiles(application,replacements); ++passed;
+        for(const auto& invalid: {std::string(64,'0')+"  ../outside\n", std::string(64,'0')+"  C:/outside\n",
+                std::string(64,'0')+"  data.bin:stream\n",std::string(64,'0')+"  folder/../data.bin\n",std::string{}}) {
+            write(replacements,invalid);rejected([&]{checkReplacementFiles(application,replacements);},"Invalid replacement plan rejected");
+        }
+        write(replacements,std::string(64,'0')+"  data.bin\n");
+        write(application/L"data.bin","read only");
+        check(SetFileAttributesW((application/L"data.bin").c_str(),FILE_ATTRIBUTE_READONLY),"Read-only replacement fixture");
+        DWORD deniedCode=0;
+        try {checkReplacementFiles(application,replacements);} catch(const Error& error) {deniedCode=error.code;}
+        check(deniedCode==ERROR_ACCESS_DENIED,"Read-only is not falsely reported as a reboot lock");
+        check(SetFileAttributesW((application/L"data.bin").c_str(),FILE_ATTRIBUTE_NORMAL),"Restore fixture attributes");
         HKEY key=nullptr;
         check(RegCreateKeyExW(HKEY_CURRENT_USER,(registry+L"\\Authentication").c_str(),0,nullptr,0,KEY_ALL_ACCESS,nullptr,&key,nullptr)==ERROR_SUCCESS,"Fixture registry");
         const auto privatePath=(root/L"preserved-keys"/L"private").wstring();

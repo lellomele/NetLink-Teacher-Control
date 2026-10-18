@@ -95,10 +95,16 @@ This compiles existing translations without modifying TS sources, resolves DLL
 imports recursively, preserves licenses and creates the NSIS installer. The legacy
 `windows-binaries` target is not used on Windows.
 
-The installer selects the installed `netlink-wcli.exe`, or legacy `veyon-wcli.exe`,
-before replacing files. Backup, stop and unregister must succeed first; a
-registered fork service with no usable CLI aborts the upgrade. Current files are
-packaged from an explicit eight-EXE allowlist, ignoring stale build outputs.
+The installer runs its extracted Qt-free helper, not an old installed CLI, before
+replacing files. It checks pending removals, backs up settings, stops the owned
+service without unregistering it, and probes the destinations from the fresh
+payload manifest for exclusive write access without changing file contents.
+Only successful readiness checks permit unregistration and copying. A busy file
+exits 3010 with an explicit restart request; permission errors fail separately.
+There is no forced reboot/process termination, and no Ignore option for copying.
+The check cannot prevent a file from being reopened afterwards and is not a full
+transactional rollback. Current files are packaged from an explicit eight-EXE
+allowlist, ignoring stale build outputs.
 Only the seven known legacy EXEs in the fixed fork directory are retired after
 the new service starts. Reinstalling alpha.9 or later prefers its current CLI.
 The NSIS fixture tests that same selection/retirement code on inert files in a

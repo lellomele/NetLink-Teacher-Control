@@ -1,7 +1,35 @@
-# Audit and release gates — NetLink 0.1.0-alpha.14
+# Audit and release gates — NetLink 0.1.0-alpha.15
 
 Status: **partial audit and preliminary implementation, not a completed security
 audit, certified WS-Discovery implementation or production-ready release**.
+
+## Alpha 15 pre-copy readiness checks
+
+The Qt-free helper now probes every destination listed in the fresh installer's
+bounded replacement manifest, plus its generated manifest/uninstaller and exact
+legacy EXE retirements. It never trusts a leftover installed manifest. Paths must
+remain inside the protected root with no redirected ancestors. OPEN_EXISTING with
+exclusive write access tests replaceability without truncating, writing, deleting,
+renaming or changing ACLs. Missing destinations are allowed; open handles and
+mapped image locks return 3010. Read-only/permission errors fail separately.
+Authentication files outside those installer-owned destinations are not opened.
+
+Readiness is checked after backup and bounded service stop, but before service
+unregistration or any payload copy. A blocked update retains the service's
+registration, existing program files, configuration and keys. The service may be
+stopped until Windows restarts. Interactive setup explicitly requests restart;
+silent setup exits 3010. Windows is never restarted automatically. The pre-existing
+pending-removal guard remains in effect before backup/stop. AllowSkipFiles is off
+so a later copy error cannot be bypassed by skipping a DLL.
+
+The test uses a real system DLL copied to a private fixture and mapped in another
+process: setup must exit 3010 with no payload changes, CLI execution or service
+unregistration. After unloading the test image, repair/uninstall/reinstall succeeds
+with unchanged test key hashes/ACLs and retained configuration. SCM/firewall are
+still simulated; this does not establish a privileged pilot on MATEBOOK/DELL.
+Probing is not an atomic upgrade: another process can reopen a file after the
+check, and a later copy error is not a complete rollback. No processes are killed
+and no file locks or Windows security checks are bypassed.
 
 ## Alpha 14 attendance submission and thumbnail captions
 
@@ -65,8 +93,9 @@ administrators/SYSTEM-only ProgramData recovery directory. The installer verifie
 the payload's SHA-256 list before starting the new CLI. Stop/delete waits are
 bounded and validate the exact fork service executable path; another service
 location is never stopped automatically. A mutex prevents concurrent installer
-and uninstaller instances. Pending removals under the fixed installation path
-block reinstallation until reboot, avoiding deletion of freshly installed files.
+and uninstaller instances. Registered pending removals under the fixed installation
+path block reinstallation until reboot. This guard alone did not cover live locks
+missing from that list; alpha 15 adds the pre-copy file probe described above.
 
 Uninstall offers configuration retention or explicit purge. The fixed application
 tree is removed, including unknown/manual files; junction targets are never

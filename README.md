@@ -5,7 +5,7 @@ InternetGuard basato su Windows Filtering Platform, Appello con il nome dichiara
 dallo studente sulle miniature e ricerca dei client tramite WS-Discovery 1.1.
 Le funzioni sono integrate: non occorre installare un plugin esterno.
 
-**Versione preliminare 0.1.0-alpha.14: destinata a PC di prova, non al laboratorio in uso.**
+**Versione preliminare 0.1.0-alpha.15: destinata a PC di prova, non al laboratorio in uso.**
 
 ## Installazione
 
@@ -19,6 +19,14 @@ l'installer completo su entrambi i PC, conservando le chiavi esistenti. Dopo
 l'aggiornamento dalle alpha precedenti riavviare Windows prima del collaudo:
 le vecchie librerie di aggancio possono essere ancora caricate in altri processi.
 Non sostituire o cancellare singole DLL.
+
+Prima della copia l'installer controlla le rimozioni in attesa di riavvio e i file
+da sostituire, dopo aver fermato il servizio senza ancora rimuoverne la registrazione.
+Se un file è occupato, si ferma con **Riavvio necessario**: chiudere l'installer,
+scegliere **Riavvia** in Windows e rieseguire il pacchetto completo. Nessun riavvio
+viene forzato. Configurazione e chiavi restano conservate; non è disponibile
+**Ignora** per saltare una DLL. Errori di permessi o file in sola lettura sono
+distinti dai file occupati e richiedono di verificare il messaggio diagnostico.
 
 Gli eseguibili Windows si chiamano `netlink-master.exe`, `netlink-configurator.exe`,
 `netlink-service.exe`, `netlink-server.exe`, `netlink-worker.exe`, `netlink-cli.exe`,

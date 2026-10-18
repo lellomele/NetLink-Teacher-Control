@@ -18,6 +18,27 @@ Non pubblicare chiavi private, password o esportazioni di configurazione.
    servizio dopo modifiche. Nel Master la miniatura deve aggiornarsi.
 5. Annotare build OS, antivirus/firewall, latenza e carico CPU a riposo.
 
+## Alpha.15: aggiornamento e file ancora in uso
+
+1. Conservare il JSON del Configurator e le chiavi. Chiudere Console, Configurator
+   e Companion, poi avviare alpha.15 come amministratore nella normale cartella.
+2. Se compare **Riavvio necessario**, la copia non è iniziata: chiudere l'installer,
+   scegliere **Riavvia** in Windows e rilanciare lo stesso installer. Non cancellare
+   DLL, non usare installer vecchi per aggirare il controllo e non rigenerare chiavi.
+   Il servizio precedente può essere fermo fino al riavvio, ma resta registrato.
+3. Verificare configurazione, `netlink_test`, icona, miniatura e controllo remoto;
+   poi Appello con Invio e didascalie. Ripetere sul DELL con lo stesso pacchetto.
+4. Per il collaudo di disinstallazione, soltanto su PC di prova: prima salvare il
+   JSON e le chiavi, poi disinstallare conservando le impostazioni. Se Windows
+   segnala il riavvio, non saltarlo. Una reinstallazione anticipata con file ancora
+   occupati deve fermarsi prima della copia, non proporre di ignorare una DLL.
+5. Un messaggio di autorizzazioni/sola lettura non è la prova di un file occupato:
+   conservare il testo e il registro `C:\ProgramData\NetLink\maintenance-error.txt`.
+   Non disattivare antivirus o firewall e non cambiare permessi alla cieca.
+
+La nuova alpha rende esplicito il riavvio necessario, non lo elimina. Il controllo
+non è una transazione atomica né garantisce rollback dopo qualunque errore di copia.
+
 ## Alpha.14: didascalie e Invio nell'Appello
 
 1. Esportare il JSON dal Configurator e conservare le chiavi esistenti; non
