@@ -70,14 +70,17 @@ void ClassProfiles::changed() {m_dirty=true;synchronize();Q_EMIT assignmentsChan
 void ClassProfiles::addSelectedComputers() {
     if(!m_master) return;
     QSet<QUuid> ids;for(const auto& seat:m_profile.assignments) ids.insert(seat.computerId);
-    for(const auto& ci:m_master->selectedComputerControlInterfaces()) if(ci && !ci->computer().networkObjectUid().isNull() && !ids.contains(ci->computer().networkObjectUid())) {
+    auto clients=m_master->selectedComputerControlInterfaces();
+    if(clients.isEmpty()) clients=m_master->filteredComputerControlInterfaces();
+    const auto before=m_profile.assignments.size();
+    for(const auto& ci:clients) if(ci && !ci->computer().networkObjectUid().isNull() && !ids.contains(ci->computer().networkObjectUid())) {
         if(m_profile.assignments.size()>=SchoolClassProfile::MaximumAssignments) {message(m_dialog?m_dialog.data():m_master->mainWindow(),text("A profile must contain between 1 and 256 computer assignments."));break;}
         const auto& pc=ci->computer();
         m_profile.assignments.append({pc.networkObjectUid(),pc.name(),pc.hostAddress(),ci->attendanceName()});
         ids.insert(pc.networkObjectUid());
         if(m_profile.room.isEmpty()) m_profile.room=pc.location();
     }
-    changed();
+    if(m_profile.assignments.size()!=before) changed();
 }
 
 void ClassProfiles::show(const QString& operation) {
@@ -88,7 +91,7 @@ void ClassProfiles::show(const QString& operation) {
         return;
     }
     if(!m_master) return;
-    if(m_profile.assignments.isEmpty()) addSelectedComputers();
+    if(m_profile.assignments.isEmpty() && operation!="load") addSelectedComputers();
     auto dialog=new QDialog(m_master->mainWindow());m_dialog=dialog;
     dialog->setObjectName("netlinkClassProfilesDialog");dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setWindowModality(Qt::NonModal);dialog->setWindowTitle(NetLinkUi::windowTitle(text("Class–room profiles")));
@@ -108,7 +111,7 @@ void ClassProfiles::show(const QString& operation) {
     table->setColumnWidth(0,180);table->setColumnWidth(1,200);table->setColumnWidth(2,180);editLayout->addWidget(table,1);
     auto actions=new QDialogButtonBox(editor);editLayout->addWidget(actions);
     auto add=actions->addButton(text("Add selected PCs"),QDialogButtonBox::ActionRole);add->setObjectName("profileAdd");
-    add->setToolTip(text("Adds the computers currently selected in the Console, without changing their addresses or authentication."));
+    add->setToolTip(text("Adds selected computers; if none are selected, adds those displayed in the Console. Does not change addresses or authentication."));
     auto remove=actions->addButton(text("Remove assignments"),QDialogButtonBox::ActionRole);remove->setObjectName("profileRemove");
     auto use=actions->addButton(text("Use declared names"),QDialogButtonBox::ActionRole);use->setObjectName("profileUseDeclared");
     use->setToolTip(text("Copies the selected rows' client declarations into the editable profile. Save JSON to keep them for another lesson."));

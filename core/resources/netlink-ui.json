@@ -25,7 +25,7 @@
   {"source":"Client declaration","it":"Nome dichiarato dal client"},
   {"source":"Name source / connection","it":"Origine del nome / connessione"},
   {"source":"Add selected PCs","it":"Aggiungi PC selezionati"},
-  {"source":"Adds the computers currently selected in the Console, without changing their addresses or authentication.","it":"Aggiunge i PC attualmente selezionati nella Console, senza modificarne indirizzi o autenticazione."},
+  {"source":"Adds selected computers; if none are selected, adds those displayed in the Console. Does not change addresses or authentication.","it":"Aggiunge i PC selezionati; se nessuno è selezionato, aggiunge quelli visualizzati nella Console. Non modifica indirizzi o autenticazione."},
   {"source":"Remove assignments","it":"Rimuovi assegnazioni"},
   {"source":"Use declared names","it":"Usa nomi dichiarati"},
   {"source":"Copies the selected rows' client declarations into the editable profile. Save JSON to keep them for another lesson.","it":"Copia nel profilo modificabile i nomi dichiarati dai client delle righe selezionate. Salva il JSON per conservarli per un’altra lezione."},

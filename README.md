@@ -98,6 +98,8 @@ docenti. Non distribuire la chiave privata ai client.
 - **Appello e profili classe–aula:** in **Posizioni e computer** usare **Profili
   classe–aula…** per assegnare uno studente a ogni postazione, indicando classe e
   aula. I nomi appaiono nell’elenco e sulle miniature, ricercabili e ordinabili.
+  L’editor parte dai PC selezionati nelle miniature, oppure da tutti quelli
+  visualizzati se non c’è una selezione; si possono aggiungere altre postazioni.
   **Salva JSON** conserva le assegnazioni; **Carica JSON** le ricarica in una nuova
   lezione. Il file è scelto dal docente (inizialmente in Documenti, oppure in
   `%APPDATA%\NetLink\Classi` se la cartella esiste già). Non è il JSON del Configurator.

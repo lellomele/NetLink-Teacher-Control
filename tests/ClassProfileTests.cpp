@@ -93,6 +93,13 @@ private Q_SLOTS:
         auto renamed=client(id,"192.0.2.99"),impostor=client(QUuid::createUuid(),"192.0.2.4");master.clients={renamed,impostor};profiles.synchronize();
         QCOMPARE(renamed->expectedStudentName(),QString("Anna Rossi"));QVERIFY(impostor->attendanceName().isEmpty());QVERIFY(old->attendanceName().isEmpty());
     }
+    void startsFromDisplayedComputersButDirectLoadHasNoSpuriousDraft() {
+        ProfileMaster master;auto ci=client(sample().assignments[0].computerId);master.clients={ci};
+        ClassProfiles profiles(master);profiles.show();QCOMPARE(profiles.profile().assignments.size(),1);
+        profiles.m_dialog->reject();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
+        ClassProfiles direct(master);direct.show("load");QTRY_VERIFY(direct.m_dialog->findChild<QFileDialog*>("profileFileDialog"));
+        QVERIFY(direct.profile().assignments.isEmpty());QVERIFY(!direct.m_dirty);QVERIFY(!direct.m_dialog->findChild<QMessageBox*>());
+    }
     void profileChangesRejectLateRepliesAndDoNotInventAttendance() {
         ProfileMaster master;auto a=sample();auto ci=client(a.assignments[0].computerId);master.clients={ci};ClassProfiles profiles(master);profiles.activate(a);
         SchoolFeatures features(nullptr,false);const auto nonce=QUuid::createUuid().toString(QUuid::WithoutBraces);ci->setProperty("schoolAttendanceRequest",nonce);
