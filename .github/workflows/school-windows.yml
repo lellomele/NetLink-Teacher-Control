@@ -23,10 +23,13 @@ jobs:
           update: true
           install: >-
             mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
-            mingw-w64-x86_64-qt5-base mingw-w64-x86_64-qt5-tools mingw-w64-x86_64-qca-qt5
-            mingw-w64-x86_64-openssl mingw-w64-x86_64-openldap mingw-w64-x86_64-lzo2
+            mingw-w64-x86_64-qt5-base mingw-w64-x86_64-qt5-tools
+            mingw-w64-x86_64-openssl mingw-w64-x86_64-lzo2
             mingw-w64-x86_64-libjpeg-turbo mingw-w64-x86_64-libpng mingw-w64-x86_64-zlib
             mingw-w64-x86_64-nsis
+      - name: Install verified legacy build libraries
+        shell: msys2 {0}
+        run: bash .github/scripts/install-school-build-libraries.sh
       - name: Configure and build
         shell: msys2 {0}
         run: |
