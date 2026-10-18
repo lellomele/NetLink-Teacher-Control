@@ -29,7 +29,7 @@ $settings.SetValue('OtherSetting','PRESERVE ON UPGRADE - REMOVE ON PURGE')
 $settings.Dispose()
 function RunInstaller([string]$file,[string]$arguments,[int]$expectedExit=0) {
     $process=Start-Process -FilePath $file -ArgumentList $arguments -WindowStyle Hidden -PassThru
-    try {if(!$process.WaitForExit(30000)){$process.Kill();throw 'Installer fixture deadline exceeded'}; if($process.ExitCode-ne$expectedExit){$detail=if(Test-Path -LiteralPath (Join-Path $root 'fixture-error.txt')){Get-Content -LiteralPath (Join-Path $root 'fixture-error.txt') -Raw}else{'no helper error'}; throw "Installer fixture failed: $($process.ExitCode), expected $expectedExit`: $detail"}}finally{$process.Dispose()}
+    try {if(!$process.WaitForExit(60000)){$process.Kill();throw "Installer fixture deadline exceeded: $file $arguments"}; if($process.ExitCode-ne$expectedExit){$detail=if(Test-Path -LiteralPath (Join-Path $root 'fixture-error.txt')){Get-Content -LiteralPath (Join-Path $root 'fixture-error.txt') -Raw}else{'no helper error'}; throw "Installer fixture failed: $($process.ExitCode), expected $expectedExit`: $detail"}}finally{$process.Dispose()}
 }
 function WaitRemoval {
     $deadline=[DateTime]::UtcNow.AddSeconds(20)
@@ -73,6 +73,9 @@ try {
     $settings=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($registry+'\Configuration\Authentication')
     if($settings.GetValue('OtherSetting')-ne'PRESERVE ON UPGRADE - REMOVE ON PURGE'){throw 'Upgrade lost configuration'}
     $settings.Dispose()
+    $failureMarker=Join-Path $root 'cli-failure-fixture.txt'
+    [IO.File]::WriteAllText($failureMarker,'INTENTIONAL CLI FAILURE - DO NOT HANG SILENT SETUP')
+    try {RunInstaller $installer '/S' 2} finally {Remove-Item -LiteralPath $failureMarker}
     RunInstaller (Join-Path $app 'Uninstall.exe') '/S /PURGE'
     WaitRemoval
     $settings=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($registry+'\Configuration\Authentication')

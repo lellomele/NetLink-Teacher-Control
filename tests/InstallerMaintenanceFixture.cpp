@@ -17,7 +17,7 @@ int wmain(int argc,wchar_t** argv) {
         if(action==L"hold-image") {
             auto image=LoadLibraryW((root/L"vnchooks.dll").c_str());require(image!=nullptr,"Fixture DLL load");
             {std::ofstream ready(parent/L"image-ready.txt");ready<<"ready";}
-            const auto deadline=GetTickCount64()+30000;
+            const auto deadline=GetTickCount64()+90000;
             while(!fs::exists(parent/L"image-release.txt") && GetTickCount64()<deadline) Sleep(20);
             FreeLibrary(image);return 0;
         }

@@ -163,21 +163,21 @@ Section "NetLink"
  ExecWait '"$INSTDIR\netlink-wcli.exe" service register' $0
  ${If} ${Errors}
  ${OrIf} $0 != 0
-   MessageBox MB_ICONSTOP "Registrazione servizio non riuscita. Installazione incompleta."
+   MessageBox MB_ICONSTOP "Registrazione servizio non riuscita. Installazione incompleta." /SD IDOK
    Abort
  ${EndIf}
  ClearErrors
  ExecWait '"$INSTDIR\netlink-wcli.exe" config set Windows/UseInterceptionDriver false' $0
  ${If} ${Errors}
  ${OrIf} $0 != 0
-   MessageBox MB_ICONSTOP "Configurazione/firewall non riusciti. Verifica nel Configurator."
+   MessageBox MB_ICONSTOP "Configurazione/firewall non riusciti. Verifica nel Configurator." /SD IDOK
    Abort
  ${EndIf}
  ClearErrors
  ExecWait '"$INSTDIR\netlink-wcli.exe" config set UltraVNC/DeskDupEngine false' $0
  ${If} ${Errors}
  ${OrIf} $0 != 0
-   MessageBox MB_ICONSTOP "Configurazione acquisizione schermo non riuscita."
+   MessageBox MB_ICONSTOP "Configurazione acquisizione schermo non riuscita." /SD IDOK
    Abort
  ${EndIf}
  ${GetParameters} $R0
@@ -187,7 +187,7 @@ Section "NetLink"
    ExecWait '"$INSTDIR\netlink-wcli.exe" config set School/DiscoveryMaster "$R1"' $0
    ${If} ${Errors}
    ${OrIf} $0 != 0
-     MessageBox MB_ICONSTOP "Nome del Master non configurato."
+     MessageBox MB_ICONSTOP "Nome del Master non configurato." /SD IDOK
      Abort
    ${EndIf}
  ${EndIf}
@@ -195,7 +195,7 @@ Section "NetLink"
  ExecWait '"$INSTDIR\netlink-wcli.exe" service start' $0
  ${If} ${Errors}
  ${OrIf} $0 != 0
-   MessageBox MB_ICONSTOP "Avvio servizio non riuscito. Verifica nel Configurator."
+   MessageBox MB_ICONSTOP "Avvio servizio non riuscito. Verifica nel Configurator." /SD IDOK
    Abort
  ${EndIf}
  ; New registration/start succeeded. Retire only the seven known old filenames;

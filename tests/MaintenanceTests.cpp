@@ -39,6 +39,8 @@ int wmain(int argc,wchar_t** argv) {
         write(application/L"vnchooks.dll","PRESERVE CONTENTS");
         const auto attributesBefore=GetFileAttributesW((application/L"vnchooks.dll").c_str());
         checkReplacementFiles(application,replacements); ++passed;
+        write(application/L"payload.sha256",std::string(64,'0')+"  vnchooks.dll\n");
+        checkReplacementFiles(application,application/L"payload.sha256"); ++passed;
         check(fs::file_size(application/L"vnchooks.dll")==17,"Preflight never truncates existing files");
         check(GetFileAttributesW((application/L"vnchooks.dll").c_str())==attributesBefore,"Preflight preserves attributes");
         auto heldReplacement=CreateFileW((application/L"vnchooks.dll").c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);

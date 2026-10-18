@@ -359,6 +359,7 @@ void checkReplacementFiles(const fs::path& root, const fs::path& manifestPath) {
         files.push_back(root/relative);
     }
     require(manifest.eof() && !files.empty(),"Incomplete replacement manifest");
+    manifest.close();
     files.push_back(root/L"payload.sha256");
     files.push_back(root/L"Uninstall.exe");
     // Only installer-owned destinations, never authentication files or arbitrary

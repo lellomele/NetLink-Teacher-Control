@@ -63,7 +63,7 @@ if(WITH_TESTS)
             target_link_options(${fixture} PRIVATE -static -municode)
         endforeach()
         add_test(NAME netlink-installer-roundtrip-test COMMAND "${NETLINK_POWERSHELL}" -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_CURRENT_SOURCE_DIR}/verify-installer-roundtrip.ps1" -BuildRoot "${CMAKE_CURRENT_BINARY_DIR}" -Toolchain "${MINGW_PREFIX}" -Helper "$<TARGET_FILE:InstallerMaintenanceFixture>" -Cli "$<TARGET_FILE:InstallerCliFixture>")
-        set_tests_properties(netlink-installer-roundtrip-test PROPERTIES TIMEOUT 120)
+        set_tests_properties(netlink-installer-roundtrip-test PROPERTIES TIMEOUT 240)
         add_test(NAME netlink-installer-upgrade-test COMMAND "${NETLINK_POWERSHELL}" -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_CURRENT_SOURCE_DIR}/verify-installer-upgrade.ps1" -BuildRoot "${CMAKE_CURRENT_BINARY_DIR}" -Toolchain "${MINGW_PREFIX}")
         set_tests_properties(netlink-installer-upgrade-test PROPERTIES TIMEOUT 60)
         add_executable(netlink-windows-session-token-tests WindowsSessionTokenTests.cpp
