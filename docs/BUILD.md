@@ -72,6 +72,13 @@ status dialogs. Set `NETLINK_UI_SCREENSHOTS` for PNG output. Console preview
 images use real toolbar controls with synthetic cards, not a connected Master.
 These offscreen tests do not replace native Windows tray/DPI/remote-input pilots.
 
+`netlink-remote-toolbar-scale-1`, `-1_5` and `-2` exercise the actual compact
+remote-control panel without constructing a VNC connection, initializing a
+service, or reading authentication keys. Set `NETLINK_REMOTE_SCREENSHOTS` for PNG
+previews. The view uses the same panel subclass in production; its existing VNC
+command wiring remains in RemoteAccessWidget.cpp. Native keyboard focus/grab,
+mixed-monitor DPI and real remote interaction remain pilot requirements.
+
 `netlink-lock-notification-tests` uses inert lock widgets, isolated workers and
 authenticated-channel fixtures. Shortcut classification is tested without
 installing a real keyboard hook. Session events use Windows' built-in WTS APIs;

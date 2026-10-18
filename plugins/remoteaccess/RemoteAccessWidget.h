@@ -24,8 +24,8 @@
 #pragma once
 
 #include "ComputerControlInterface.h"
+#include "RemoteAccessToolBar.h"
 
-#include <QTimeLine>
 #include <QWidget>
 
 class QActionGroup;
@@ -33,11 +33,10 @@ class QActionGroup;
 class VncView;
 class VncViewWidget;
 class RemoteAccessWidget;
-class ToolButton;
 
 // clazy:excludeall=ctor-missing-parent-argument
 
-class RemoteAccessWidgetToolBar : public QWidget
+class RemoteAccessWidgetToolBar : public RemoteAccessToolBar
 {
 	Q_OBJECT
 public:
@@ -45,36 +44,17 @@ public:
 							   bool startViewOnly, bool showViewOnlyToggleButton );
 	~RemoteAccessWidgetToolBar() override = default;
 
-	void appear();
-	void disappear();
-	void updateControls( bool viewOnly );
 	void updateScreenSelectActions( int newScreen );
 
 
-protected:
-	void leaveEvent( QEvent* event ) override;
-	void paintEvent( QPaintEvent* event ) override;
-
-
 private:
-	void updatePosition();
 	void updateConnectionState();
 	void updateScreens();
 
 	RemoteAccessWidget *m_parent;
-	QTimeLine m_showHideTimeLine;
-
-	ToolButton* m_viewOnlyButton;
-	ToolButton* m_selectScreenButton;
-	ToolButton* m_sendShortcutButton;
-	ToolButton* m_screenshotButton;
-	ToolButton* m_fullScreenButton;
-	ToolButton* m_exitButton;
 
 	QActionGroup* m_screenSelectActions{nullptr};
 
-	static constexpr int ShowHideAnimationDuration = 300;
-	static constexpr int DisappearDelay = 500;
 
 } ;
 
@@ -118,8 +98,6 @@ private:
 	ComputerControlInterface::Pointer m_computerControlInterface;
 	VncViewWidget* m_vncView;
 	RemoteAccessWidgetToolBar* m_toolBar;
-
-	static constexpr int AppearDelay = 500;
 
 	int m_currentScreen{-1};
 

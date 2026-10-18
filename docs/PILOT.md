@@ -18,6 +18,27 @@ Non pubblicare chiavi private, password o esportazioni di configurazione.
    servizio dopo modifiche. Nel Master la miniatura deve aggiornarsi.
 5. Annotare build OS, antivirus/firewall, latenza e carico CPU a riposo.
 
+## Alpha.16: barra compatta del controllo remoto
+
+1. Salvare JSON e chiavi; chiudere le applicazioni e aggiornare con il pacchetto
+   completo. Se richiesto, riavviare e rieseguire l'installer prima del collaudo.
+   La modifica del menu riguarda il Master; non cambia il protocollo del client.
+2. Dal MATEBOOK controllare il DELL: passare sui quattro bordi e attendere circa
+   350 ms. Verificare posizione centrata e orientamento, assenza di oscuramento,
+   linguetta, scomparsa dopo l'uscita e richiamo senza attivazioni accidentali.
+3. Attivare **Fissa barra**, spostare il puntatore sul desktop remoto, attendere e
+   passare tra finestra e fullscreen: deve restare aperta. Disattivare la puntina:
+   deve tornare la chiusura automatica. La scelta vale per la sessione corrente.
+4. Aprire **Invia combinazione di tasti** e, se disponibile, **Seleziona schermo**:
+   la barra non deve sparire mentre il menu è aperto. Verificare che dopo il menu
+   la tastiera torni al desktop remoto e che non restino tasti/modificatori premuti.
+5. Provare screenshot, sola visualizzazione/controllo e **Disconnetti**: il DELL
+   deve restare acceso, senza chiudere le applicazioni. Ridurre la finestra e
+   ripetere a 100/150/200%, con due monitor se disponibili, anche spostando la
+   finestra tra monitor con scale diverse. Controllare lingua italiana/inglese.
+6. Riprovare Appello con Invio, miniatura, InternetGuard e discovery. Le prove
+   automatiche della sola barra non sostituiscono il collaudo remoto su Windows.
+
 ## Alpha.15: aggiornamento e file ancora in uso
 
 1. Conservare il JSON del Configurator e le chiavi. Chiudere Console, Configurator

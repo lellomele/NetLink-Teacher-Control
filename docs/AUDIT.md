@@ -1,7 +1,29 @@
-# Audit and release gates — NetLink 0.1.0-alpha.15
+# Audit and release gates — NetLink 0.1.0-alpha.16
 
 Status: **partial audit and preliminary implementation, not a completed security
 audit, certified WS-Discovery implementation or production-ready release**.
+
+## Alpha 16 compact remote controls
+
+The remote menu is an ordinary bounded child widget, not a full-desktop overlay.
+It paints only its rounded panel/handle and uses existing palette/icon preferences.
+Targets are 44 logical pixels with vector icons, descriptive bilingual tooltips and
+accessible names. Horizontal/vertical docking is centered on the requested edge;
+small windows wrap controls without shrinking targets. Pinning is session-local,
+survives resizing/fullscreen and does not change configuration or authentication.
+
+Single owned timers replace queued animation/hide callbacks: border reveal is
+cancelled on pointer departure/click, menus and local keyboard focus inhibit hide,
+and all callbacks are destroyed with the widget. Popup completion returns focus
+to the existing VNC view. No new hooks, global shortcuts, network messages,
+libraries, services or security bypasses are introduced. Screen selection now
+rejects stale indices after a monitor-list change instead of indexing out of range.
+
+Isolated real-widget tests cover four edges, delays, cancellation, pinning, popup
+focus, view-only state, actions, small windows, themes, disposal and unchanged
+desktop pixels outside the panel at 100/150/200%. The remote protocol and native
+keyboard grab/focus behaviour still require the MATEBOOK/DELL pilot, particularly
+mixed-DPI monitors and protected Windows screens. This is not a complete audit.
 
 ## Alpha 15 pre-copy readiness checks
 

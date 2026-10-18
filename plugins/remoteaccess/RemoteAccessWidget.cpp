@@ -22,11 +22,10 @@
  */
 
 #include <QActionGroup>
-#include <QBitmap>
-#include <QLayout>
+#include <QApplication>
 #include <QMenu>
-#include <QPainter>
-#include <QPaintEvent>
+#include <QMouseEvent>
+#include <QToolButton>
 
 #include "rfb/keysym.h"
 
@@ -39,57 +38,27 @@
 #include "Computer.h"
 #include "ComputerControlInterface.h"
 #include "PlatformCoreFunctions.h"
-#include "ToolButton.h"
 #include "Screenshot.h"
 
 
 // toolbar for remote-control-widget
 RemoteAccessWidgetToolBar::RemoteAccessWidgetToolBar( RemoteAccessWidget* parent,
 													  bool startViewOnly, bool showViewOnlyToggleButton ) :
-	QWidget( parent ),
+	RemoteAccessToolBar( parent, startViewOnly, showViewOnlyToggleButton ),
 	m_parent( parent ),
-	m_showHideTimeLine( ShowHideAnimationDuration, this ),
-	m_viewOnlyButton( showViewOnlyToggleButton ? new ToolButton( QPixmap( QStringLiteral(":/remoteaccess/kmag.png") ), tr( "View only" ), tr( "Remote control" ) ) : nullptr ),
-	m_selectScreenButton( new ToolButton( QPixmap( QStringLiteral(":/remoteaccess/preferences-system-windows-effect-desktopgrid.png") ), tr( "Select screen" ) ) ),
-	m_sendShortcutButton( new ToolButton( QPixmap( QStringLiteral(":/remoteaccess/preferences-desktop-keyboard.png") ), tr( "Send shortcut" ) ) ),
-	m_screenshotButton( new ToolButton( QPixmap( QStringLiteral(":/remoteaccess/camera-photo.png") ), tr( "Screenshot" ) ) ),
-	m_fullScreenButton( new ToolButton( QPixmap( QStringLiteral(":/remoteaccess/view-fullscreen.png") ), tr( "Fullscreen" ), tr( "Window" ) ) ),
-	m_exitButton( new ToolButton( QPixmap( QStringLiteral(":/remoteaccess/application-exit.png") ), tr( "Exit" ) ) ),
 	m_screenSelectActions( new QActionGroup(this) )
 {
-	QPalette pal = palette();
-	pal.setBrush( QPalette::Window, QPixmap( QStringLiteral(":/core/toolbar-background.png") ) );
-	setPalette( pal );
-
-	setAttribute( Qt::WA_NoSystemBackground, true );
-	move( 0, 0 );
-	show();
-
-	if( m_viewOnlyButton )
-	{
-		m_viewOnlyButton->setCheckable( true );
-		m_viewOnlyButton->setChecked( startViewOnly );
-		connect( m_viewOnlyButton, &ToolButton::toggled, this, &RemoteAccessWidgetToolBar::updateControls );
-		connect( m_viewOnlyButton, &QAbstractButton::toggled, parent, &RemoteAccessWidget::setViewOnly );
-	}
-
-	m_fullScreenButton->setCheckable( true );
-	m_fullScreenButton->setChecked( false );
-
-	connect( m_fullScreenButton, &QAbstractButton::toggled, parent, &RemoteAccessWidget::toggleFullScreen );
-	connect( m_screenshotButton, &QAbstractButton::clicked, parent, &RemoteAccessWidget::takeScreenshot );
-	connect( m_exitButton, &QAbstractButton::clicked, parent, &QWidget::close );
+	connect( this, &RemoteAccessToolBar::viewOnlyChanged, parent, &RemoteAccessWidget::setViewOnly );
+	connect( this, &RemoteAccessToolBar::fullScreenChanged, parent, &RemoteAccessWidget::toggleFullScreen );
+	connect( this, &RemoteAccessToolBar::screenshotRequested, parent, &RemoteAccessWidget::takeScreenshot );
+	connect( this, &RemoteAccessToolBar::disconnectRequested, parent, &QWidget::close );
 
 	auto vncView = parent->vncView();
 	connect( vncView->connection(), &VncConnection::stateChanged, this, &RemoteAccessWidgetToolBar::updateConnectionState );
 
-	m_selectScreenButton->setMenu( new QMenu );
-	m_selectScreenButton->setPopupMode( QToolButton::InstantPopup );
-	m_selectScreenButton->setObjectName( QStringLiteral("screens") );
-
 	updateScreens();
 
-	auto shortcutMenu = new QMenu();
+	auto shortcutMenu = m_sendShortcutButton->menu();
 #if QT_VERSION < 0x050600
 #warning Building legacy compat code for unsupported version of Qt
 	connect( shortcutMenu->addAction( tr( "Ctrl+Alt+Del" ) ), &QAction::triggered,
@@ -119,29 +88,6 @@ RemoteAccessWidgetToolBar::RemoteAccessWidgetToolBar( RemoteAccessWidget* parent
 	shortcutMenu->addAction( tr( "Alt+Ctrl+F1" ), this, [=]() { vncView->sendShortcut( VncView::ShortcutAltCtrlF1 ); }  );
 #endif
 
-	m_sendShortcutButton->setMenu( shortcutMenu );
-	m_sendShortcutButton->setPopupMode( QToolButton::InstantPopup );
-	m_sendShortcutButton->setObjectName( QStringLiteral("shortcuts") );
-
-	auto layout = new QHBoxLayout( this );
-	layout->setContentsMargins( 1, 1, 1, 1 );
-	layout->setSpacing( 1 );
-	layout->addStretch( 0 );
-	layout->addWidget( m_selectScreenButton );
-	layout->addWidget( m_sendShortcutButton );
-	if( m_viewOnlyButton )
-	{
-		layout->addWidget( m_viewOnlyButton );
-	}
-	layout->addWidget( m_screenshotButton );
-	layout->addWidget( m_fullScreenButton );
-	layout->addWidget( m_exitButton );
-	layout->addSpacing( 5 );
-
-	setFixedHeight( m_exitButton->height() );
-
-	connect( &m_showHideTimeLine, &QTimeLine::valueChanged, this, &RemoteAccessWidgetToolBar::updatePosition );
-
 	connect( vncView->computerControlInterface().data(), &ComputerControlInterface::screensChanged,
 			 this, &RemoteAccessWidgetToolBar::updateScreens );
 
@@ -151,43 +97,10 @@ RemoteAccessWidgetToolBar::RemoteAccessWidgetToolBar( RemoteAccessWidget* parent
 
 
 
-void RemoteAccessWidgetToolBar::appear()
-{
-	m_showHideTimeLine.setDirection( QTimeLine::Backward );
-	if( m_showHideTimeLine.state() != QTimeLine::Running )
-	{
-		m_showHideTimeLine.resume();
-	}
-}
-
-
-
-void RemoteAccessWidgetToolBar::disappear()
-{
-	if( rect().contains( mapFromGlobal( QCursor::pos() ) ) == false )
-	{
-		QTimer::singleShot( DisappearDelay, this, [this]() {
-			if( m_showHideTimeLine.state() != QTimeLine::Running )
-			{
-				m_showHideTimeLine.setDirection( QTimeLine::Forward );
-				m_showHideTimeLine.resume();
-			}
-		} );
-	}
-}
-
-
-
-void RemoteAccessWidgetToolBar::updateControls( bool viewOnly )
-{
-	m_sendShortcutButton->setVisible( viewOnly == false );
-}
-
-
-
 void RemoteAccessWidgetToolBar::updateScreenSelectActions( int newScreen )
 {
 	const auto screens = m_parent->vncView()->computerControlInterface()->screens();
+	if( newScreen < -1 || newScreen >= screens.size() ) return;
 	const auto m_screenSelectActions = m_selectScreenButton->menu()->actions();
 	for (const auto& screenSelectAction : m_screenSelectActions)
 	{
@@ -205,58 +118,9 @@ void RemoteAccessWidgetToolBar::updateScreenSelectActions( int newScreen )
 
 
 
-void RemoteAccessWidgetToolBar::leaveEvent( QEvent *event )
-{
-	disappear();
-	QWidget::leaveEvent( event );
-}
-
-
-
-void RemoteAccessWidgetToolBar::paintEvent( QPaintEvent *paintEv )
-{
-	QPainter p( this );
-
-	p.setOpacity( 0.8 );
-	p.fillRect( paintEv->rect(), palette().brush( QPalette::Window ) );
-	p.setOpacity( 1 );
-
-	auto f = p.font();
-	f.setPointSize( 10 );
-	f.setBold( true );
-	p.setFont( f );
-
-	p.setPen( QColor( 192, 192, 192 ) );
-	p.drawText( height() / 2, height() / 2 + fontMetrics().height() / 2,
-				m_parent->vncView() && m_parent->vncView()->connection() &&
-						m_parent->vncView()->connection()->state() == VncConnection::State::Connected ?
-					tr( "Connected." ) : tr( "Connecting..." ) );
-}
-
-
-
-void RemoteAccessWidgetToolBar::updatePosition()
-{
-	const auto newY = static_cast<int>( m_showHideTimeLine.currentValue() * height() );
-
-	if( newY != -y() )
-	{
-		move( x(), qMax( -height(), -newY ) );
-	}
-}
-
-
-
 void RemoteAccessWidgetToolBar::updateConnectionState()
 {
-	if( m_parent->vncView()->connection()->state() == VncConnection::State::Connected )
-	{
-		disappear();
-	}
-	else
-	{
-		appear();
-	}
+	setConnected( m_parent->vncView()->connection()->state() == VncConnection::State::Connected );
 }
 
 
@@ -267,7 +131,7 @@ void RemoteAccessWidgetToolBar::updateScreens()
 										m_screenSelectActions->checkedAction()->text() : QString{};
 
 	const auto screens = m_parent->vncView()->computerControlInterface()->screens();
-	m_selectScreenButton->setVisible(screens.size() > 1);
+	setScreenSelectionVisible(screens.size() > 1);
 
 	const auto menu = m_selectScreenButton->menu();
 	menu->clear();
@@ -345,10 +209,13 @@ RemoteAccessWidget::RemoteAccessWidget( const ComputerControlInterface::Pointer&
 
 	setWindowIcon( QPixmap( QStringLiteral(":/remoteaccess/kmag.png") ) );
 	setAttribute( Qt::WA_DeleteOnClose, true );
+	setMinimumSize(240,180);
 
 	m_vncView->move( 0, 0 );
 	m_vncView->installEventFilter( this );
-	connect( m_vncView, &VncViewWidget::mouseAtBorder, m_toolBar, &RemoteAccessWidgetToolBar::appear );
+	connect( m_toolBar, &RemoteAccessToolBar::returnFocusToView, this, [this] {
+		if(isActiveWindow() && !QApplication::activePopupWidget()) m_vncView->setFocus(Qt::OtherFocusReason);
+	} );
 	connect( m_vncView, &VncViewWidget::sizeHintChanged, this, &RemoteAccessWidget::updateSize );
 
 	showMaximized();
@@ -379,6 +246,17 @@ VncView* RemoteAccessWidget::vncView() const
 
 bool RemoteAccessWidget::eventFilter( QObject* object, QEvent* event )
 {
+	if( object == m_vncView )
+	{
+		if( event->type() == QEvent::MouseMove )
+		{
+			const auto mouse = static_cast<QMouseEvent*>(event);
+			if(mouse->buttons() == Qt::NoButton) m_toolBar->requestRevealAt(mouse->pos());
+			else m_toolBar->cancelReveal();
+		}
+		else if( event->type() == QEvent::Leave || event->type() == QEvent::MouseButtonPress )
+			m_toolBar->cancelReveal();
+	}
 	if( event->type() == QEvent::KeyRelease &&
 		dynamic_cast<QKeyEvent *>( event )->key() == Qt::Key_Escape &&
 		m_vncView->connection()->isConnected() == false )
@@ -458,12 +336,8 @@ void RemoteAccessWidget::enterEvent( QEvent* event )
 
 void RemoteAccessWidget::leaveEvent( QEvent* event )
 {
-	QTimer::singleShot( AppearDelay, this, [this]() {
-		if( underMouse() == false && window()->isActiveWindow() )
-		{
-			m_toolBar->appear();
-		}
-	} );
+	m_toolBar->cancelReveal();
+	m_toolBar->disappear();
 
 	QWidget::leaveEvent( event );
 }
@@ -473,7 +347,7 @@ void RemoteAccessWidget::leaveEvent( QEvent* event )
 void RemoteAccessWidget::resizeEvent( QResizeEvent* event )
 {
 	m_vncView->setFixedSize(size());
-	m_toolBar->setFixedSize( width(), m_toolBar->height() );
+	m_toolBar->updatePosition();
 
 	QWidget::resizeEvent( event );
 }
@@ -506,6 +380,9 @@ void RemoteAccessWidget::toggleFullScreen( bool _on )
 
 void RemoteAccessWidget::setViewOnly( bool viewOnly )
 {
+	// Restore the view's pre-focus-out state first, then apply the explicit
+	// user's mode. Otherwise focusInEvent can undo the toolbar toggle.
+	m_vncView->setFocus(Qt::OtherFocusReason);
 	m_vncView->setViewOnly( viewOnly );
 	m_toolBar->updateControls( viewOnly );
 	m_toolBar->update();

@@ -39,7 +39,7 @@ QString glyph(const QString& name) {
     if(name=="FileTransfer") return "files";
     if(name=="UserLogon" || name=="UserLogin") return "login";
     if(name=="UserLogoff") return "logout";
-    if(QStringList{"add","remove","settings","info","key","group","monitor"}.contains(name)) return name;
+    if(QStringList{"add","remove","settings","info","key","group","monitor","pin","keyboard","fullscreen"}.contains(name)) return name;
     return {};
 }
 class VectorIcon final : public QIconEngine {
@@ -95,6 +95,15 @@ public:
         } else if(m_symbol=="add" || m_symbol=="remove") {line(7,16,25,16);if(m_symbol=="add") line(16,7,16,25);
         } else if(m_symbol=="info") {circle(16,16,11);circle(16,10,0.7);line(16,15,16,23);
         } else if(m_symbol=="settings") {circle(16,16,8);circle(16,16,3);for(int i=0;i<8;++i){painter->save();painter->translate(16,16);painter->rotate(i*45);line(0,10,0,13);painter->restore();}
+        } else if(m_symbol=="pin") {
+            line(12,5,24,5);line(14,5,14,13);line(22,5,22,13);line(14,13,9,19);line(22,13,27,19);
+            line(9,19,27,19);line(18,19,18,28);
+        } else if(m_symbol=="keyboard") {
+            box(3,8,26,17,3);for(int y=12;y<=16;y+=4) for(int x=7;x<=25;x+=6) line(x,y,x+1,y);
+            line(9,21,23,21);
+        } else if(m_symbol=="fullscreen") {
+            line(5,12,5,5);line(5,5,12,5);line(20,5,27,5);line(27,5,27,12);
+            line(5,20,5,27);line(5,27,12,27);line(20,27,27,27);line(27,27,27,20);
         } else if(m_symbol=="clipboard") {box(8,7,17,21);box(12,4,9,5);line(12,15,21,15);line(12,20,21,20);
         } else {box(5,6,22,17);line(16,23,16,27);line(10,27,22,27);if(m_symbol=="demo"){line(14,10,21,15);line(21,15,14,20);line(14,20,14,10);}else{line(10,12,13,12);line(19,12,22,12);line(10,17,13,17);line(19,17,22,17);}}
         painter->restore();

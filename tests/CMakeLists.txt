@@ -2,6 +2,17 @@ if(WITH_FUZZERS)
 	add_subdirectory(libfuzzer)
 endif()
 if(WITH_TESTS)
+    add_executable(netlink-remote-toolbar-tests RemoteAccessToolBarTests.cpp
+        ../plugins/remoteaccess/RemoteAccessToolBar.cpp ../plugins/remoteaccess/RemoteAccessToolBar.h
+        ../plugins/remoteaccess/remoteaccess.qrc)
+    set_default_target_properties(netlink-remote-toolbar-tests)
+    target_include_directories(netlink-remote-toolbar-tests PRIVATE ../plugins/remoteaccess)
+    target_link_libraries(netlink-remote-toolbar-tests PRIVATE veyon-core Qt${QT_MAJOR_VERSION}::Test)
+    foreach(scale 1 1.5 2)
+        string(REPLACE "." "_" remote_scale "${scale}")
+        add_test(NAME netlink-remote-toolbar-scale-${remote_scale} COMMAND netlink-remote-toolbar-tests -o "${CMAKE_CURRENT_BINARY_DIR}/netlink-remote-toolbar-${remote_scale}-results.txt,txt")
+        set_tests_properties(netlink-remote-toolbar-scale-${remote_scale} PROPERTIES TIMEOUT 60 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_SCALE_FACTOR=${scale}")
+    endforeach()
     add_executable(netlink-class-profile-tests ClassProfileTests.cpp ../master/src/ClassProfiles.cpp ../master/src/ClassProfiles.h
         ../master/src/ComputerCaptionDelegate.cpp ../master/src/ComputerCaptionDelegate.h)
     set_default_target_properties(netlink-class-profile-tests)

@@ -5,7 +5,7 @@ InternetGuard basato su Windows Filtering Platform, Appello con il nome dichiara
 dallo studente sulle miniature e ricerca dei client tramite WS-Discovery 1.1.
 Le funzioni sono integrate: non occorre installare un plugin esterno.
 
-**Versione preliminare 0.1.0-alpha.15: destinata a PC di prova, non al laboratorio in uso.**
+**Versione preliminare 0.1.0-alpha.16: destinata a PC di prova, non al laboratorio in uso.**
 
 ## Installazione
 
@@ -78,6 +78,12 @@ docenti. Non distribuire la chiave privata ai client.
 
 ## Uso
 
+- **Controllo remoto:** barra compatta, senza oscurare il desktop. Fermare il
+  puntatore su un bordo per richiamarla: orizzontale sopra/sotto, verticale ai lati.
+  La linguetta richiama l'ultimo bordo usato. **Fissa barra** la mantiene aperta
+  per la sessione; un altro clic riattiva la scomparsa automatica. I menu aperti
+  e l'uso dei controlli da tastiera impediscono la chiusura accidentale.
+  **Disconnetti** termina solo la sessione remota, non spegne il PC.
 - **Aspetto:** temi Sistema, Chiaro e Scuro; palette Oceano, Bosco, Prugna o colore
   personalizzato; set coordinati di icone Organico, Lineare, Spettro (colorato) e Classico, con tre
   dimensioni dei pulsanti. Il menu **NetLink → Aspetto, colori e icone** salva
