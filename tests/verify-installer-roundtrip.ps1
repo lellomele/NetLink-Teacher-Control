@@ -43,7 +43,7 @@ function WaitRemoval {
 try {
     & (Join-Path $Toolchain 'bin/makensis.exe') '/INPUTCHARSET' 'UTF8' "/DNETLINK_INSTALLER_FIXTURE" "/DFIXTURE_ID=$id" "/DFIXTURE_ROOT=$root" "/DFIXTURE_REGKEY=$registry" "/DREPOROOT=$repoRoot" "/DOUTPUT=$root" "/DPAYLOAD=$payload" (Join-Path $repoRoot 'packaging/veyon-school.nsi') | Out-Null
     if($LASTEXITCODE-ne0){throw 'Full installer fixture compilation failed'}
-    $installer=Join-Path $root 'NetLink-0.1.0-alpha.12-win64-setup.exe'
+    $installer=Join-Path $root 'NetLink-0.1.0-alpha.13-win64-setup.exe'
     RunInstaller $installer '/S'
     if(!(Test-Path -LiteralPath (Join-Path $app 'platforms/qwindows.dll'))){throw 'Incomplete installation was not repaired'}
     $settings=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($registry+'\Configuration\Authentication')

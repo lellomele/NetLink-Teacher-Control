@@ -27,6 +27,7 @@
 #include "Computer.h"
 #include "FeatureManager.h"
 #include "MonitoringMode.h"
+#include "NetLinkUi.h"
 #include "VeyonConfiguration.h"
 #include "VeyonConnection.h"
 #include "VncConnection.h"
@@ -61,6 +62,9 @@ ComputerControlInterface::ComputerControlInterface( const Computer& computer, in
 
 ComputerControlInterface::~ComputerControlInterface()
 {
+	// Owners/models may already be tearing down: never publish a name reset
+	// from an object whose shared-pointer lifetime has just ended.
+	blockSignals(true);
 	stop();
 }
 
@@ -154,7 +158,37 @@ void ComputerControlInterface::stop()
 	m_statePollingTimer.stop();
 
 	m_state = State::Disconnected;
+	clearStudentDeclaration();
 	m_serverVersion = VeyonCore::ApplicationVersion::Unknown;
+}
+
+void ComputerControlInterface::clearStudentDeclaration()
+{
+	setProperty("schoolAttendanceRequest", QString{});
+	if (auto deadline = findChild<QTimer*>(QStringLiteral("schoolAttendanceDeadlineTimer"), Qt::FindDirectChildrenOnly)) deadline->stop();
+	setStudentName({});
+}
+
+void ComputerControlInterface::setExpectedStudentName(const QString& name)
+{
+	if (name == m_expectedStudentName) return;
+	m_expectedStudentName = name;
+	Q_EMIT userChanged();
+}
+
+QString ComputerControlInterface::attendanceStatus() const
+{
+	if (!m_studentName.isEmpty())
+	{
+		return !m_expectedStudentName.isEmpty() && m_expectedStudentName != m_studentName
+			? NetLinkUi::text("Declared by client — different from assignment") : NetLinkUi::text("Declared by client");
+	}
+	return m_expectedStudentName.isEmpty() ? NetLinkUi::text("No name") : NetLinkUi::text("Preloaded name");
+}
+
+QString ComputerControlInterface::attendanceLabel() const
+{
+	return attendanceName().isEmpty() ? QString{} : attendanceName() + QStringLiteral(" [") + attendanceStatus() + QLatin1Char(']');
 }
 
 
@@ -417,6 +451,9 @@ void ComputerControlInterface::updateState()
 	}
 
 	unlock();
+	// A declaration belongs to this connection, never to a later Windows session.
+	// Keep only the expected seat assignment across disconnect/reconnect.
+	if (m_state != State::Connected) clearStudentDeclaration();
 }
 
 

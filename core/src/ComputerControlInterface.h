@@ -124,6 +124,12 @@ public:
 	void setUserInformation( const QString& userLoginName, const QString& userFullName, int sessionId );
 	QString studentName() const { return m_studentName; }
 	void setStudentName(const QString& name) { if(m_studentName!=name) {m_studentName=name; Q_EMIT userChanged();} }
+	QString expectedStudentName() const { return m_expectedStudentName; }
+	void setExpectedStudentName(const QString& name);
+	void clearStudentDeclaration();
+	QString attendanceName() const { return m_studentName.isEmpty() ? m_expectedStudentName : m_studentName; }
+	QString attendanceStatus() const;
+	QString attendanceLabel() const;
 	QString networkPolicyStatus() const { return m_networkPolicyStatus; }
 	void setNetworkPolicyStatus(const QString& status) { if(m_networkPolicyStatus!=status) {m_networkPolicyStatus=status; Q_EMIT userChanged();} }
 
@@ -190,7 +196,7 @@ private:
 	State m_state{State::Disconnected};
 	QString m_userLoginName{};
 	QString m_userFullName{};
-	QString m_studentName, m_networkPolicyStatus;
+	QString m_studentName, m_expectedStudentName, m_networkPolicyStatus;
 	int m_userSessionId{0};
 	ScreenList m_screens;
 	FeatureUidList m_activeFeatures;
@@ -209,6 +215,7 @@ private:
 
 	QTimer m_statePollingTimer{this};
 	friend class ConnectionReliabilityTests;
+	friend class ClassProfileTests;
 
 Q_SIGNALS:
 	void framebufferSizeChanged();

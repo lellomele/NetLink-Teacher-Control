@@ -42,6 +42,7 @@ public Q_SLOTS:
     CommandLinePluginInterface::RunResult handle_selftest(const QStringList&);
 private:
     friend class SchoolLifecycleTests;
+    friend class ClassProfileTests;
     SchoolFeatures(QObject* parent, bool initializeRuntime);
     enum Command { Apply=1, Release=2, Status=3, Reply=4, AskName=5, NameReply=6, EndAttendance=7 };
     void policy(const ComputerControlInterfaceList&, bool block);

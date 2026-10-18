@@ -37,6 +37,7 @@ class ComputerManager;
 class ComputerMonitoringModel;
 class MainWindow;
 class UserConfig;
+class ClassProfiles;
 
 class VeyonMaster : public VeyonMasterInterface
 {
@@ -93,6 +94,7 @@ public:
 	ComputerControlInterfaceList selectedComputerControlInterfaces() const override;
 
 	ComputerControlInterfaceList filteredComputerControlInterfaces() const override;
+	void showClassProfiles(const QString& operation = {}) override;
 
 public Q_SLOTS:
 	void runFeature( const Feature& feature );
@@ -115,5 +117,6 @@ private:
 	MainWindow* m_mainWindow;
 
 	Feature::Uid m_currentMode;
+	ClassProfiles* m_classProfiles = nullptr;
 
 } ;

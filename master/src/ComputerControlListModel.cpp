@@ -180,6 +180,7 @@ void ComputerControlListModel::reload()
 
 	const auto computerList = m_master->computerManager().selectedComputers( QModelIndex() );
 
+	for (const auto& ci : m_computerControlInterfaces) stopComputerControlInterface(ci);
 	m_computerControlInterfaces.clear();
 	m_computerControlInterfaces.reserve( computerList.size() );
 
@@ -314,6 +315,8 @@ void ComputerControlListModel::startComputerControlInterface( ComputerControlInt
 void ComputerControlListModel::stopComputerControlInterface( const ComputerControlInterface::Pointer& controlInterface )
 {
 	m_master->stopAllFeatures( { controlInterface } );
+	disconnect(controlInterface.data(), nullptr, this, nullptr);
+	controlInterface->clearStudentDeclaration();
 
 	controlInterface->disconnect( &m_master->computerManager() );
 
@@ -399,7 +402,8 @@ QString ComputerControlListModel::computerToolTipRole( const ComputerControlInte
 	const QString user( loggedOnUserInformation( controlInterface ).toHtmlEscaped() );
 	const QString features( tr( "Active features: %1" ).arg( activeFeatures( controlInterface ) ).toHtmlEscaped() );
 	const QString school = NetLinkUi::text("<br>Attendance: %1<br>InternetGuard: %2")
-		.arg(controlInterface->studentName().toHtmlEscaped(),controlInterface->networkPolicyStatus().toHtmlEscaped());
+		.arg(controlInterface->attendanceLabel().toHtmlEscaped(),controlInterface->networkPolicyStatus().toHtmlEscaped()) +
+		NetLinkUi::text("<br>Assigned name: %1").arg(controlInterface->expectedStudentName().toHtmlEscaped());
 
 	if( user.isEmpty() )
 	{
@@ -415,7 +419,7 @@ QString ComputerControlListModel::computerDisplayRole( const ComputerControlInte
 {
 	QString suffix;
 	if(!controlInterface->networkPolicyStatus().isEmpty()) suffix = QStringLiteral(" [IG: %1]").arg(controlInterface->networkPolicyStatus());
-	if(!controlInterface->studentName().isEmpty()) return controlInterface->studentName()+QStringLiteral(" - ")+controlInterface->computer().name()+suffix;
+	if(!controlInterface->attendanceName().isEmpty()) return controlInterface->attendanceLabel()+QStringLiteral(" - ")+controlInterface->computer().name()+suffix;
 	if(!suffix.isEmpty()) return controlInterface->computer().name()+suffix;
 	if( displayRoleContent() != DisplayRoleContent::ComputerName &&
 		controlInterface->state() == ComputerControlInterface::State::Connected &&
@@ -460,7 +464,7 @@ QString ComputerControlListModel::computerSortRole( const ComputerControlInterfa
 				controlInterface->computer().hostAddress();
 
 	case SortOrder::UserName:
-		if(!controlInterface->studentName().isEmpty()) return controlInterface->studentName();
+		if(!controlInterface->attendanceName().isEmpty()) return controlInterface->attendanceName();
 		if( controlInterface->userFullName().isEmpty() == false )
 		{
 			return controlInterface->userFullName();

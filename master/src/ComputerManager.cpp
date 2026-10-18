@@ -38,6 +38,7 @@
 #include "NetworkObjectTreeModel.h"
 #include "PlatformFilesystemFunctions.h"
 #include "UserConfig.h"
+#include "NetLinkUi.h"
 
 
 ComputerManager::ComputerManager( UserConfig& config, QObject* parent ) :
@@ -141,6 +142,24 @@ bool ComputerManager::saveComputerAndUsersList( const QString& fileName )
 
 
 
+void ComputerManager::setClassProfileNames(const QHash<QUuid, QString>& names)
+{
+	if (names == m_classProfileNames) return;
+	auto affected = m_classProfileNames;
+	for (auto it = names.cbegin(); it != names.cend(); ++it) affected.insert(it.key(), it.value());
+	m_classProfileNames = names;
+	for (auto it = affected.cbegin(); it != affected.cend(); ++it)
+	{
+		const auto index = findNetworkObject(it.key());
+		if (index.isValid())
+		{
+			const auto name = names.value(it.key());
+			m_networkObjectOverlayDataModel->setData(mapToUserNameModelIndex(index),
+				name.isEmpty() ? QString{} : name + QStringLiteral(" [") + NetLinkUi::text("Preloaded name") + QLatin1Char(']'), Qt::DisplayRole);
+		}
+	}
+}
+
 void ComputerManager::updateUser(const ComputerControlInterface::Pointer& controlInterface) const
 {
 	const auto networkObjectIndex = findNetworkObject( controlInterface->computer().networkObjectUid() );
@@ -148,7 +167,9 @@ void ComputerManager::updateUser(const ComputerControlInterface::Pointer& contro
 	if( networkObjectIndex.isValid() )
 	{
 		auto user = controlInterface->userFullName();
-		if(!controlInterface->studentName().isEmpty()) user = controlInterface->studentName();
+		if(!controlInterface->attendanceName().isEmpty()) user = controlInterface->attendanceLabel();
+		else if(!m_classProfileNames.value(controlInterface->computer().networkObjectUid()).isEmpty())
+			user = m_classProfileNames.value(controlInterface->computer().networkObjectUid()) + QStringLiteral(" [") + NetLinkUi::text("Preloaded name") + QLatin1Char(']');
 		if( user.isEmpty() )
 		{
 			user = controlInterface->userLoginName();

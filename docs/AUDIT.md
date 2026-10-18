@@ -1,7 +1,40 @@
-# Audit and release gates — NetLink 0.1.0-alpha.12
+# Audit and release gates — NetLink 0.1.0-alpha.13
 
 Status: **partial audit and preliminary implementation, not a completed security
 audit, certified WS-Discovery implementation or production-ready release**.
+
+## Alpha 13 Master-only class–room profiles
+
+The Master stores explicit computer UUID → assigned-name documents with a versioned
+JSON schema (1 MiB, 256 assignments, bounded strings, no duplicate/null UUIDs or
+control/bidi-format characters). Hostnames/IPs are hints, never matching authority
+and never imported as network settings. A recreated computer is not silently
+reassigned. Documents contain assignments only, not attendance confirmations or
+client declarations. There is no attendance-confirmation command.
+
+Preloaded names and current self-declarations have separate state, labels, tooltips
+and CSV fields. Disconnect drops declarations and pending request nonces, retaining
+only preloaded assignments. Loading even the same profile invalidates pending
+replies; hidden computers regain expected labels by UUID when selected again.
+Editing assignments does not silently rewrite the saved file. Invalid loads leave
+the active class unchanged. Replacing an unsaved draft requires an explicit choice.
+
+JSON/CSV writes use QSaveFile without a direct-write fallback and request owner
+read/write permissions, executed off the GUI thread. On Windows Qt permissions
+do not replace NTFS ACL management: the destination directory must be protected.
+JSON reads are bounded and likewise run
+off-thread; completing a read after its dialog was destroyed cannot change a newer
+session. A write already started may complete after closing its panel. CSV cells
+are quoted and formula-like prefixes escaped. Files remain personal cleartext
+documents outside the installation tree and are not an authenticated identity
+source; access must be restricted by the teacher/school. The existing client wire
+protocol, authentication, discovery payloads and service configuration are unchanged.
+
+Targeted tests cover malformed/oversized documents, atomic validation failures,
+DHCP changes versus replaced UUIDs, stale replies across class changes, selected-PC
+requests, reconnect reset, editable/nonmodal UI and asynchronous file operations at
+100%, 150% and 200% scale. Privileged installer/reboot and actual classroom usability
+remain pilot checks, not claims established by these isolated fixtures.
 
 ## Alpha 12 installer recovery and removal
 

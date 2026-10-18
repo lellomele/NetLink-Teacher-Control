@@ -56,6 +56,7 @@ public:
 	void removeLocation( const QString& location );
 
 	bool saveComputerAndUsersList( const QString& fileName );
+	void setClassProfileNames(const QHash<QUuid, QString>& names);
 
 	void updateUser(const ComputerControlInterface::Pointer& controlInterface) const;
 
@@ -94,6 +95,7 @@ private:
 	QStringList m_currentLocations;
 	QStringList m_locationFilterList;
 
+	QHash<QUuid, QString> m_classProfileNames;
 	QStringList m_localHostNames;
 	QList<QHostAddress> m_localHostAddresses;
 

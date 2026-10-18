@@ -44,6 +44,9 @@ public:
 
 	bool eventFilter(QObject *watched, QEvent *event) override;
 
+Q_SIGNALS:
+	void classProfileRequested(const QString& operation);
+
 private Q_SLOTS:
 	void addLocation();
 	void removeLocation();

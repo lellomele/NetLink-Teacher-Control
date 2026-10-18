@@ -111,6 +111,7 @@ MainWindow::MainWindow( VeyonMaster &masterCore, QWidget* parent ) :
 	slideshowSpotlightSplitter->setObjectName( QStringLiteral("SlideshowSpotlightSplitter") );
 
 	auto computerSelectPanel = new ComputerSelectPanel( m_master.computerManager() );
+	connect(computerSelectPanel, &ComputerSelectPanel::classProfileRequested, &m_master, &VeyonMaster::showClassProfiles);
 	auto screenshotManagementPanel = new ScreenshotManagementPanel();
 	auto slideshowPanel = new SlideshowPanel( m_master.userConfig(), ui->computerMonitoringWidget );
 	auto spotlightPanel = new SpotlightPanel( m_master.userConfig(), ui->computerMonitoringWidget );

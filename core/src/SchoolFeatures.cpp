@@ -358,11 +358,13 @@ bool SchoolFeatures::handleFeatureMessage(VeyonWorkerInterface& worker,const Fea
 }
 void SchoolFeatures::attendance(VeyonMasterInterface& master,const ComputerControlInterfaceList& clients) {
     if(bringForward(m_attendanceDialog)) return;
-    auto box=new QMessageBox(QMessageBox::Question,NetLinkUi::text("Attendance"),NetLinkUi::text("Names are self-declared, not verified.\nChoose an operation for the computers selected when opened."),QMessageBox::NoButton,master.mainWindow());
+    auto box=new QMessageBox(QMessageBox::Question,NetLinkUi::text("Attendance"),NetLinkUi::text("Names are self-declared, not verified.\nChoose an operation for the computers selected when opened. Preloaded assignments remain until you unload or change the profile in Locations & computers."),QMessageBox::NoButton,master.mainWindow());
     m_attendanceDialog=box;prepareDialog(box,"schoolAttendanceDialog");box->setTextFormat(Qt::PlainText);
-    auto ask=box->addButton(NetLinkUi::text("Request names"),QMessageBox::ActionRole);auto end=box->addButton(NetLinkUi::text("End and clear names"),QMessageBox::ActionRole);auto exportButton=box->addButton(NetLinkUi::text("Export CSV"),QMessageBox::ActionRole);box->addButton(QMessageBox::Cancel);
+    auto ask=box->addButton(NetLinkUi::text("Request names"),QMessageBox::ActionRole);auto end=box->addButton(NetLinkUi::text("End requests and clear declarations"),QMessageBox::ActionRole);auto exportButton=box->addButton(NetLinkUi::text("Export CSV"),QMessageBox::ActionRole);auto profiles=box->addButton(NetLinkUi::text("Class–room profiles…"),QMessageBox::ActionRole);box->addButton(QMessageBox::Cancel);
     QPointer<QWidget> parent(master.mainWindow());
-    connect(box,&QMessageBox::buttonClicked,this,[this,box,ask,end,exportButton,clients,parent](QAbstractButton* clicked) {
+    QPointer<VeyonMasterInterface> guardedMaster(&master);
+    connect(box,&QMessageBox::buttonClicked,this,[this,box,ask,end,exportButton,profiles,guardedMaster,clients,parent](QAbstractButton* clicked) {
+        if(clicked==profiles && guardedMaster) {guardedMaster->showClassProfiles();return;}
         if(clicked==ask) {
             for(const auto& ci:clients) if(ci) {
                 if(ci->state()!=ComputerControlInterface::State::Connected) continue;
@@ -374,16 +376,18 @@ void SchoolFeatures::attendance(VeyonMasterInterface& master,const ComputerContr
                 connect(deadline,&QTimer::timeout,this,[guarded,id] {if(guarded && guarded->property("schoolAttendanceRequest").toString()==id) guarded->setProperty("schoolAttendanceRequest",QString{});});deadline->start(180000);
             }
         } else if(clicked==end) {
-            for(const auto& ci:clients) if(ci) {ci->setProperty("schoolAttendanceRequest",QString{});ci->setStudentName({});ci->sendFeatureMessage(FeatureMessage(m_attendanceUid,EndAttendance));}
+            for(const auto& ci:clients) if(ci) {ci->clearStudentDeclaration();ci->sendFeatureMessage(FeatureMessage(m_attendanceUid,EndAttendance));}
         } else if(clicked==exportButton && parent) {
             auto chooser=new QFileDialog(parent,NetLinkUi::text("Export attendance"),{},"CSV (*.csv)");
             chooser->setAcceptMode(QFileDialog::AcceptSave);chooser->setDefaultSuffix("csv");chooser->setAttribute(Qt::WA_DeleteOnClose);
             connect(chooser,&QFileDialog::fileSelected,this,[clients,parent](const QString& path) {
                 if(path.isEmpty()) return;
                 auto quote=[](QString text){const auto trimmed=text.trimmed();if(!trimmed.isEmpty() && QString("=+-@").contains(trimmed.front())) text.prepend('\'');text.replace('"',"\"\"");return '"'+text+'"';};
-                QByteArray data("\xef\xbb\xbf");data+=NetLinkUi::text("PC;Student;Connection\r\n").toUtf8();
-                for(const auto& ci:clients) if(ci) data+=(quote(ci->computer().name())+';'+quote(ci->studentName())+';'+quote(ci->state()==ComputerControlInterface::State::Connected ? "online" : "offline")+"\r\n").toUtf8();
-                QSaveFile file(path);if(!file.open(QIODevice::WriteOnly) || file.write(data)!=data.size() || !file.commit()) notify(parent,QMessageBox::Warning,NetLinkUi::text("Attendance"),NetLinkUi::text("Export failed."));
+                QByteArray data("\xef\xbb\xbf");data+=NetLinkUi::text("PC;Assigned student;Client declaration;Name source;Connection\r\n").toUtf8();
+                for(const auto& ci:clients) if(ci) data+=(quote(ci->computer().name())+';'+quote(ci->expectedStudentName())+';'+quote(ci->studentName())+';'+quote(ci->attendanceStatus())+';'+quote(ci->state()==ComputerControlInterface::State::Connected ? "online" : "offline")+"\r\n").toUtf8();
+                auto watcher=new QFutureWatcher<bool>(parent);
+                connect(watcher,&QFutureWatcher<bool>::finished,watcher,[watcher,parent] {const bool ok=watcher->result();watcher->deleteLater();if(!ok && parent) notify(parent,QMessageBox::Warning,NetLinkUi::text("Attendance"),NetLinkUi::text("Export failed."));});
+                watcher->setFuture(QtConcurrent::run([path,data] {QSaveFile file(path);file.setDirectWriteFallback(false);return file.open(QIODevice::WriteOnly) && file.setPermissions(QFile::ReadOwner|QFile::WriteOwner) && file.write(data)==data.size() && file.commit();}));
             });
             chooser->open();
         }

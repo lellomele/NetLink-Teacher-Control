@@ -18,6 +18,42 @@ Non pubblicare chiavi private, password o esportazioni di configurazione.
    servizio dopo modifiche. Nel Master la miniatura deve aggiornarsi.
 5. Annotare build OS, antivirus/firewall, latenza e carico CPU a riposo.
 
+## Alpha.13: profili classe–aula sul MATEBOOK
+
+Aggiornare prima solo il MATEBOOK, chiudendo tutte le app NetLink e usando
+l’installer completo come amministratore, senza disinstallare né rigenerare chiavi.
+Conservare prima il JSON del Configurator e le chiavi. Questa funzione non richiede
+modifiche al client DELL, che può restare alla alpha già funzionante.
+
+1. Verificare `netlink_test`, miniatura e controllo remoto del DELL.
+2. In **Posizioni e computer** controllare i PC desiderati e aprire **Profili
+   classe–aula…**. Inserire classe e aula, modificare il nome assegnato al DELL.
+   Controllare elenco laterale, miniatura e tooltip: deve indicare nome precaricato.
+3. **Salva JSON**, scegliere una cartella personale protetta. Chiudere e riaprire
+   il Master: i nomi non si caricano automaticamente. Usare **Carica JSON** dal
+   pannello e verificare la stessa associazione. Il file non è il backup del Configurator.
+4. Selezionare il DELL nella Console, usare **Appello → Richiedi nomi** e inserire
+   sul client un nome diverso. Verificare nome dichiarato e differenza dall’assegnazione,
+   senza conferme di presenza. Il JSON non deve cambiare. **Usa nomi dichiarati** nel
+   profilo copia la risposta nelle assegnazioni soltanto su richiesta; poi salvare.
+5. Modificare un’assegnazione e chiudere il pannello: la bozza deve restare in memoria.
+   Per sostituirla con un altro profilo confermare esplicitamente lo scarto o salvare.
+   Caricare una copia del file con un’altra classe/nome mentre il client deve ancora
+   rispondere: la risposta tardiva della vecchia richiesta non deve cambiare la classe nuova.
+6. Deselezionare e riselezionare il DELL nel gruppo: deve tornare il nome precaricato,
+   non una vecchia dichiarazione. Riavviare il servizio DELL durante una dichiarazione:
+   dopo la riconnessione resta soltanto l’assegnazione salvata, non una presenza verificata.
+7. Esportare **CSV** e controllare classe, aula, PC, nome assegnato, dichiarazione,
+   origine e connessione. Le colonne devono distinguere precaricamento da risposta.
+8. Caricare un file JSON incompleto/non valido e un backup del Configurator: entrambi
+   devono essere rifiutati senza perdere i nomi attivi. Provare **Nuovo / scarica profilo**:
+   spariscono le etichette attive, ma i file JSON rimangono sul disco.
+
+Cambio IP: con lo stesso UUID il profilo conserva l’assegnazione, ma non corregge
+un vecchio IP numerico nel Configurator. PC cancellati/ricreati risultano non associati.
+Verificare leggibilità del pannello a 100/150/200%, lingua italiana/inglese e
+reattività durante selezione file, caricamento, salvataggio e chiusura.
+
 ## Ripristino e aggiornamento ad alpha.12
 
 Sul MATEBOOK con l'installer alpha.11 bloccato: chiudere errore e installer,

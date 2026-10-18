@@ -32,6 +32,7 @@
 #include "RecursiveFilterProxyModel.h"
 #include "LocationDialog.h"
 #include "VeyonConfiguration.h"
+#include "NetLinkUi.h"
 
 #include "ui_ComputerSelectPanel.h"
 
@@ -50,6 +51,15 @@ ComputerSelectPanel::ComputerSelectPanel( ComputerManager& computerManager, QWid
 #endif
 
 	ui->setupUi(this);
+	ui->profilesButton->setText(NetLinkUi::text("Class–room profiles…"));
+	ui->loadProfileButton->setText(NetLinkUi::text("Load JSON…"));
+	ui->saveProfileButton->setText(NetLinkUi::text("Save JSON…"));
+	ui->saveListButton->setText(NetLinkUi::text("Export CSV…"));
+	ui->profilesButton->setToolTip(NetLinkUi::text("Edit the student assigned to each computer. Profiles do not change computer names, addresses, keys or permissions."));
+	connect(ui->profilesButton, &QPushButton::clicked, this, [this] {Q_EMIT classProfileRequested(QString{});});
+	connect(ui->loadProfileButton, &QPushButton::clicked, this, [this] {Q_EMIT classProfileRequested(QStringLiteral("load"));});
+	connect(ui->saveProfileButton, &QPushButton::clicked, this, [this] {Q_EMIT classProfileRequested(QStringLiteral("save"));});
+	connect(ui->saveListButton, &QPushButton::clicked, this, [this] {Q_EMIT classProfileRequested(QStringLiteral("csv"));});
 
 	// capture keyboard events for tree view
 	ui->treeView->installEventFilter( this );

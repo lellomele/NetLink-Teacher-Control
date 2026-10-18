@@ -5,7 +5,7 @@ InternetGuard basato su Windows Filtering Platform, Appello con il nome dichiara
 dallo studente sulle miniature e ricerca dei client tramite WS-Discovery 1.1.
 Le funzioni sono integrate: non occorre installare un plugin esterno.
 
-**Versione preliminare 0.1.0-alpha.12: destinata a PC di prova, non al laboratorio in uso.**
+**Versione preliminare 0.1.0-alpha.13: destinata a PC di prova, non al laboratorio in uso.**
 
 ## Installazione
 
@@ -95,9 +95,23 @@ docenti. Non distribuire la chiave privata ai client.
   Le finestre InternetGuard, Appello e Trova client lasciano utilizzabile la
   console e conservano i PC selezionati all'apertura. Chiudere la finestra
   InternetGuard non sblocca i client: usare esplicitamente **Sblocca**.
-- **Appello:** selezionare i PC e richiedere nome e cognome. I nomi sono visualizzati
-  sulle miniature, ricercabili e ordinabili. Si può esportare il risultato in CSV
-  oppure terminare l’appello e cancellare i nomi.
+- **Appello e profili classe–aula:** in **Posizioni e computer** usare **Profili
+  classe–aula…** per assegnare uno studente a ogni postazione, indicando classe e
+  aula. I nomi appaiono nell’elenco e sulle miniature, ricercabili e ordinabili.
+  **Salva JSON** conserva le assegnazioni; **Carica JSON** le ricarica in una nuova
+  lezione. Il file è scelto dal docente (inizialmente in Documenti, oppure in
+  `%APPDATA%\NetLink\Classi` se la cartella esiste già). Non è il JSON del Configurator.
+  Modificare la colonna dello studente per cambiare assegnazione; selezionare righe
+  e usare **Usa nomi dichiarati** per copiare le risposte dell’Appello nel profilo.
+  Le risposte non sovrascrivono automaticamente il file: salvarlo esplicitamente.
+  **Esporta CSV** produce una copia leggibile con postazioni, assegnazioni e
+  dichiarazioni, non ricaricabile come profilo.
+  Per rileggere un nome, selezionare solo i PC interessati nella Console e usare
+  **Appello → Richiedi nomi**. Nessuna conferma di presenza è richiesta o prevista.
+  I nomi **precaricati** sono distinti da quelli **dichiarati dal client**; un nome
+  diverso dall’assegnazione è segnalato. **Termina richieste e cancella nomi
+  dichiarati** mantiene il profilo; **Nuovo / scarica profilo** elimina le etichette
+  attive e consente di costruire un altro profilo, senza cancellare i file salvati.
 - **Trova client:** mostra soltanto PC remoti con indirizzi IPv4, escludendo il
   computer docente e tutte le sue schede, anche virtuali. IPv6 di Windows resta
   attivo. Verificare i PC rilevati prima di importare quello selezionato.
@@ -220,9 +234,19 @@ subnet senza motivo. Gli studenti non devono avere diritti amministrativi locali
 Un altro docente non può sostituire una policy attiva di una diversa connessione:
 in caso di riconnessione può essere necessario aspettare la scadenza di 90 secondi.
 
-Appello è un’autodichiarazione, non un’identificazione verificata. I nomi restano
-nella memoria del Master finché termina l’appello o si chiude il programma; il CSV
-contiene dati personali e va conservato soltanto quando necessario. Gli annunci
+Appello non verifica identità o presenze. I profili sono solo del Master e non
+richiedono aggiornamenti dei client già compatibili con Appello. Il JSON salva
+nomi assegnati e identificativi delle postazioni, non dichiarazioni o presenze.
+Le dichiarazioni restano in memoria e vengono eliminate alla disconnessione o al
+cambio profilo; i nomi precaricati restano fino allo scaricamento del profilo o
+alla chiusura del Master. Il caricamento usa l’identificativo interno del PC, non
+l’IP: non ripristina vecchi indirizzi né aggiorna automaticamente un IP cambiato
+nel Configurator. Usare hostname risolvibili o aggiornare gli indirizzi nella
+configurazione. PC cancellati e ricreati devono essere riassegnati esplicitamente;
+i PC non visualizzati/configurati sono segnalati nel pannello dei profili.
+JSON e CSV contengono dati personali in chiaro: conservarli in cartelle protette,
+non nella cartella del programma, e non pubblicarli su GitHub. Non vengono inclusi
+nel backup JSON del Configurator né eliminati dalla disinstallazione. Gli annunci
 discovery non trasmettono i nomi degli studenti e non sono autenticati.
 
 La comunicazione Master/client eredita il modello di sicurezza Veyon 4.7.5: il TLS
@@ -245,8 +269,10 @@ Le nuove funzioni richiedono il fork NetLink (già Veyon School) sui client.
 I ritardi dell'interfaccia superiori a due secondi vengono segnalati nel normale
 registro diagnostico dopo il recupero, con avvisi limitati nel tempo. Anche una
 sospensione di Windows può produrre un ritardo: non è una prova di deadlock.
-Non vengono forzati riavvii, chiusure o riparazioni. Il salvataggio CSV su una
-cartella di rete non disponibile può ancora attendere le risposte di Windows.
+Non vengono forzati riavvii, chiusure o riparazioni. Le operazioni JSON/CSV
+dell’Appello avvengono fuori dal thread dell’interfaccia: su cartelle di rete non
+disponibili Windows può ritardare l’esito. Chiudere il pannello durante una scrittura
+non annulla necessariamente il salvataggio già iniziato.
 
 ## Compilazione
 

@@ -25,6 +25,7 @@
 #include <QHostAddress>
 
 #include "VeyonMaster.h"
+#include "ClassProfiles.h"
 #include "BuiltinFeatures.h"
 #include "ComputerControlListModel.h"
 #include "ComputerMonitoringModel.h"
@@ -188,6 +189,21 @@ ComputerControlInterfaceList VeyonMaster::filteredComputerControlInterfaces() co
 }
 
 
+
+void VeyonMaster::showClassProfiles(const QString& operation)
+{
+	if (!m_classProfiles)
+	{
+		m_classProfiles = new ClassProfiles(*this, this);
+		connect(m_classProfiles, &ClassProfiles::assignmentsChanged, this, [this] {
+			QHash<QUuid, QString> names;
+			for (const auto& seat : m_classProfiles->profile().assignments) names.insert(seat.computerId, seat.student);
+			m_computerManager->setClassProfileNames(names);
+			for (const auto& ci : allComputerControlInterfaces()) if (ci) m_computerManager->updateUser(ci);
+		});
+	}
+	m_classProfiles->show(operation);
+}
 
 void VeyonMaster::runFeature( const Feature& feature )
 {
