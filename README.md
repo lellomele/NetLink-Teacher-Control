@@ -5,7 +5,7 @@ InternetGuard basato su Windows Filtering Platform, Appello con il nome dichiara
 dallo studente sulle miniature e ricerca dei client tramite WS-Discovery 1.1.
 Le funzioni sono integrate: non occorre installare un plugin esterno.
 
-**Versione preliminare 0.1.0-alpha.13: destinata a PC di prova, non al laboratorio in uso.**
+**Versione preliminare 0.1.0-alpha.14: destinata a PC di prova, non al laboratorio in uso.**
 
 ## Installazione
 
@@ -110,6 +110,9 @@ docenti. Non distribuire la chiave privata ai client.
   dichiarazioni, non ricaricabile come profilo.
   Per rileggere un nome, selezionare solo i PC interessati nella Console e usare
   **Appello → Richiedi nomi**. Nessuna conferma di presenza è richiesta o prevista.
+  Sul client confermare il nome con **OK** oppure **Invio**. La miniatura mostra
+  `[nome Appello] - account Windows - PC`, con sfondo distinto solo sul nome;
+  l'origine resta nel tooltip. Il nome precaricato ha sfondo tenue e corsivo.
   I nomi **precaricati** sono distinti da quelli **dichiarati dal client**; un nome
   diverso dall’assegnazione è segnalato. **Termina richieste e cancella nomi
   dichiarati** mantiene il profilo; **Nuovo / scarica profilo** elimina le etichette

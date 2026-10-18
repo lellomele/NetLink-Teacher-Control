@@ -1,7 +1,27 @@
-# Audit and release gates — NetLink 0.1.0-alpha.13
+# Audit and release gates — NetLink 0.1.0-alpha.14
 
 Status: **partial audit and preliminary implementation, not a completed security
 audit, certified WS-Discovery implementation or production-ready release**.
+
+## Alpha 14 attendance submission and thumbnail captions
+
+Enter and numeric-keypad Enter in the client name field use the same validated
+completion as OK, even if Cancel became the default button. An idempotent dialog
+completion guard prevents duplicate replies and result overrides. Empty/invalid
+names stay in the dialog; Escape and explicit Cancel still cancel. Isolated
+keyboard fixtures and a separate worker process over local TCP verify delivery
+before exit. This fixes the reproduced Cancel-default case; native DELL keyboard
+behaviour remains a pilot check and requires updating the client as well.
+
+Thumbnail captions keep three independent fields: `[attendance name]`, Windows
+login and computer name, followed by existing InternetGuard status when present.
+The origin description is omitted from the caption but retained in tooltips and
+profiles. A delegate formats literal text, not client-supplied HTML. It preserves
+native thumbnail/selection/focus painting, clips text to the caption area and uses
+theme/high-contrast palette colors; preloaded names have a muted, italic badge.
+Plain display text remains searchable and accessible. Tests cover long names,
+markup-like input, selected/unselected palettes and 100/150/200% scale. No network
+protocol, authentication, key location, firewall policy or profile schema changes.
 
 ## Alpha 13 Master-only class–room profiles
 

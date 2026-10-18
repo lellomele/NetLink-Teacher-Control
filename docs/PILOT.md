@@ -18,6 +18,27 @@ Non pubblicare chiavi private, password o esportazioni di configurazione.
    servizio dopo modifiche. Nel Master la miniatura deve aggiornarsi.
 5. Annotare build OS, antivirus/firewall, latenza e carico CPU a riposo.
 
+## Alpha.14: didascalie e Invio nell'Appello
+
+1. Esportare il JSON dal Configurator e conservare le chiavi esistenti; non
+   pubblicare questi file. Chiudere Console, Configurator e Companion sul MATEBOOK,
+   aggiornare con l'installer completo come amministratore, senza disinstallare
+   e senza rigenerare `netlink_test`. Riavviare e verificare miniatura/controllo del DELL.
+2. Aggiornare anche il DELL con lo stesso installer e riavviare: la correzione di
+   Invio è nella finestra del client, non soltanto nella Console docente.
+3. Richiedere Appello sul solo DELL e digitare un nome fittizio, poi premere Invio.
+   La finestra deve chiudersi e il nome arrivare al Master. Ripetere con Invio del
+   tastierino, OK, Annulla, Esc e nome vuoto; non devono arrivare risposte doppie.
+4. Verificare `[nome] - utente Windows - nome PC`, sfondo solo sul nome,
+   assenza della dicitura di origine nella didascalia e stato InternetGuard ancora
+   leggibile. Con un profilo caricato verificare sfondo tenue/corsivo del nome
+   precaricato e origine/differenza nel tooltip. Provare temi chiaro/scuro,
+   selezione e dimensioni miniature abituali; la ricerca deve trovare nome, account e PC.
+
+I file classe–aula rimangono compatibili. L'installer preserva configurazione e
+chiavi nei percorsi già configurati; non occorre reimportare il JSON durante un
+aggiornamento normale. Le prove isolate non sostituiscono questo collaudo reale.
+
 ## Alpha.13: profili classe–aula sul MATEBOOK
 
 Aggiornare prima solo il MATEBOOK, chiudendo tutte le app NetLink e usando
@@ -191,8 +212,17 @@ cartella di compilazione sopra l'installazione esistente.
 ## Appello
 
 1. Richiedere nome: il dialogo deve comparire nella sessione dello studente.
-2. Usare nomi fittizi: miniatura con nome + PC, account Windows distinto nel
-   tooltip, ricerca e ordinamento funzionanti.
+2. Usare nomi fittizi: da alpha.14 la miniatura mostra
+   `[nome appello] - account Windows - PC`, con sfondo distinto solo sul nome e
+   senza la dicitura «Nome dichiarato dal Client». Verificare tema chiaro/scuro,
+   selezione, 100/150/200%, nomi lunghi e ricerca per nome, account e PC. I nomi
+   precaricati hanno sfondo più tenue e corsivo; origine/differenze restano nel
+   tooltip e nel pannello dei profili, senza conferme di presenza.
+   Ripetere sul client con Invio normale, Invio del tastierino e clic su OK:
+   deve arrivare un'unica risposta con lo stesso nome. Provare anche dopo aver
+   spostato il focus su Annulla e poi di nuovo nel campo nome. Nome vuoto/spazi
+   non devono chiudere il dialogo con Invio; Esc e Annulla devono annullare.
+   Questa correzione della finestra richiede l'aggiornamento anche del client.
 3. Provare Annulla, richiesta ripetuta, offline, perdita Wi-Fi e riavvio. Nessuna
    risposta vecchia deve aggiornare una richiesta nuova.
 4. Esportare CSV, verificare Unicode/virgolette/valori che iniziano con `=`;

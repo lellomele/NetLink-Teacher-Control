@@ -60,6 +60,22 @@ QString cleanName(const QString& input) {
     for(const auto c:name) if(c.category()==QChar::Other_Control || c.category()==QChar::Other_Format) return {};
     return name;
 }
+class StudentNameDialog final : public QDialog {
+public:
+    StudentNameDialog() : m_name(new QLineEdit(this)) {m_name->setMaxLength(120);}
+    QLineEdit* nameEditor() const {return m_name;}
+    void done(int result) override {
+        // Return can emit returnPressed and then reach the default button.
+        // Validate both paths identically and complete this request only once.
+        if(m_completed) return;
+        if(result==Accepted && cleanName(m_name->text()).isEmpty()) {m_name->setFocus();return;}
+        m_completed=true;
+        QDialog::done(result);
+    }
+private:
+    QLineEdit* const m_name;
+    bool m_completed=false;
+};
 QString newId() { return QUuid::createUuid().toString(QUuid::WithoutBraces); }
 QString addressText(QHostAddress address) {
     bool ipv4=false; const auto v4=address.toIPv4Address(&ipv4);
@@ -332,16 +348,22 @@ bool SchoolFeatures::handleFeatureMessage(VeyonWorkerInterface& worker,const Fea
     if(!workerObject) {qWarning("NetLink attendance worker has no guarded QObject lifetime");return true;}
     if(m_studentDialog && m_studentDialog->property("schoolAttendanceRequest").toString()==request && bringForward(m_studentDialog)) return true;
     if(m_studentDialog) delete m_studentDialog;
-    auto dialog=new QDialog;dialog->setAttribute(Qt::WA_DeleteOnClose);
+    auto dialog=new StudentNameDialog;dialog->setAttribute(Qt::WA_DeleteOnClose);
     // Closing this one-shot UI must not terminate the event loop before the
     // worker's TCP reply reaches the service. The worker owns bounded shutdown.
     dialog->setAttribute(Qt::WA_QuitOnClose,false);m_studentDialog=dialog;
     dialog->setProperty("schoolAttendanceRequest",request);
     dialog->setWindowTitle(NetLinkUi::windowTitle(NetLinkUi::text("Attendance — NetLink")));dialog->setWindowIcon(QIcon(":/core/veyon.png"));
     auto layout=new QVBoxLayout(dialog);auto label=new QLabel(NetLinkUi::text("Enter your first and last name for the teacher's attendance request."),dialog);label->setTextFormat(Qt::PlainText);layout->addWidget(label);
-    auto name=new QLineEdit(dialog);name->setMaxLength(120);layout->addWidget(name);
+    auto name=dialog->nameEditor();layout->addWidget(name);
     auto buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,dialog);layout->addWidget(buttons);
-    connect(buttons,&QDialogButtonBox::accepted,dialog,[dialog,name] {if(!cleanName(name->text()).isEmpty()) dialog->accept();});
+    auto ok=buttons->button(QDialogButtonBox::Ok);ok->setDefault(true);
+    connect(buttons,&QDialogButtonBox::accepted,dialog,&QDialog::accept);
+    connect(name,&QLineEdit::returnPressed,dialog,[dialog,ok] {
+        // Keep native line-edit/IME processing, but never let a previously
+        // focused Cancel button turn Enter from the name field into rejection.
+        ok->setDefault(true);dialog->accept();
+    });
     connect(buttons,&QDialogButtonBox::rejected,dialog,&QDialog::reject);
     QPointer<QObject> guardedWorker(workerObject);
     connect(workerObject,&QObject::destroyed,dialog,&QObject::deleteLater);

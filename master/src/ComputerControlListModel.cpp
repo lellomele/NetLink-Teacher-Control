@@ -25,6 +25,7 @@
 #include <QPainter>
 
 #include "ComputerControlListModel.h"
+#include "ComputerCaptionDelegate.h"
 #include "NetLinkUi.h"
 #include "ComputerManager.h"
 #include "FeatureManager.h"
@@ -108,6 +109,12 @@ QVariant ComputerControlListModel::data( const QModelIndex& index, int role ) co
 
 	case UserLoginNameRole:
 		return computerControl->userLoginName();
+
+	case AttendanceNameRole:
+		return computerControl->attendanceName();
+
+	case AttendancePreloadedRole:
+		return computerControl->studentName().isEmpty() && !computerControl->expectedStudentName().isEmpty();
 
 	case FramebufferRole:
 		return computerControl->framebuffer();
@@ -279,7 +286,8 @@ void ComputerControlListModel::updateActiveFeatures( const QModelIndex& index )
 
 void ComputerControlListModel::updateUser( const QModelIndex& index )
 {
-	Q_EMIT dataChanged( index, index, { Qt::DisplayRole, Qt::ToolTipRole, Qt::InitialSortOrderRole } );
+	Q_EMIT dataChanged( index, index, { Qt::DisplayRole, Qt::ToolTipRole, Qt::InitialSortOrderRole,
+		UserLoginNameRole, AttendanceNameRole, AttendancePreloadedRole } );
 
 	auto controlInterface = computerControlInterface( index );
 	if( controlInterface.isNull() == false )
@@ -417,36 +425,7 @@ QString ComputerControlListModel::computerToolTipRole( const ComputerControlInte
 
 QString ComputerControlListModel::computerDisplayRole( const ComputerControlInterface::Pointer& controlInterface ) const
 {
-	QString suffix;
-	if(!controlInterface->networkPolicyStatus().isEmpty()) suffix = QStringLiteral(" [IG: %1]").arg(controlInterface->networkPolicyStatus());
-	if(!controlInterface->attendanceName().isEmpty()) return controlInterface->attendanceLabel()+QStringLiteral(" - ")+controlInterface->computer().name()+suffix;
-	if(!suffix.isEmpty()) return controlInterface->computer().name()+suffix;
-	if( displayRoleContent() != DisplayRoleContent::ComputerName &&
-		controlInterface->state() == ComputerControlInterface::State::Connected &&
-		controlInterface->userLoginName().isEmpty() == false )
-	{
-		auto user = controlInterface->userFullName();
-		if( user.isEmpty() )
-		{
-			user = controlInterface->userLoginName();
-		}
-
-		if( displayRoleContent() == DisplayRoleContent::UserName )
-		{
-			return user;
-		}
-		else
-		{
-			return QStringLiteral("%1 - %2").arg( user, controlInterface->computer().name() );
-		}
-	}
-
-	if( displayRoleContent() != DisplayRoleContent::UserName )
-	{
-		return controlInterface->computer().name();
-	}
-
-	return tr("[no user]");
+	return ComputerCaptionDelegate::captionText(*controlInterface, displayRoleContent());
 }
 
 

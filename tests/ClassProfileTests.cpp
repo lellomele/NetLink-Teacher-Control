@@ -8,11 +8,18 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLineEdit>
+#include <QListView>
 #include <QMessageBox>
+#include <QPainter>
 #include <QPushButton>
+#include <QSortFilterProxyModel>
+#include <QStandardItemModel>
+#include <QStyleFactory>
 #include <QTableWidget>
 #include <QTemporaryDir>
 #include "ClassProfiles.h"
+#include "ComputerCaptionDelegate.h"
+#include "NetLinkAppearance.h"
 #include "NetLinkUi.h"
 #include "SchoolFeatures.h"
 #include "VeyonMasterInterface.h"
@@ -47,6 +54,94 @@ class ClassProfileTests : public QObject {
     }
 private Q_SLOTS:
     void initTestCase() {QVERIFY(directory.isValid());QLocale::setDefault(QLocale("en_US"));}
+    void thumbnailCaptionKeepsLoginComputerAndPolicy() {
+        auto ci=client(QUuid::createUuid());ci->m_state=ComputerControlInterface::State::Connected;
+        ci->setUserInformation("SCUOLA\\studente","Account condiviso",1);ci->setStudentName("Anna Rossi");
+        for(auto content:{ComputerListModel::DisplayRoleContent::UserAndComputerName,
+                          ComputerListModel::DisplayRoleContent::ComputerName,ComputerListModel::DisplayRoleContent::UserName})
+            QCOMPARE(ComputerCaptionDelegate::captionText(*ci,content),QString("[Anna Rossi] - SCUOLA\\studente - PC-01"));
+        ci->setNetworkPolicyStatus("blocked");
+        const auto text=ComputerCaptionDelegate::captionText(*ci,ComputerListModel::DisplayRoleContent::UserAndComputerName);
+        QCOMPARE(text,QString("[Anna Rossi] - SCUOLA\\studente - PC-01 [IG: blocked]"));
+        QVERIFY(!text.contains("Declared"));QVERIFY(!text.contains("Account condiviso"));
+        ci->setExpectedStudentName("Luca Bianchi");ci->clearStudentDeclaration();
+        QCOMPARE(ComputerCaptionDelegate::captionText(*ci,ComputerListModel::DisplayRoleContent::UserAndComputerName),
+                 QString("[Luca Bianchi] - SCUOLA\\studente - PC-01 [IG: blocked]"));
+        QCOMPARE(ci->attendanceStatus(),QString("Preloaded name"));
+        ci->setExpectedStudentName({});
+        QCOMPARE(ComputerCaptionDelegate::captionText(*ci,ComputerListModel::DisplayRoleContent::UserAndComputerName),
+                 QString("Account condiviso - PC-01 [IG: blocked]"));
+        ci->setStudentName("Anna Rossi");ci->setUserInformation({},{},-1);
+        QCOMPARE(ComputerCaptionDelegate::captionText(*ci,ComputerListModel::DisplayRoleContent::UserAndComputerName),
+                 QString("[Anna Rossi] - PC-01 [IG: blocked]"));
+    }
+    void thumbnailBadgeIsLiteralClippedAndThemeAware_data() {
+        QTest::addColumn<QString>("mode");QTest::addColumn<bool>("selected");QTest::addColumn<bool>("preloaded");
+        for(const auto& mode:{"Light","Dark","HighContrast"}) for(bool selected:{false,true}) for(bool preloaded:{false,true})
+            QTest::newRow(qPrintable(QString("%1-%2-%3").arg(mode).arg(selected).arg(preloaded)))<<QString(mode)<<selected<<preloaded;
+    }
+    void thumbnailBadgeIsLiteralClippedAndThemeAware() {
+        QFETCH(QString,mode);QFETCH(bool,selected);QFETCH(bool,preloaded);
+        NetLinkAppearance::Preferences preferences;preferences.mode=mode;
+        auto palette=NetLinkAppearance::makePalette(preferences,false);
+        if(mode=="HighContrast") {
+            palette.setColor(QPalette::Base,Qt::black);palette.setColor(QPalette::Midlight,Qt::black);
+            palette.setColor(QPalette::Text,Qt::white);palette.setColor(QPalette::Highlight,Qt::yellow);
+            palette.setColor(QPalette::HighlightedText,Qt::black);
+        }
+        QStandardItemModel model;const QString name="<b>Anna & Rossi</b> 学生";
+        auto row=new QStandardItem("["+name+"] - SCUOLA\\studente - PC-01");
+        row->setData(name,ComputerListModel::AttendanceNameRole);row->setData(preloaded,ComputerListModel::AttendancePreloadedRole);model.appendRow(row);
+        QSortFilterProxyModel proxy;proxy.setSourceModel(&model);proxy.setFilterCaseSensitivity(Qt::CaseInsensitive);
+        for(const auto& query:{"Anna","studente","PC-01"}) {proxy.setFilterFixedString(query);QCOMPARE(proxy.rowCount(),1);}
+        proxy.setFilterFixedString({});
+        QImage image(660,180,QImage::Format_ARGB32_Premultiplied);image.fill(Qt::magenta);
+        QStyleOptionViewItem option;option.rect=QRect(20,20,620,140);option.palette=palette;
+        option.font=QFont("Segoe UI",11);option.fontMetrics=QFontMetrics(option.font);
+        option.features=QStyleOptionViewItem::HasDisplay|QStyleOptionViewItem::WrapText;
+        option.displayAlignment=Qt::AlignCenter;option.state=QStyle::State_Enabled|QStyle::State_Active;
+        if(selected) option.state|=QStyle::State_Selected|QStyle::State_HasFocus;
+        ComputerCaptionDelegate delegate;
+        {QPainter painter(&image);delegate.paint(&painter,option,proxy.index(0,0));}
+        const auto badge=palette.color(selected?QPalette::Base:preloaded?QPalette::Midlight:QPalette::Highlight);
+        int badgePixels=0;
+        for(int y=0;y<image.height();++y) for(int x=0;x<image.width();++x) {
+            if(!option.rect.contains(x,y)) QCOMPARE(image.pixelColor(x,y),QColor(Qt::magenta));
+            else if(image.pixelColor(x,y)==badge) ++badgePixels;
+        }
+        QVERIFY(badgePixels>30);
+        // No HTML interpretation: the brackets and tags are part of the plain
+        // searchable/accessibility text, not a way to inject a rich-text widget.
+        QCOMPARE(proxy.index(0,0).data().toString(),row->text());QVERIFY(row->text().contains("<b>"));
+        row->setText("["+QString(120,'W')+"] - studente - PC-01");row->setData(QString(120,'W'),ComputerListModel::AttendanceNameRole);
+        option.rect=QRect(20,20,55,40);image.fill(Qt::magenta);
+        for(bool wrap:{true,false}) {
+            if(!wrap) option.features&=~QStyleOptionViewItem::WrapText;
+            image.fill(Qt::magenta);{QPainter painter(&image);delegate.paint(&painter,option,proxy.index(0,0));}
+            for(int y=0;y<image.height();++y) for(int x=0;x<image.width();++x)
+                if(!option.rect.contains(x,y)) QCOMPARE(image.pixelColor(x,y),QColor(Qt::magenta));
+        }
+    }
+    void thumbnailPreviewUsesActualDelegate() {
+        const auto output=qEnvironmentVariable("NETLINK_CAPTION_SCREENSHOT_DIR");
+        for(const auto& mode:{"Light","Dark"}) {
+            NetLinkAppearance::Preferences preferences;preferences.mode=mode;
+            QListView view;view.setPalette(NetLinkAppearance::makePalette(preferences,false));view.setFont(QFont("Segoe UI",10));
+            auto style=QStyleFactory::create("Fusion");QVERIFY(style);style->setParent(&view);view.setStyle(style);
+            view.setViewMode(QListView::IconMode);view.setResizeMode(QListView::Adjust);view.setSpacing(16);
+            view.setIconSize(QSize(280,175));view.setUniformItemSizes(true);view.setWordWrap(true);view.resize(980,300);
+            QStandardItemModel model;QPixmap desktop(280,175);desktop.fill(view.palette().color(QPalette::Midlight));
+            {QPainter painter(&desktop);painter.setPen(view.palette().color(QPalette::Text));painter.drawText(desktop.rect(),Qt::AlignCenter,"Desktop di prova");}
+            for(int i=0;i<3;++i) {
+                const auto name=QStringList{"Anna Rossi","Luca Bianchi",""}[i];
+                auto row=new QStandardItem(QIcon(desktop),name.isEmpty()?QString("studente - PC-03"):QString("[%1] - studente - PC-0%2").arg(name).arg(i+1));
+                row->setData(name,ComputerListModel::AttendanceNameRole);row->setData(i==1,ComputerListModel::AttendancePreloadedRole);model.appendRow(row);
+            }
+            view.setModel(&model);view.setItemDelegate(new ComputerCaptionDelegate(&view));view.show();view.setFocus();QApplication::processEvents();
+            for(int i=0;i<3;++i) QVERIFY(view.viewport()->rect().contains(view.visualRect(model.index(i,0))));
+            if(!output.isEmpty()) {QVERIFY(QDir().mkpath(output));QVERIFY(view.grab().save(QDir(output).filePath(QString("caption-%1-scale-%2.png").arg(mode,qEnvironmentVariable("QT_SCALE_FACTOR","1")))));}
+        }
+    }
     void jsonRoundtripContainsAssignmentsOnly() {
         auto profile=sample();profile.assignments[0].student="Éléonore 学生";
         SchoolClassProfile read;QString error;QVERIFY2(SchoolClassProfile::fromJson(profile.toJson(),read,&error),qPrintable(error));

@@ -35,10 +35,11 @@ public:
 class IsolatedSchoolWorker : public QObject, public VeyonWorkerInterface {
 public:
     explicit IsolatedSchoolWorker(int& count) : replies(count) {}
-    bool sendFeatureMessageReply(const FeatureMessage&) override { ++replies; return true; }
+    bool sendFeatureMessageReply(const FeatureMessage& message) override { lastReply=message; ++replies; return true; }
     void finishAfterReplies() override {++finishes;}
     int finishes=0;
     int& replies;
+    FeatureMessage lastReply;
 };
 
 // Every runtime object uses a private friend-only constructor: no production
@@ -46,7 +47,7 @@ public:
 class SchoolLifecycleTests : public QObject {
     Q_OBJECT
 public:
-    static int attendanceChild(quint16 port,bool accept) {
+    static int attendanceChild(quint16 port,const QString& action) {
         class Worker : public QObject,public VeyonWorkerInterface {
         public:
             FeatureWorkerManagerConnection* connection=nullptr;
@@ -57,7 +58,14 @@ public:
         worker.connection=new FeatureWorkerManagerConnection(worker,features.m_attendanceUid,port,&worker);
         QTimer::singleShot(100,&worker,[&] {
             if(!features.handleFeatureMessage(worker,FeatureMessage(features.m_attendanceUid,SchoolFeatures::AskName).addArgument(0,QUuid::createUuid().toString(QUuid::WithoutBraces)))) {qApp->exit(2);return;}
-            QTimer::singleShot(50,&worker,[&] {features.m_studentDialog->findChild<QLineEdit*>()->setText("Anna Rossi");if(accept) features.m_studentDialog->accept();else features.m_studentDialog->reject();});
+            QTimer::singleShot(50,&worker,[&] {
+                auto name=features.m_studentDialog->findChild<QLineEdit*>();name->setText("Anna Rossi");
+                auto buttons=features.m_studentDialog->findChild<QDialogButtonBox*>();
+                if(action=="return" || action=="enter") {
+                    buttons->button(QDialogButtonBox::Cancel)->setDefault(true);name->setFocus();
+                    QTest::keyClick(name,action=="return"?Qt::Key_Return:Qt::Key_Enter);
+                } else buttons->button(action=="accept"?QDialogButtonBox::Ok:QDialogButtonBox::Cancel)->click();
+            });
         });
         QTimer::singleShot(4000,qApp,[]{qApp->exit(3);});
         return qApp->exec();
@@ -90,14 +98,17 @@ private Q_SLOTS:
         QCOMPARE(features.featureList()[2].name(),QString("Discovery"));
         QCOMPARE(features.featureList()[2].displayName(),QString("Find clients"));
     }
-    void attendanceLastWindowDeliversReplyBeforeWorkerExits_data() {QTest::addColumn<bool>("accept");QTest::newRow("confirmed")<<true;QTest::newRow("cancelled")<<false;}
+    void attendanceLastWindowDeliversReplyBeforeWorkerExits_data() {
+        QTest::addColumn<QString>("action");
+        for(const auto& action:QStringList{"accept","cancel","return","enter"}) QTest::newRow(qPrintable(action))<<action;
+    }
     void attendanceLastWindowDeliversReplyBeforeWorkerExits() {
-        QFETCH(bool,accept);QTcpServer server;QVERIFY(server.listen(QHostAddress::LocalHost,0));QList<FeatureMessage> messages;
+        QFETCH(QString,action);QTcpServer server;QVERIFY(server.listen(QHostAddress::LocalHost,0));QList<FeatureMessage> messages;
         connect(&server,&QTcpServer::newConnection,this,[&] {auto socket=server.nextPendingConnection();connect(socket,&QTcpSocket::readyRead,&server,[&,socket] {FeatureMessage message;while(message.isReadyForReceive(socket)) {if(!message.receive(socket)) break;messages.append(message);}});});
-        QProcess child;child.start(QCoreApplication::applicationFilePath(),{"--attendance-child",QString::number(server.serverPort()),accept?"accept":"cancel"});
+        QProcess child;child.start(QCoreApplication::applicationFilePath(),{"--attendance-child",QString::number(server.serverPort()),action});
         QTRY_COMPARE_WITH_TIMEOUT(child.state(),QProcess::NotRunning,6500);QCOMPARE(child.exitStatus(),QProcess::NormalExit);QCOMPARE(child.exitCode(),0);
-        QTRY_VERIFY_WITH_TIMEOUT(messages.size()>=2,1000);QCOMPARE(messages.last().command(),int(SchoolFeatures::NameReply));QCOMPARE(messages.last().argument(1).toString(),accept?QString("Anna Rossi"):QString{});
-        const auto ci=client();ci->setProperty("schoolAttendanceRequest",messages.last().argument(0));SchoolFeatures features(nullptr,false);QVERIFY(features.handleFeatureMessage(ci,messages.last()));QCOMPARE(ci->studentName(),accept?QString("Anna Rossi"):QString{});
+        QTRY_VERIFY_WITH_TIMEOUT(messages.size()>=2,1000);QCOMPARE(messages.size(),2);QCOMPARE(messages.last().command(),int(SchoolFeatures::NameReply));QCOMPARE(messages.last().argument(1).toString(),action!="cancel"?QString("Anna Rossi"):QString{});
+        const auto ci=client();ci->setProperty("schoolAttendanceRequest",messages.last().argument(0));SchoolFeatures features(nullptr,false);QVERIFY(features.handleFeatureMessage(ci,messages.last()));QCOMPARE(ci->studentName(),action!="cancel"?QString("Anna Rossi"):QString{});
     }
     void dialogCyclesReturnImmediatelyAndRemainIdempotent() {
         IsolatedSchoolMaster master;
@@ -214,8 +225,49 @@ private Q_SLOTS:
         QVERIFY(features.handleFeatureMessage(worker,FeatureMessage(features.m_attendanceUid,SchoolFeatures::AskName).addArgument(0,id)));
         const auto dialog=features.m_studentDialog;QVERIFY(!dialog->testAttribute(Qt::WA_QuitOnClose));dialog->findChild<QLineEdit*>()->setText("Anna Rossi");
         QVERIFY(features.handleFeatureMessage(worker,FeatureMessage(features.m_attendanceUid,SchoolFeatures::AskName).addArgument(0,id)));QCOMPARE(features.m_studentDialog,dialog);QCOMPARE(dialog->findChild<QLineEdit*>()->text(),QString("Anna Rossi"));
-        dialog->accept();QCOMPARE(replies,1);QCOMPARE(worker.finishes,1);
+        dialog->accept();dialog->reject();dialog->accept();QCOMPARE(replies,1);QCOMPARE(worker.finishes,1);QCOMPARE(dialog->result(),int(QDialog::Accepted));
         QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);QVERIFY(!features.m_studentDialog);
+    }
+    void studentNameKeyboardSubmission_data() {
+        QTest::addColumn<int>("key");QTest::addColumn<bool>("cancelDefault");
+        QTest::newRow("return")<<int(Qt::Key_Return)<<false;
+        QTest::newRow("keypad-enter")<<int(Qt::Key_Enter)<<false;
+        QTest::newRow("return-after-cancel-default")<<int(Qt::Key_Return)<<true;
+        QTest::newRow("keypad-enter-after-cancel-default")<<int(Qt::Key_Enter)<<true;
+    }
+    void studentNameKeyboardSubmission() {
+        QFETCH(int,key);QFETCH(bool,cancelDefault);
+        SchoolFeatures features(nullptr,false);int replies=0;IsolatedSchoolWorker worker(replies);
+        const auto id=QUuid::createUuid().toString(QUuid::WithoutBraces);
+        QVERIFY(features.handleFeatureMessage(worker,FeatureMessage(features.m_attendanceUid,SchoolFeatures::AskName).addArgument(0,id)));
+        QPointer<QDialog> dialog=features.m_studentDialog;auto name=dialog->findChild<QLineEdit*>();auto buttons=dialog->findChild<QDialogButtonBox*>();
+        QVERIFY(name);QVERIFY(buttons);QTest::qWait(5);
+        name->setText("Anna Rossi");
+        if(cancelDefault) buttons->button(QDialogButtonBox::Cancel)->setDefault(true);
+        name->setFocus();QTest::keyClick(name,Qt::Key(key));
+        QCOMPARE(replies,1);QCOMPARE(worker.finishes,1);QCOMPARE(worker.lastReply.argument(0).toString(),id);
+        QCOMPARE(worker.lastReply.argument(1).toString(),QString("Anna Rossi"));
+        QVERIFY(dialog);QCOMPARE(dialog->result(),int(QDialog::Accepted));
+        QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);QVERIFY(!dialog);
+    }
+    void emptyOrInvalidNameDoesNotCloseOnEnterButEscapeCancels() {
+        SchoolFeatures features(nullptr,false);int replies=0;IsolatedSchoolWorker worker(replies);
+        QVERIFY(features.handleFeatureMessage(worker,FeatureMessage(features.m_attendanceUid,SchoolFeatures::AskName).addArgument(0,QUuid::createUuid().toString(QUuid::WithoutBraces))));
+        const auto dialog=features.m_studentDialog;auto name=dialog->findChild<QLineEdit*>();auto buttons=dialog->findChild<QDialogButtonBox*>();
+        for(const auto& invalid:QStringList{"", "   ",QString("Anna")+QChar(0x202e)}) {
+            name->setText(invalid);buttons->button(QDialogButtonBox::Cancel)->setDefault(true);name->setFocus();
+            QTest::keyClick(name,Qt::Key_Return);QCOMPARE(replies,0);QVERIFY(dialog->isVisible());
+            QTest::keyClick(name,Qt::Key_Enter);QCOMPARE(replies,0);QVERIFY(dialog->isVisible());
+        }
+        QTest::keyClick(name,Qt::Key_Escape);QCOMPARE(replies,1);QCOMPARE(worker.finishes,1);
+        QVERIFY(worker.lastReply.argument(1).toString().isEmpty());QCOMPARE(dialog->result(),int(QDialog::Rejected));
+    }
+    void cancelButtonKeepsItsKeyboardBehaviour() {
+        SchoolFeatures features(nullptr,false);int replies=0;IsolatedSchoolWorker worker(replies);
+        QVERIFY(features.handleFeatureMessage(worker,FeatureMessage(features.m_attendanceUid,SchoolFeatures::AskName).addArgument(0,QUuid::createUuid().toString(QUuid::WithoutBraces))));
+        auto dialog=features.m_studentDialog;dialog->findChild<QLineEdit*>()->setText("Anna Rossi");
+        auto cancel=dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Cancel);cancel->setFocus();
+        QTest::keyClick(cancel,Qt::Key_Return);QCOMPARE(replies,1);QVERIFY(worker.lastReply.argument(1).toString().isEmpty());
     }
     void attendanceRejectsEmptyAndReplayedReplies() {
         SchoolFeatures features(nullptr,false);const auto ci=client();
@@ -357,7 +409,7 @@ private Q_SLOTS:
 };
 int main(int argc,char** argv) {
     QApplication app(argc,argv);const auto arguments=app.arguments();
-    if(arguments.size()==4 && arguments[1]=="--attendance-child") return SchoolLifecycleTests::attendanceChild(arguments[2].toUShort(),arguments[3]=="accept");
+    if(arguments.size()==4 && arguments[1]=="--attendance-child") return SchoolLifecycleTests::attendanceChild(arguments[2].toUShort(),arguments[3]);
     SchoolLifecycleTests tests;return QTest::qExec(&tests,argc,argv);
 }
 #include "SchoolLifecycleTests.moc"

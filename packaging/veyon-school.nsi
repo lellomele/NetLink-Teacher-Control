@@ -20,8 +20,8 @@ Var MaintenanceMutex
  !define LOCKNAME "Global\NetLinkInstallerMaintenance"
  RequestExecutionLevel admin
 !endif
-Name "NetLink 0.1.0 alpha.13"
-OutFile "${OUTPUT}\NetLink-0.1.0-alpha.13-win64-setup.exe"
+Name "NetLink 0.1.0 alpha.14"
+OutFile "${OUTPUT}\NetLink-0.1.0-alpha.14-win64-setup.exe"
 InstallDir "$PROGRAMFILES64\Veyon School"
 SetCompressor /SOLID lzma
 !define MUI_ICON "${REPOROOT}\branding\netlink.ico"
@@ -33,10 +33,10 @@ SetCompressor /SOLID lzma
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "Italian"
-VIProductVersion "4.7.5.13"
+VIProductVersion "4.7.5.14"
 VIAddVersionKey /LANG=1040 "ProductName" "NetLink"
 VIAddVersionKey /LANG=1040 "FileDescription" "NetLink installer (pre-release)"
-VIAddVersionKey /LANG=1040 "FileVersion" "0.1.0-alpha.13"
+VIAddVersionKey /LANG=1040 "FileVersion" "0.1.0-alpha.14"
 VIAddVersionKey /LANG=1040 "LegalCopyright" "Copyright (c) 2025-26 prof. Ing. Raffaele Mele; Veyon e contributori"
 Function .onInit
  System::Call 'kernel32::CreateMutexW(p 0, i 0, w "${LOCKNAME}") p .r0 ?e'
@@ -187,7 +187,7 @@ Section "NetLink"
  Delete "$SMPROGRAMS\Veyon School\Configurator.lnk"
  RMDir "$SMPROGRAMS\Veyon School"
  !endif
- WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayName" "NetLink 0.1.0 alpha.13"
+ WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayName" "NetLink 0.1.0 alpha.14"
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayIcon" "$INSTDIR\netlink-master.exe"
 SectionEnd

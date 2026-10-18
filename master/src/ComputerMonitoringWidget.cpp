@@ -28,6 +28,7 @@
 #include <QShowEvent>
 
 #include "ComputerControlListModel.h"
+#include "ComputerCaptionDelegate.h"
 #include "ComputerMonitoringWidget.h"
 #include "ComputerMonitoringModel.h"
 #include "VeyonMaster.h"
@@ -54,6 +55,7 @@ ComputerMonitoringWidget::ComputerMonitoringWidget( QWidget *parent ) :
 	setViewMode( QListView::IconMode );
 	setUniformItemSizes( true );
 	setSelectionRectVisible( true );
+	setItemDelegate( new ComputerCaptionDelegate( this ) );
 
 	setUidRole( ComputerControlListModel::UidRole );
 

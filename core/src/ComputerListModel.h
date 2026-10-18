@@ -39,7 +39,9 @@ public:
 		ImageIdRole,
 		GroupsRole,
 		FramebufferRole,
-		ControlInterfaceRole
+		ControlInterfaceRole,
+		AttendanceNameRole,
+		AttendancePreloadedRole
 	};
 
 	enum class DisplayRoleContent {
