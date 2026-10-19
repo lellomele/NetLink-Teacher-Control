@@ -1,182 +1,174 @@
-# Architettura, protezioni e stato delle verifiche
+# Architecture, safeguards and verification status
 
-L'audit di NetLink è **parziale**. Questo documento descrive i meccanismi presenti,
-i limiti e le prove necessarie; non certifica l'assenza di vulnerabilità,
-la conformità completa WS-Discovery o l'impiego in produzione.
+[English](AUDIT.md) · [Italiano](AUDIT.it.md)
 
-## Comunicazione e ciclo di vita
+The NetLink audit is **partial**. This document describes implemented mechanisms,
+limitations and required tests. It does not certify freedom from vulnerabilities,
+complete WS-Discovery compliance or production readiness.
 
-- Autenticazione e controllo degli accessi precedono l'esecuzione delle funzioni.
-  L'adattatore RFB distingue letture bloccanti esatte da frame asincroni parziali.
-- Frame, dimensioni delle immagini, code, comandi e lotti di eventi hanno limiti.
-  Il decoder pubblica snapshot delle miniature separati dal buffer del worker;
-  gli aggiornamenti vuoti non provocano copie o ridisegni inutili.
-- Stop e riconnessione scartano comandi e callback obsoleti. Scritture TCP/OpenSSL
-  usano scadenze monotone assolute, anche se il peer non legge o TLS ritenta.
-- I worker locali hanno nonce monouso, verifica della proprietà del socket,
-  timeout di avvio/autenticazione e code limitate. I timer di recupero sono
-  legati alla vita degli oggetti; i messaggi non autenticati hanno limiti più stretti.
-- Le finestre InternetGuard/Appello/discovery sono non modali, riutilizzabili
-  e conservano l'insieme dei client selezionati all'apertura.
-- DNS delle nuove funzioni è asincrono e cancellabile. Una policy non viene
-  applicata usando soltanto la parte risolta di una lista incompleta.
+## Communication and lifecycle
 
-**Punti aperti:** il codice ereditato contiene ancora DNS bloccante, arresto
-forzato del thread VNC in condizioni eccezionali e attese native senza limite
-in alcuni percorsi di chiusura. Occorre una revisione del ciclo di vita,
-non un timeout che lasci callback attive su memoria liberata.
-Gli avvisi di ritardo GUI vengono emessi dopo il recupero: non provano
-un deadlock e possono includere sospensione/ripresa di Windows.
+- Authentication and access control precede feature execution. The RFB adapter
+  distinguishes exact blocking reads from partial asynchronous frames.
+- Frames, image dimensions, queues, commands and event batches are bounded.
+  The decoder publishes thumbnail snapshots separately from the worker buffer;
+  empty updates avoid unnecessary copies and redraws.
+- Stop/reconnect discard stale commands and callbacks. TCP/OpenSSL writes use
+  absolute monotonic deadlines even when the peer stops reading or TLS retries.
+- Local workers use single-use nonces, socket ownership checks, startup/authentication
+  deadlines and bounded queues. Recovery timers follow object lifetime;
+  unauthenticated messages have stricter limits.
+- InternetGuard/Roll Call/discovery windows are non-modal, reusable and retain
+  the set of clients selected when opened.
+- DNS in new features is asynchronous and cancellable. A policy is not applied
+  using only the resolved part of an incomplete list.
 
-## InternetGuard e servizio privilegiato
+**Open issues:** inherited code still includes blocking DNS, exceptional forced
+VNC thread termination and unbounded native waits on some shutdown paths.
+These require lifecycle review, not timeouts that leave callbacks referencing
+freed memory. GUI-delay warnings are emitted after recovery: they do not prove
+a deadlock and may include Windows sleep/resume.
 
-I filtri WFP sono installati in una sessione dinamica con transazioni e lease
-di 90 secondi. Commit, stato e rinnovo verificano gli ID dei filtri installati.
-La pipe verifica SYSTEM e i percorsi attesi di servizio/server; i worker grafici
-non possono richiedere direttamente modifiche privilegiate alla rete.
+## InternetGuard and privileged service
 
-Le richieste hanno limiti di concorrenza; una connessione può conservare una
-richiesta esplicita di sblocco pendente. Se la chiusura WFP fallisce,
-handle, proprietario e stato di recupero sono conservati per il ritentativo;
-un nuovo blocco non può nascondere la pulizia incompleta.
-Lo stato non viene presentato come libero se Windows non lo conferma.
+WFP filters use a dynamic session, transactions and a 90-second lease.
+Commit, status and renewal verify installed filter IDs.
+The pipe verifies SYSTEM and expected service/server paths; GUI workers cannot
+directly request privileged network changes.
 
-Il feedback conferma filtri applicati, non Internet irraggiungibile.
-Destinazioni autorizzate su tutte le porte, resolver DNS, proxy, VPN, QUIC,
-connessioni preesistenti, cambi di scheda e altri fornitori firewall richiedono
-prove reali. Gli IPv6 link-local scoped non sono accettati come risorse.
-Chiamate BFE/RPC bloccate possono ritardare scadenza o arresto del servizio.
+Requests have concurrency limits; a connection can retain one explicit pending
+unblock request. If WFP close fails, handles, ownership and recovery state are
+retained for retry; a new block cannot hide incomplete cleanup.
+The state is not reported as unrestricted without Windows confirmation.
 
-Limiti: 256 client per operazione, 255 destinazioni e 128 risorse aggiuntive.
+Feedback confirms applied filters, not Internet unreachability.
+Allowed destinations on all ports, DNS resolvers, proxies, VPNs, QUIC, existing
+connections, adapter changes and other firewall providers require real tests.
+Scoped link-local IPv6 addresses are not accepted as resources.
+Blocked BFE/RPC calls can delay lease expiry or service shutdown.
 
-## Appello e profili
+Limits: 256 clients per operation, 255 destinations and 128 additional resources.
 
-Richieste e risposte sono correlate da identificativi; risposte obsolete,
-cambi di profilo e disconnessioni non devono riutilizzare vecchi nomi.
-La didascalia mantiene separati nome Appello, account Windows e PC.
-I testi sono limitati e trattati come testo, non HTML.
+## Roll Call and profiles
 
-I profili sono solo sul Master: schema JSON versionato, massimo 1 MiB e
-256 assegnazioni, UUID validi/univoci e stringhe limitate. IP e hostname sono
-indicazioni, non identità di associazione. Caricamenti non validi non sostituiscono
-il profilo attivo. I nomi precaricati sono distinti dalle dichiarazioni e
-non costituiscono conferme di presenza.
+Requests/responses have correlated IDs; stale replies, profile changes and
+disconnects must not reuse old names. Captions keep the Roll Call name, Windows
+account and PC separate. Strings are bounded and treated as text, not HTML.
 
-Letture e scritture JSON/CSV sono fuori dal thread GUI. QSaveFile evita fallback
-a scritture dirette; i prefissi di formule CSV sono neutralizzati.
-Su Windows i permessi Qt non sostituiscono le ACL NTFS: proteggere la cartella.
-Una scrittura già avviata su una risorsa di rete può completarsi dopo la chiusura
-del pannello. I file restano dati personali in chiaro, non attestazioni di identità.
+Profiles exist only on the Master: versioned JSON schema, maximum 1 MiB and
+256 assignments, valid/unique UUIDs and bounded strings. IP addresses and hostnames
+are hints, not assignment identities. Invalid loads do not replace the active
+profile. Preloaded names are distinct from declarations, not attendance confirmations.
 
-## Discovery IPv4/IPv6
+JSON/CSV I/O runs outside the GUI thread. QSaveFile disallows direct-write fallback;
+CSV formula prefixes are neutralized. On Windows, Qt permissions do not replace
+NTFS ACLs: protect the folder. An already-started network-file write can complete
+after the panel closes. Files contain plaintext personal data, not verified identities.
 
-La modalità automatica preferisce IPv4 osservato di recente, poi IPv6 instradabile
-e link-local. Solo IPv4 resta selezionabile. È una scelta degli annunci,
-non un test di raggiungibilità TCP o un failover delle connessioni.
+## IPv4/IPv6 discovery
 
-La cache limita osservazioni totali e per famiglia/identità, con scadenza di
-95 secondi, sequenze e rilevamento duplicati per sorgente. Un Bye rimuove solo
-l'osservazione della propria sorgente. Gli indirizzi reali sono quelli del mittente,
-non alias arbitrari dichiarati nei metadati; nessun URL remoto viene seguito.
+Automatic mode prefers recently observed IPv4, then routable IPv6 and link-local.
+IPv4 Only remains available. This selects announcements; it is not a TCP reachability
+test or connection failover.
 
-Gli annunci della stessa EPR producono una riga. Nomi/porte contraddittori
-restano visibili e non importabili automaticamente. Identità e dati identici
-su immagini clonate non sono distinguibili senza autenticazione.
-Il docente è escluso mediante i suoi indirizzi su tutte le schede, non per nome.
+The cache bounds total observations and observations per family/identity, with
+95-second expiry, sequences and per-source duplicate detection. A Bye removes
+only its source observation. Actual sender addresses are used, not arbitrary
+metadata aliases; no remote URL is followed.
 
-I link-local usano l'indice dell'interfaccia ricevente, mai il numero remoto.
-Il filtro dei PC noti usa tutti gli indirizzi osservati contro destinazioni
-configurate e DNS A/AAAA. Sono ammesse otto verifiche DNS concorrenti e una
-scadenza di cinque secondi; gli errori lasciano i risultati visibili.
-L'importazione riconvalida modalità, freschezza, conflitti e duplicati.
+Announcements sharing an EPR produce one row. Conflicting names/ports remain
+visible and cannot be imported automatically. Cloned images with identical
+identity/data cannot be distinguished without authentication.
+The teacher is excluded using addresses on all adapters, not its name.
 
-XML/HTTP hanno limiti di dimensione, profondità, nodi, connessioni, frequenza
-e durata. Le risposte SOAP sono limitate a 32 KiB e 64 record; la cache ha
-al massimo 1.024 osservazioni. La conformità allo schema XML non certifica
-l'intero protocollo WS-Discovery. Il multicast IPv6 è locale al collegamento;
-routing, ACL e scenari fra subnet richiedono collaudo distinto.
+Link-local addresses use the receiving interface index, never the remote index.
+Known-PC filtering compares all observed addresses with configured destinations
+and DNS A/AAAA. At most eight DNS lookups run concurrently, with a five-second
+deadline; errors keep results visible. Import revalidates mode, freshness,
+conflicts and duplicates.
 
-## Interfaccia, input e acquisizione
+XML/HTTP limits cover size, depth, nodes, connections, rate and duration.
+SOAP responses are limited to 32 KiB and 64 records; the cache holds at most
+1,024 observations. XML schema validation does not certify the whole WS-Discovery
+protocol. IPv6 multicast is link-local; routing, ACLs and cross-subnet scenarios
+need separate testing.
 
-La barra remota è un widget compatto, non un overlay su tutto il desktop.
-Timer/animazioni appartengono al widget; il clic destro cambia bordo localmente,
-senza inoltrare comandi al client. Focus, menu, DPI e contrasto elevato sono
-coperti da test grafici, ma rimane necessaria una verifica su monitor reali.
+## Interface, input and capture
 
-Il blocco input usa il meccanismo software delle scorciatoie ordinarie.
-Eventi di sessione e osservazioni del desktop protetto sono raggruppati,
-limitati e inoltrati soltanto al Master interessato. Non raccolgono testo
-digitato né identificano con certezza Ctrl+Alt+Canc; non esiste un registro
-forense o recupero degli eventi durante la disconnessione.
+The remote toolbar is a compact widget, not a full-desktop overlay.
+Timers/animations belong to the widget; right-click changes the edge locally
+without forwarding commands to the client. GUI tests cover focus, menus, DPI
+and high contrast; real-monitor validation is still required.
 
-La DLL di aggancio distribuita importa soltanto KERNEL32/USER32, senza
-inizializzazione CRT/pthread, TLS o dipendenze ritardate. I callback e la coda
-regioni hanno limiti e sincronizzazione dedicata.
-Interception e DeskDupEngine binario non sono distribuiti. Acquisizione software,
-input e chiusura dei componenti ereditati devono essere provati sotto carico;
-non è dichiarata equivalenza con modalità accelerate o driver.
+Input lock uses the software mechanism for ordinary shortcuts. Session events
+and protected-desktop observations are grouped, bounded and forwarded only to
+the relevant Master. They do not collect typed text or identify Ctrl+Alt+Delete
+with certainty. There is no forensic log or replay of events lost while disconnected.
 
-## Companion e protezione dei rapporti
+The shipped hook DLL imports only KERNEL32/USER32, without CRT/pthread startup,
+TLS or delayed dependencies. Callbacks and the region queue have dedicated limits
+and synchronization. Interception and the binary DeskDupEngine are not shipped.
+Software capture, input and inherited shutdown paths need load tests;
+equivalence to accelerated/driver modes is not claimed.
 
-La raccolta avviene in un processo figlio limitato per tempo e dimensione:
-è una scelta di reattività, non una sandbox di sicurezza.
-La diagnostica distingue listener, profilo rete, regole configurate e prove TCP;
-non certifica la policy effettiva del firewall né l'autenticazione.
-I rapporti completi contengono identificativi; quelli ridotti li escludono.
+## Companion and report protection
 
-Il collegamento temporaneo usa TLS, impronta SHA-256 verificata e segreto
-monouso a 256 bit confrontato in tempo costante. Ha scadenze e limiti per
-frame, tentativi, connessioni e singola consegna. Le notifiche sono legate
-alla generazione della sessione, così non raggiungono un abbinamento successivo.
-Non avvia listener automatici, non legge la privata Veyon e non modifica
-firewall o configurazione. I rapporti ricevuti restano dichiarazioni non firmate.
+Collection runs in a time/size-bounded child process: this improves responsiveness,
+not security sandboxing. Diagnostics distinguish listeners, network profile,
+configured rules and TCP tests; they do not certify effective firewall policy
+or authentication. Full reports contain identifiers; reduced reports exclude them.
 
-Il controllo remoto eredita il modello di sicurezza Veyon 4.7.5:
-il TLS del Companion non estende TLS/integrità generalizzati a RFB.
-Credenziali persistenti richiedono una revisione specifica dello storage;
-non assumere che la cifratura ereditata con chiave incorporata le protegga
-da un soggetto con accesso al sistema. Non esporre la suite a reti non fidate.
+The temporary connection uses TLS, a verified SHA-256 fingerprint and a single-use
+256-bit secret compared in constant time. Frames, attempts, connections and the
+single delivery are bounded and have deadlines. Notifications are tied to the
+session generation, preventing delivery into a later pairing.
+It starts no automatic listener, reads no Veyon private key and changes neither
+firewall nor configuration. Received reports remain unsigned statements.
 
-## Installer e distribuzione
+Remote control inherits the Veyon 4.7.5 security model: Companion TLS does not
+provide general TLS/integrity protection for RFB. Persistent credentials need
+a separate storage review; do not assume inherited embedded-key encryption
+protects them from someone with system access. Do not expose the suite to untrusted networks.
 
-Un helper senza Qt salva impostazioni e backup, controlla percorsi e file
-sostituibili, gestisce il servizio del fork e verifica SHA-256 prima di
-avviare gli strumenti appena installati. Esclude percorsi reindirizzati e
-non modifica i file delle chiavi esterne. Operazioni concorrenti sono escluse.
+## Installer and distribution
 
-File occupati richiedono riavvio senza copia parziale volontaria; errori di
-permessi sono distinti e nessun file può essere saltato. Non è un aggiornamento
-atomico: il controllo non impedisce aperture successive né fornisce rollback completo.
+A Qt-free helper saves settings/backups, checks paths and replaceable files,
+manages the fork service and verifies SHA-256 before starting newly installed
+tools. It rejects redirected paths and does not modify external key files.
+Concurrent operations are excluded.
 
-La disinstallazione rimuove l'intero albero del programma senza seguire junction,
-protegge percorsi delle chiavi e consente conservazione o pulizia delle impostazioni.
-Mantiene le impostazioni condivise rilevate e non elimina dati OS o profili
-non caricati. Dettagli e ripristino: [INSTALLATION.md](INSTALLATION.md).
+Busy files require a restart without intentionally starting a partial copy;
+permission errors are distinguished and files cannot be skipped.
+This is not an atomic upgrade: the check cannot prevent later opens or provide
+complete rollback.
 
-## Copertura e criteri beta
+Uninstall removes the whole application tree without following junctions,
+protects key paths and offers settings preservation or cleanup.
+Detected shared settings are retained; OS data and unloaded user profiles are
+not deleted. Details/recovery: [INSTALLATION.md](INSTALLATION.md).
 
-I test coprono framing, timeout TCP/TLS, concorrenza, teardown, autenticazione,
-stato WFP simulato, input simulato, callback, Appello/profili, DNS/discovery,
-Companion e interfaccia a più scale. Sei tipi di messaggio discovery vengono
-validati con gli schemi ufficiali. Il test IPv6 UDP usa loopback reale;
-se IPv6 non è disponibile dichiara lo skip.
+## Coverage and beta criteria
 
-I test dell'installer usano file/sottochiavi isolate e simulano servizio/firewall.
-Le build di distribuzione escludono hook di test e percorsi plugin di sviluppo.
-Verifica delle importazioni, manifesto e sorgenti delle dipendenze non equivalgono
-a un audit completo di tali librerie.
+Tests cover framing, TCP/TLS deadlines, concurrency, teardown, authentication,
+simulated WFP/input, callbacks, Roll Call/profiles, DNS/discovery, Companion and
+multi-scale GUI. Six discovery message types are validated against official
+schemas. The IPv6 UDP test uses real loopback; it explicitly skips without IPv6.
 
-L'analisi statica ha lacune di preprocessing Qt/MinGW: non rappresenta copertura
-completa. Restano necessari revisione delle dipendenze/CVE e backport, sanitizers
-dove applicabili, prove prolungate di carico/rientranza e interoperabilità.
-Non tutte le librerie ereditate sono allineate alle versioni upstream più recenti.
+Installer tests use isolated files/registry subtrees and simulate service/firewall.
+Distribution builds exclude test hooks/developer plugin paths.
+Import checks, manifests and dependency source inventories are not full library audits.
 
-Per una beta controllata: congelare le funzionalità, chiudere difetti critici/alti,
-verificare installazione/recupero reali, blocco e sblocco nativi, resilienza WFP,
-uso prolungato con più client, lingua/DPI e protezione dei dati.
-Dichiarare supportati altri scenari di rete soltanto dopo collaudo.
-La firma digitale è distinta dalla correttezza e non sostituisce queste prove.
+Static analysis has Qt/MinGW preprocessing gaps and does not provide complete
+coverage. Dependency/CVE review, backports, applicable sanitizers, prolonged
+load/reentrancy and interoperability tests remain necessary. Not all inherited
+libraries match the latest upstream versions.
 
-[Checklist operativa](PILOT.md) · [Dipendenze](DEPENDENCIES.md) ·
+For a controlled beta: freeze features, close critical/high defects, verify real
+installation/recovery, native lock/unlock, WFP resilience, prolonged multi-client
+operation, language/DPI and data protection. Support additional network scenarios
+only after testing. Digital signing is separate from correctness and does not
+replace these tests.
+
+[Operational checklist](PILOT.md) · [Dependencies](DEPENDENCIES.md) ·
 [WS-Discovery 1.1](https://docs.oasis-open.org/ws-dd/discovery/1.1/os/wsdd-discovery-1.1-spec-os.html) ·
-[Arbitraggio WFP](https://learn.microsoft.com/en-us/windows/win32/fwp/filter-arbitration)
+[WFP arbitration](https://learn.microsoft.com/en-us/windows/win32/fwp/filter-arbitration)

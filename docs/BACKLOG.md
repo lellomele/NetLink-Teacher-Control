@@ -1,36 +1,37 @@
-# Consolidamento e sviluppi futuri
+# Consolidation and future work
 
-Le funzionalità disponibili sono descritte nel [README](../README.md)
-e nella [guida d'uso](USAGE.md). Questo elenco riguarda soltanto attività
-ancora da valutare o completare, non la cronologia delle versioni.
+[English](BACKLOG.md) · [Italiano](BACKLOG.it.md)
 
-## Priorità di consolidamento
+Available features are described in the [README](../README.md)
+and [user guide](USAGE.md). This list covers work still to assess or complete,
+not a version history.
 
-- Collaudo prolungato con più client, misurando latenza, CPU e memoria.
-- Recupero WFP con connessioni preesistenti, perdita rete, riavvii,
-  IPv6/QUIC, VPN e policy firewall/antivirus dell'ambiente di destinazione.
-- Revisione dei percorsi ereditati con arresto forzato dei thread,
-  DNS bloccante e attese native lunghe.
-- Verifica aggiornata delle dipendenze e chiusura delle lacune di analisi.
-- Installazione, aggiornamento, file in uso, riavvio e recupero su PC dedicati.
-- Validazione fisica di DPI misti, accessibilità, input e icona di servizio.
+## Consolidation priorities
 
-## Scenari da validare separatamente
+- Prolonged multi-client testing with latency, CPU and memory measurements.
+- WFP recovery with existing connections, network loss, restarts, IPv6/QUIC,
+  VPNs and the deployment's firewall/antivirus policies.
+- Review inherited forced-thread-stop paths, blocking DNS and long native waits.
+- Update dependency verification and close analysis-coverage gaps.
+- Dedicated-PC tests for install, update, file locks, restart and recovery.
+- Physical validation of mixed DPI, accessibility, input and the service tray icon.
 
-- Discovery tra subnet/VLAN e ACL reali.
-- Reti solo IPv6 e variazioni degli indici delle schede link-local.
-- Interoperabilità delle funzioni comuni con client Veyon originali.
-- Raccolta Companion con account standard, amministratore alternativo,
-  dominio/RDP, più schede e criteri scolastici.
+## Scenarios requiring separate validation
 
-## Evoluzioni non incluse
+- Discovery across subnets/VLANs and actual ACLs.
+- IPv6-only networks and changes to link-local interface indices.
+- Common-feature interoperability with original Veyon clients.
+- Companion collection under standard/alternate-admin accounts, domains/RDP,
+  multiple adapters and school policies.
 
-Il canale Companion scambia rapporti diagnostici con abbinamento esplicito.
-Eventuali riparazioni assistite richiedono una proposta specifica, consenso
-locale, privilegi minimi, verifica dell'esito e ripristino. Non aggiungere
-comandi remoti o listener permanenti al canale diagnostico senza tale progetto.
+## Features not included
 
-Nuovi driver di input, accelerazione della cattura o ampliamenti del protocollo
-richiedono valutazione separata; non sono prerequisiti dell'installer attuale.
+The Companion channel transfers diagnostic reports through explicit pairing.
+Assisted repairs need a specific proposal, local consent, least privilege,
+outcome verification and rollback. Do not add remote commands or permanent
+listeners to the diagnostic channel without that design.
 
-[Checklist di collaudo](PILOT.md) · [Protezioni e criteri beta](AUDIT.md)
+New input drivers, capture acceleration or protocol extensions require
+separate evaluation; they are not prerequisites for the current installer.
+
+[Test checklist](PILOT.md) · [Safeguards and beta criteria](AUDIT.md)

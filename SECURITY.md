@@ -1,5 +1,12 @@
 # Security Policy
 
+[English](SECURITY.md) · [Italiano](SECURITY.it.md)
+
+> Historical upstream Veyon policy, retained for reference. The support table below
+> is not a current support commitment for NetLink or Veyon 4.7.5.
+> NetLink remains a pre-release; see [audit and limits](docs/AUDIT.md).
+> The upstream reporting address below concerns Veyon vulnerabilities.
+
 ## Supported Versions
 
 Usually, only the latest stable release series is provided with security updates. In addition, customers with maintenance contracts are provided with updates for the respective releases in use.

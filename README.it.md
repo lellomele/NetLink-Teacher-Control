@@ -1,0 +1,117 @@
+# NetLink Teacher Control
+
+[English](README.md) · [Italiano](README.it.md)
+
+Suite NetLink per la gestione delle aule Windows, basata su **Veyon 4.7.5**.
+Integra controllo remoto, InternetGuard WFP, Appello, profili classe–aula,
+ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
+
+**Versione preliminare 1.0.0-alpha.20: usare consapevolmente.**
+
+## Funzionalità
+
+- **Console docente:** miniature dei PC, controllo remoto e comandi Veyon.
+  La barra remota compatta non oscura il desktop: puntina permanente,
+  fissaggio aperto e spostamento fra i bordi con clic destro.
+- **Aspetto personalizzabile:** temi, colori e set coordinati di icone vettoriali,
+  con supporto ai display ad alta risoluzione e descrizioni dei comandi.
+- **InternetGuard WFP:** blocco/sblocco sui client selezionati, feedback di
+  applicazione o errore e scadenza dei filtri in assenza di rinnovo.
+- **Appello:** nome dichiarato dallo studente sulle miniature, insieme ad account
+  Windows e nome del PC. Non è una verifica dell'identità o della presenza.
+- **Profili classe–aula:** assegnazioni studente/postazione modificabili,
+  salvataggio e caricamento JSON sul Master, esportazione CSV e distinzione
+  fra nomi precaricati e risposte dei client.
+- **Trova client:** WS-Discovery, modalità automatica con IPv4 preferito e IPv6
+  come alternativa, opzione Solo IPv4, filtro dei PC già configurati e
+  accorpamento degli annunci della stessa identità.
+- **Configurazione semplificata:** modalità Facile, Normale e Avanzata;
+  riutilizzo di aule, PC, chiavi e regole di accesso già configurati.
+- **Stato e diagnostica:** icona del servizio con riepilogo locale, Companion
+  per analizzare PC/rete e distinguere le prove di controllo remoto e discovery.
+  Un canale temporaneo abbinato esplicitamente consente lo scambio di rapporti.
+
+## Installazione e aggiornamento
+
+1. Scaricare l'installer Windows x64 dalla
+   [pagina delle release](https://github.com/lellomele/NetLink-Teacher-Control/releases)
+   e confrontare lo SHA-256 con il file di checksum allegato. L'alpha non è firmata.
+2. Conservare un'esportazione JSON del Configurator e, separatamente, le chiavi.
+   Il JSON non contiene le chiavi private.
+3. Chiudere Console docente, Configurator e Companion. Installare il pacchetto
+   completo come amministratore sul docente e sui client, senza disinstallare
+   preventivamente o rigenerare le chiavi già funzionanti.
+4. Se l'installer segnala file in uso o rimozioni pendenti, riavviare Windows e
+   rieseguire il pacchetto. Non sostituire singole DLL e non saltare file.
+
+Il riferimento è **Windows 10 a 64 bit**. Le dipendenze sono incluse.
+
+La configurazione Veyon è riutilizzata. La chiave privata resta soltanto sul pc docente;
+ai client si distribuisce la chiave pubblica.
+
+L'installer verifica i file prima della copia e conserva configurazione e chiavi.
+La disinstallazione può mantenere oppure eliminare le impostazioni; rimuove
+l'intera cartella del programma e conserva le chiavi esterne. Se le chiavi sono
+dentro la cartella da rimuovere, si ferma: trasferirle prima in un percorso protetto.
+I backup delle impostazioni sono in `C:\ProgramData\NetLink\Recovery`.
+
+Procedura completa: [installazione, disinstallazione e recupero](docs/INSTALLATION.it.md).
+
+## Uso rapido
+
+- Nel Configurator impostare chiavi e autorizzazioni, mantenendo aule e PC esistenti.
+- Nella Console selezionare le postazioni e scegliere controllo remoto,
+  InternetGuard oppure Appello.
+- In **Posizioni e computer → Profili classe–aula…** salvare e ricaricare le
+  assegnazioni. Il profilo non modifica gli indirizzi di rete del Configurator.
+- In **Trova client** disattivare il filtro dei PC noti per visualizzare anche
+  quelli già configurati. Verificare i destinatari prima di importarli.
+- Da **Start → NetLink → Companion** scegliere il ruolo e la prova desiderata:
+  controllo remoto dal docente al client, discovery diretto dal client al docente.
+
+[Guida alle funzionalità e alla configurazione](docs/USAGE.it.md) ·
+[Checklist di collaudo](docs/PILOT.it.md)
+
+## Limiti operativi
+
+- Usare reti fidate e account studenti senza privilegi amministrativi.
+  La base Veyon 4.7.5 conserva il proprio modello di sicurezza: il TLS del
+  Companion non aggiunge TLS generalizzato al controllo remoto.
+- Il feedback WFP conferma i filtri, non il risultato di una prova di navigazione.
+  Le destinazioni autorizzate restano raggiungibili su tutte le porte; proxy/VPN
+  e altre policy richiedono verifiche. I filtri scadono dopo 90 secondi senza rinnovo,
+  ma un blocco delle chiamate native di Windows può ritardare il recupero.
+- La discovery non autentica i PC e la preferenza IPv4 usa annunci recenti,
+  non test TCP o failover delle sessioni. Il multicast non attraversa da solo
+  VLAN/subnet. Per InternetGuard usare IP instradabili o hostname risolvibili,
+  non IPv6 link-local con `%numero`.
+- Il blocco software non è una modalità chiosco inviolabile: le schermate
+  protette di Windows restano accessibili. Le segnalazioni non provano quale
+  combinazione speciale sia stata premuta.
+- Profili JSON/CSV e rapporti completi Companion contengono dati personali:
+  conservarli in cartelle protette e non pubblicarli.
+- Interception e la DLL binaria DeskDupEngine non sono distribuiti.
+  Prestazioni di classe, reti IPv6-only e interoperabilità vanno collaudate
+  nell'ambiente di destinazione; l'audit non è completo.
+
+[Architettura, protezioni e verifiche ancora necessarie](docs/AUDIT.it.md)
+
+## Compilazione
+
+Clonare con
+`git clone --recurse-submodules https://github.com/lellomele/NetLink-Teacher-Control.git`.
+La build Windows usa MSYS2 MinGW64, GCC, CMake, Ninja, Qt 5, QCA, OpenSSL,
+OpenLDAP, LZO, libjpeg-turbo, libpng, zlib e NSIS. Questi strumenti servono
+solo a chi compila, non agli utilizzatori dell'installer.
+
+[Istruzioni di compilazione e distribuzione](docs/BUILD.it.md) ·
+[Dipendenze e licenze](docs/DEPENDENCIES.it.md).
+I sorgenti delle icone sono in `branding/`. Gli archivi sorgenti completi
+delle release includono i submodule; gli ZIP automatici di GitHub non li includono.
+
+## Copyright e licenza
+
+NetLink: Copyright © 2025-26 prof. Ing. Raffaele Mele, per le modifiche del fork.
+Veyon © Tobias Junghans, Veyon Solutions e contributori.
+Non è una release ufficiale del progetto Veyon. Attribuzioni originali conservate.
+Il codice Veyon è GPL-2.0-or-later; vedere [COPYING](COPYING) e le licenze incluse.

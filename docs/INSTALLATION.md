@@ -1,86 +1,87 @@
-# Installazione, aggiornamento e recupero
+# Installation, updates and recovery
 
-## Preparazione
+[English](INSTALLATION.md) · [Italiano](INSTALLATION.it.md)
 
-Usare Windows 10 x64 e l'installer completo della
-[pagina delle release](https://github.com/lellomele/NetLink-Teacher-Control/releases).
-Confrontare lo SHA-256; le alpha non sono firmate.
+## Preparation
 
-Esportare il JSON dal Configurator e conservare separatamente le chiavi:
-JSON e backup del registro non contengono la privata.
-La privata deve restare sul docente con permessi limitati, la pubblica sui client.
-Non collocare chiavi o documenti personali nella cartella del programma.
+Use Windows 10 x64 and the complete installer from
+[Releases](https://github.com/lellomele/NetLink-Teacher-Control/releases).
+Compare SHA-256 checksums; alpha installers are unsigned.
 
-## Installazione e aggiornamento
+Export Configurator JSON and back up keys separately: neither JSON nor registry
+backups contain the private key. Keep the private key on the teacher PC with
+restricted permissions, and the public key on clients.
+Do not store keys or personal documents in the program directory.
 
-1. Chiudere Console docente, Configurator e Companion.
-2. Eseguire l'installer come amministratore sul docente e sui client.
-   Non occorre disinstallare prima né rigenerare chiavi già funzionanti.
-3. Il programma verifica i file prima della copia. Se sono occupati o vi sono
-   rimozioni pendenti, chiudere l'installer, scegliere Riavvia in Windows e
-   rieseguire il pacchetto completo. Nessuna DLL può essere ignorata.
-4. Verificare versione, servizio, icona, configurazione, autenticazione e miniatura.
+## Installation and updates
 
-Gli eseguibili sono `netlink-master.exe`, `netlink-configurator.exe`,
+1. Close Teacher Console, Configurator and Companion.
+2. Run the installer as administrator on teacher and client PCs.
+   No prior uninstall or regeneration of working keys is required.
+3. Files are checked before copying. If files are busy or removal is pending,
+   close setup, choose Restart in Windows and run the complete package again.
+   DLLs cannot be skipped.
+4. Verify version, service, tray icon, configuration, authentication and thumbnails.
+
+Executables are `netlink-master.exe`, `netlink-configurator.exe`,
 `netlink-service.exe`, `netlink-server.exe`, `netlink-worker.exe`,
-`netlink-cli.exe`, `netlink-wcli.exe` e `netlink-companion.exe`.
-Non rinominarli manualmente. L'installer gestisce i vecchi `veyon-*.exe`
-del fork; alcuni file caricati in altri processi richiedono il riavvio.
+`netlink-cli.exe`, `netlink-wcli.exe` and `netlink-companion.exe`.
+Do not rename them manually. Setup handles the fork's legacy `veyon-*.exe`
+files; libraries loaded into other processes may require a restart.
 
-Restano invariati la cartella `C:\Program Files\Veyon School`, configurazione,
-directory delle chiavi, DLL e identificativo `VeyonSchoolService`.
-Le regole firewall della suite sono aggiornate dall'installer; script,
-regole personalizzate o criteri basati sui vecchi percorsi vanno adeguati a parte.
+The directory `C:\Program Files\Veyon School`, configuration, key directories,
+DLL names and `VeyonSchoolService` identity remain unchanged.
+Setup updates suite-owned firewall rules; separately adjust custom rules,
+scripts or policies that depend on old executable paths.
 
-## Coesistenza con Veyon originale
+## Coexistence with original Veyon
 
-Il fork riutilizza la configurazione Veyon. Non avviare contemporaneamente i due
-servizi: usano le stesse porte. Se rilevato, l'avvio automatico del servizio
-originale viene disabilitato con conferma; il tipo di avvio è ripristinabile
-alla disinstallazione. Il servizio originale non viene riavviato automaticamente.
+The fork reuses Veyon configuration. Do not run both services together:
+they use the same ports. When detected, the original service's automatic
+startup is disabled with confirmation; its startup type can be restored
+during uninstall. Uninstall does not automatically restart the original service.
 
-Il fork disabilita Interception e DeskDupEngine nella configurazione condivisa.
-Disinstallare non reimporta la configurazione precedente: per tornare
-alle impostazioni originarie usare il Configurator originale e il proprio backup.
+The fork disables Interception and DeskDupEngine in shared configuration.
+Uninstall does not reimport the previous configuration: use the original
+Configurator and your backup to restore original settings.
 
-## Backup e riparazione
+## Backups and repair
 
-Il componente di manutenzione non dipende dal vecchio runtime Qt installato.
-Prima dell'aggiornamento salva impostazioni del registro e backup preesistenti
-in `C:\ProgramData\NetLink\Recovery`, protetto per amministratori e SYSTEM.
-Può riparare un'installazione incompleta usando il pacchetto intero:
-non copiare singole DLL e non avviare vecchi strumenti da un'installazione danneggiata.
+The maintenance helper does not depend on an old installed Qt runtime.
+Before updating, it saves registry settings and existing backups under
+`C:\ProgramData\NetLink\Recovery`, protected for administrators and SYSTEM.
+Repair an incomplete installation with the complete package:
+do not copy individual DLLs or launch old tools from a damaged installation.
 
-File occupati richiedono riavvio; errori di permessi o sola lettura sono distinti.
-I controlli non sono un aggiornamento transazionale: un file può essere riaperto
-dopo la verifica e un errore successivo non dispone di rollback completo.
-Conservare messaggio e backup, correggere la causa e rieseguire il pacchetto.
+Busy files require restart; permission/read-only failures are reported separately.
+Checks are not a transactional upgrade: a file may reopen after probing,
+and a later failure has no complete automatic rollback.
+Keep the message and backup, correct the cause and run the package again.
 
-## Disinstallazione
+## Uninstall
 
-Chiudere le applicazioni e usare la disinstallazione di Windows. Scegliere
-se mantenere le impostazioni per reinstallare oppure eliminarle.
+Close applications and use Windows uninstall. Choose whether to keep settings
+for reinstallation or remove them.
 
-In entrambi i casi viene rimossa l'intera cartella `C:\Program Files\Veyon School`,
-inclusi file aggiunti manualmente. I file in uso sono rimossi al riavvio:
-se richiesto, riavviare prima di reinstallare.
-Le chiavi esterne non vengono aperte né eliminate; se sono dentro la cartella
-del programma, la disinstallazione si ferma per consentirne prima il trasferimento.
+Both choices remove the entire `C:\Program Files\Veyon School` directory,
+including manually added files. Busy files are removed at restart:
+restart before reinstalling when requested.
+External keys are never opened or deleted; if keys are inside the program
+directory, uninstall stops so they can be moved first.
 
-La pulizia delle impostazioni riguarda le voci gestite dalla suite nelle viste
-registro 32/64 bit e nei profili caricati. Sono conservati:
-percorsi delle chiavi, impostazioni condivise con Veyon originale rilevato,
-profili non caricati, backup protetti, file personali esterni e dati gestiti da Windows.
-Non cancellare genericamente tutte le voci che contengono “Veyon” o “NetLink”.
+Settings cleanup covers suite-owned entries in 32/64-bit registry views and
+loaded profiles. It preserves key paths, detected shared original-Veyon settings,
+unloaded profiles, protected backups, external personal files and Windows-managed
+data. Do not delete every entry containing “Veyon” or “NetLink”.
 
-Dopo rimozione e riavvio verificare cartella, servizio, collegamenti Start e
-regole firewall riferite al percorso del fork.
-Per reinstallare da zero, installare e reimportare il JSON nel Configurator.
-Dopo una rimozione con conservazione le impostazioni devono essere già presenti.
+After uninstall and restart, verify the folder, service, Start shortcuts and
+firewall rules pointing to the fork.
+For a clean reinstall, install and reimport JSON in Configurator.
+After uninstall with settings retention, configuration should already be present.
 
-## Collaudo dopo l'installazione
+## Post-installation testing
 
-Seguire [PILOT.md](PILOT.md) su postazioni dedicate con accesso fisico.
-I test automatici dell'installer usano file e sottochiavi di prova e simulano
-servizio/firewall: non sostituiscono installazione amministrativa, riavvio
-e recupero nell'ambiente reale.
+Follow [PILOT.md](PILOT.md) on dedicated PCs with physical access.
+Automated installer tests use isolated files/registry subtrees and simulate
+service/firewall operations. They do not replace administrator installation,
+restart and recovery tests in the actual environment.

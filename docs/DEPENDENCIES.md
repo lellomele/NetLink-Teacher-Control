@@ -1,5 +1,7 @@
 # Dependencies and corresponding source
 
+[English](DEPENDENCIES.md) · [Italiano](DEPENDENCIES.it.md)
+
 NetLink (formerly Veyon School) uses the Veyon 4.7.5 application baseline:
 `f24b48f5acea2a5728ba9f45c9d4df382d094b33` (GPL-2.0-or-later).
 Copyright and license notices in inherited source files are retained.

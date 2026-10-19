@@ -1,5 +1,7 @@
 # Windows x64 build
 
+[English](BUILD.md) · [Italiano](BUILD.it.md)
+
 The application base remains Veyon 4.7.5; all modules are rebuilt together.
 Do not mix DLLs/plugins from upstream installers or another Qt/compiler ABI.
 

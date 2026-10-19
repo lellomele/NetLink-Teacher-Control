@@ -1,115 +1,112 @@
 # NetLink Teacher Control
 
-Suite NetLink per la gestione delle aule Windows, basata su **Veyon 4.7.5**.
-Integra controllo remoto, InternetGuard WFP, Appello, profili classe–aula,
-ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
+[English](README.md) · [Italiano](README.it.md)
 
-**Versione preliminare 1.0.0-alpha.20: usare consapevolmente.**
+NetLink is a Windows classroom-management suite based on **Veyon 4.7.5**.
+It integrates remote control, WFP InternetGuard, student names, class–room profiles,
+automatic client discovery and Companion diagnostics, without external plugins.
 
-## Funzionalità
+**Pre-release 1.0.0-alpha.20: use with awareness of its limitations.**
 
-- **Console docente:** miniature dei PC, controllo remoto e comandi Veyon.
-  La barra remota compatta non oscura il desktop: puntina permanente,
-  fissaggio aperto e spostamento fra i bordi con clic destro.
-- **Aspetto personalizzabile:** temi, colori e set coordinati di icone vettoriali,
-  con supporto ai display ad alta risoluzione e descrizioni dei comandi.
-- **InternetGuard WFP:** blocco/sblocco sui client selezionati, feedback di
-  applicazione o errore e scadenza dei filtri in assenza di rinnovo.
-- **Appello:** nome dichiarato dallo studente sulle miniature, insieme ad account
-  Windows e nome del PC. Non è una verifica dell'identità o della presenza.
-- **Profili classe–aula:** assegnazioni studente/postazione modificabili,
-  salvataggio e caricamento JSON sul Master, esportazione CSV e distinzione
-  fra nomi precaricati e risposte dei client.
-- **Trova client:** WS-Discovery, modalità automatica con IPv4 preferito e IPv6
-  come alternativa, opzione Solo IPv4, filtro dei PC già configurati e
-  accorpamento degli annunci della stessa identità.
-- **Configurazione semplificata:** modalità Facile, Normale e Avanzata;
-  riutilizzo di aule, PC, chiavi e regole di accesso già configurati.
-- **Stato e diagnostica:** icona del servizio con riepilogo locale, Companion
-  per analizzare PC/rete e distinguere le prove di controllo remoto e discovery.
-  Un canale temporaneo abbinato esplicitamente consente lo scambio di rapporti.
+## Features
 
-## Installazione e aggiornamento
+- **Teacher Console:** computer thumbnails, remote control and Veyon commands.
+  The compact remote toolbar keeps the desktop visible, with a persistent pin,
+  an option to keep controls open and right-click edge rotation.
+- **Customizable appearance:** themes, colors and coordinated vector icon sets,
+  high-resolution display support and descriptive tooltips.
+- **WFP InternetGuard:** block/release Internet on selected clients, with
+  application/error feedback and filter expiry when renewal stops.
+- **Student names:** the student's self-declared name appears beside the Windows
+  account and PC name. It does not verify identity or attendance.
+- **Class–room profiles:** editable student/workstation assignments,
+  Master-side JSON save/load, CSV export and separate preloaded/client-declared names.
+- **Find clients:** WS-Discovery with IPv4-preferred automatic mode, IPv6 fallback,
+  IPv4-only mode, known-computer filtering and grouping of the same discovery identity.
+- **Simplified configuration:** Easy, Standard and Advanced views;
+  reuse existing locations, computers, keys and access rules.
+- **Status and diagnostics:** service tray summary and Companion PC/network
+  analysis with distinct remote-control and discovery tests.
+  An explicitly paired temporary channel transfers diagnostic reports.
 
-1. Scaricare l'installer Windows x64 dalla
-   [pagina delle release](https://github.com/lellomele/NetLink-Teacher-Control/releases)
-   e confrontare lo SHA-256 con il file di checksum allegato. L'alpha non è firmata.
-2. Conservare un'esportazione JSON del Configurator e, separatamente, le chiavi.
-   Il JSON non contiene le chiavi private.
-3. Chiudere Console docente, Configurator e Companion. Installare il pacchetto
-   completo come amministratore sul docente e sui client, senza disinstallare
-   preventivamente o rigenerare le chiavi già funzionanti.
-4. Se l'installer segnala file in uso o rimozioni pendenti, riavviare Windows e
-   rieseguire il pacchetto. Non sostituire singole DLL e non saltare file.
+## Installation and updates
 
-Il riferimento è **Windows 10 a 64 bit**. Le dipendenze sono incluse.
+1. Download the Windows x64 installer from
+   [Releases](https://github.com/lellomele/NetLink-Teacher-Control/releases)
+   and compare its SHA-256 with the attached checksum file. The alpha is unsigned.
+2. Save a Configurator JSON export and back up authentication keys separately.
+   The JSON does not contain private keys.
+3. Close Teacher Console, Configurator and Companion. Install the full package
+   as administrator on the teacher and client PCs, without uninstalling first
+   or regenerating working keys.
+4. If files are in use or removal is pending, restart Windows and run the
+   package again. Do not replace individual DLLs or skip files.
 
-La configurazione Veyon è riutilizzata. La chiave privata resta soltanto sul pc docente;
-ai client si distribuisce la chiave pubblica.
+The reference platform is **64-bit Windows 10**. Dependencies are bundled.
 
-L'installer verifica i file prima della copia e conserva configurazione e chiavi.
-La disinstallazione può mantenere oppure eliminare le impostazioni; rimuove
-l'intera cartella del programma e conserva le chiavi esterne. Se le chiavi sono
-dentro la cartella da rimuovere, si ferma: trasferirle prima in un percorso protetto.
-I backup delle impostazioni sono in `C:\ProgramData\NetLink\Recovery`.
+Existing Veyon configuration is reused. Keep the private key only on the
+teacher PC and distribute the public key to clients.
 
-Procedura completa: [installazione, disinstallazione e recupero](docs/INSTALLATION.md).
+The installer checks files before copying and preserves configuration and keys.
+Uninstall can keep or remove settings, removes the entire program directory
+and preserves external keys. It stops if keys are inside that directory:
+move them to a protected location first.
+Settings backups are in `C:\ProgramData\NetLink\Recovery`.
 
-## Uso rapido
+Full procedure: [installation, uninstall and recovery](docs/INSTALLATION.md).
 
-- Nel Configurator impostare chiavi e autorizzazioni, mantenendo aule e PC esistenti.
-- Nella Console selezionare le postazioni e scegliere controllo remoto,
-  InternetGuard oppure Appello.
-- In **Posizioni e computer → Profili classe–aula…** salvare e ricaricare le
-  assegnazioni. Il profilo non modifica gli indirizzi di rete del Configurator.
-- In **Trova client** disattivare il filtro dei PC noti per visualizzare anche
-  quelli già configurati. Verificare i destinatari prima di importarli.
-- Da **Start → NetLink → Companion** scegliere il ruolo e la prova desiderata:
-  controllo remoto dal docente al client, discovery diretto dal client al docente.
+## Quick start
 
-[Guida alle funzionalità e alla configurazione](docs/USAGE.md) ·
-[Checklist di collaudo](docs/PILOT.md)
+- Configure keys/access rights in Configurator, keeping existing locations and PCs.
+- Select workstations in the Console, then choose remote control,
+  InternetGuard or student-name collection.
+- In **Locations & computers → Class–room profiles…**, save/load assignments.
+  A profile does not change Configurator network addresses.
+- In **Find clients**, turn off the known-computer filter to see configured PCs
+  too. Verify destinations before importing them.
+- Open **Start → NetLink → Companion**, choose the role and test:
+  teacher-to-client remote control or client-to-teacher direct discovery.
 
-## Limiti operativi
+[Feature and configuration guide](docs/USAGE.md) · [Test checklist](docs/PILOT.md)
 
-- Usare reti fidate e account studenti senza privilegi amministrativi.
-  La base Veyon 4.7.5 conserva il proprio modello di sicurezza: il TLS del
-  Companion non aggiunge TLS generalizzato al controllo remoto.
-- Il feedback WFP conferma i filtri, non il risultato di una prova di navigazione.
-  Le destinazioni autorizzate restano raggiungibili su tutte le porte; proxy/VPN
-  e altre policy richiedono verifiche. I filtri scadono dopo 90 secondi senza rinnovo,
-  ma un blocco delle chiamate native di Windows può ritardare il recupero.
-- La discovery non autentica i PC e la preferenza IPv4 usa annunci recenti,
-  non test TCP o failover delle sessioni. Il multicast non attraversa da solo
-  VLAN/subnet. Per InternetGuard usare IP instradabili o hostname risolvibili,
-  non IPv6 link-local con `%numero`.
-- Il blocco software non è una modalità chiosco inviolabile: le schermate
-  protette di Windows restano accessibili. Le segnalazioni non provano quale
-  combinazione speciale sia stata premuta.
-- Profili JSON/CSV e rapporti completi Companion contengono dati personali:
-  conservarli in cartelle protette e non pubblicarli.
-- Interception e la DLL binaria DeskDupEngine non sono distribuiti.
-  Prestazioni di classe, reti IPv6-only e interoperabilità vanno collaudate
-  nell'ambiente di destinazione; l'audit non è completo.
+## Operational limits
 
-[Architettura, protezioni e verifiche ancora necessarie](docs/AUDIT.md)
+- Use trusted networks and non-administrator student accounts.
+  Veyon 4.7.5 retains its security model: Companion TLS does not add
+  general TLS protection to remote control.
+- WFP feedback confirms installed filters, not a browsing test.
+  Allowed destinations remain reachable on all ports; proxies/VPNs and other
+  policies need testing. Filters expire after 90 seconds without renewal,
+  but blocked native Windows calls may delay recovery.
+- Discovery is unauthenticated. IPv4 preference uses recent announcements,
+  not TCP tests or session failover. Multicast does not cross VLANs/subnets
+  by itself. For InternetGuard use routable IPs or resolvable hostnames,
+  not IPv6 link-local addresses with `%number`.
+- Software input lock is not an inviolable kiosk: Windows protected screens
+  remain accessible. Notifications do not prove which special shortcut was pressed.
+- Profile JSON/CSV files and full Companion reports contain personal data:
+  store them in protected folders and do not publish them.
+- Interception and the binary DeskDupEngine DLL are not distributed.
+  Classroom performance, IPv6-only networks and interoperability require
+  deployment-specific testing; the audit is incomplete.
 
-## Compilazione
+[Architecture, safeguards and outstanding verification](docs/AUDIT.md)
 
-Clonare con
+## Build
+
+Clone with
 `git clone --recurse-submodules https://github.com/lellomele/NetLink-Teacher-Control.git`.
-La build Windows usa MSYS2 MinGW64, GCC, CMake, Ninja, Qt 5, QCA, OpenSSL,
-OpenLDAP, LZO, libjpeg-turbo, libpng, zlib e NSIS. Questi strumenti servono
-solo a chi compila, non agli utilizzatori dell'installer.
+The Windows build uses MSYS2 MinGW64, GCC, CMake, Ninja, Qt 5, QCA, OpenSSL,
+OpenLDAP, LZO, libjpeg-turbo, libpng, zlib and NSIS.
+These tools are for developers, not installer users.
 
-[Istruzioni di compilazione e distribuzione](docs/BUILD.md) ·
-[Dipendenze e licenze](docs/DEPENDENCIES.md).
-I sorgenti delle icone sono in `branding/`. Gli archivi sorgenti completi
-delle release includono i submodule; gli ZIP automatici di GitHub non li includono.
+[Build and packaging](docs/BUILD.md) · [Dependencies and licenses](docs/DEPENDENCIES.md).
+Icon sources are in `branding/`. Full release source archives include submodules;
+GitHub's automatically generated ZIP files do not.
 
-## Copyright e licenza
+## Copyright and license
 
-NetLink: Copyright © 2025-26 prof. Ing. Raffaele Mele, per le modifiche del fork.
-Veyon © Tobias Junghans, Veyon Solutions e contributori.
-Non è una release ufficiale del progetto Veyon. Attribuzioni originali conservate.
-Il codice Veyon è GPL-2.0-or-later; vedere [COPYING](COPYING) e le licenze incluse.
+NetLink: Copyright © 2025-26 prof. Ing. Raffaele Mele, for fork modifications.
+Veyon © Tobias Junghans, Veyon Solutions and contributors.
+This is not an official Veyon release. Original attributions are preserved.
+Veyon code is GPL-2.0-or-later; see [COPYING](COPYING) and the bundled licenses.

@@ -1,170 +1,162 @@
-# Funzionalità e configurazione
+# Features and configuration
 
-## Console docente e controllo remoto
+[English](USAGE.md) · [Italiano](USAGE.it.md)
 
-La Console riutilizza le postazioni del Configurator. La connessione reale e
-la miniatura aggiornata verificano uno scambio autenticato; un test TCP positivo
-non basta. Per le nuove funzioni devono essere presenti client NetLink compatibili.
+## Teacher Console and remote control
 
-Il menu remoto è una barra compatta che lascia visibile il desktop. Ogni nuova
-sessione parte dal bordo superiore. La puntina resta visibile e si attenua dopo
-un breve periodo di inattività; passando il mouse torna nitida.
-Clic sinistro fissa o libera la barra. Clic destro su puntina o barra sposta
-i controlli nell'ordine alto → sinistra → basso → destra.
-Il bordo attivo è uno solo. Menù e focus da tastiera mantengono accessibili i comandi.
+The Console reuses Configurator workstations. A real connection and updating
+thumbnail establish authenticated exchange; a successful TCP test is insufficient.
+New features require compatible NetLink clients.
 
-Aspetto, colori, dimensioni e set di icone sono preferenze personali.
-La barra remota segue il set della Console. In contrasto elevato la puntina
-non si attenua. La lingua si sceglie nel Configurator: applicare e riavviare
-le applicazioni. I dialoghi di Windows possono usare la lingua del sistema.
+The compact remote menu leaves the desktop visible. Each session starts on the
+top edge. Its pin stays visible and fades after inactivity; hover restores it.
+Left-click pins/unpins the toolbar. Right-click on the pin or toolbar rotates
+top → left → bottom → right. Only one edge is active.
+Menus and keyboard focus keep controls accessible.
+
+Appearance, colors, sizes and icon sets are personal preferences. Remote controls
+follow the Console's set. High contrast disables pin fading.
+Choose language in Configurator, apply and restart applications.
+Windows dialogs may still use the system language.
 
 ## Configurator
 
-- **Facile:** accesso, chiavi, impostazioni essenziali del servizio, gruppi/PC
-  e discovery.
-- **Normale/Avanzata:** accesso alle altre impostazioni.
-- Cambiare modalità non deve modificare i valori nascosti.
-- Nelle tabelle dei gruppi/PC i comandi di aggiunta/rimozione sono sopra le
-  tabelle e restano accessibili senza massimizzare la finestra.
+- **Easy:** access, keys, essential service settings, groups/PCs and discovery.
+- **Standard/Advanced:** access to additional settings.
+- Switching views must not change hidden values.
+- Group/PC add/remove controls stay above the tables without maximizing.
 
-Con autenticazione a chiave, privata leggibile soltanto dagli utenti docenti
-autorizzati e pubblica sui client. Non distribuire la privata.
-Se sono presenti più private, la scelta e i relativi permessi vanno verificati:
-`VEYON_AUTH_KEY_NAME` consente una selezione esplicita.
-Una prova che richiede una privata non valida la sola pubblica di un client.
+For key authentication, restrict the private key to authorized teachers and
+install the public key on clients. Never distribute the private key.
+With multiple private keys, verify selection and permissions:
+`VEYON_AUTH_KEY_NAME` permits explicit selection.
+A test requiring a private key does not validate a client's public key alone.
 
-## InternetGuard WFP
+## WFP InternetGuard
 
-1. Selezionare i client, aprire InternetGuard e scegliere **Blocca Internet**.
-2. Leggere il feedback per ciascun client: conferma, errore o nessuna risposta.
-3. Per rilasciare i filtri usare **Sblocca**. Chiudere il pannello non sblocca.
-4. **Verifica stato** interroga il servizio, ma non esegue una prova di navigazione.
+1. Select clients, open InternetGuard and choose **Block Internet**.
+2. Read each client's confirmation, error or missing response.
+3. Use **Unblock** to release filters. Closing the panel does not unblock.
+4. **Check status** queries the service; it does not test browsing.
 
-Il Master rinnova ogni 20 secondi; la scadenza prevista è 90 secondi senza rinnovo.
-La lista autorizzata riutilizza i PC selezionati e l'indirizzo effettivo del Master.
-DNS/DHCP delle interfacce attive sono rilevati dal client; risorse extra IP/CIDR
-si aggiungono nella pagina NetLink del Configurator, soltanto quando necessarie.
-Non autorizzare intere subnet senza motivo.
+The Master renews every 20 seconds; expected expiry is 90 seconds without renewal.
+Allowed destinations reuse selected PCs and the Master's actual address.
+The client detects DNS/DHCP on active adapters. Add extra IP/CIDR resources
+in Configurator's NetLink page only when needed.
+Do not authorize entire subnets without a reason.
 
-Le destinazioni autorizzate sono raggiungibili su tutte le porte: proxy, VPN
-o servizi di inoltro possono consentire accessi esterni. Una policy di un'altra
-connessione docente non è sostituibile; una riconnessione può dover attendere
-la scadenza precedente. Se Windows non conferma la chiusura della sessione WFP,
-lo stato resta sconosciuto e il servizio ritenta; non viene dichiarato un falso sblocco.
+Allowed destinations remain reachable on all ports: proxies, VPNs and forwarding
+services can provide external access. Another connection's policy cannot be
+replaced; a reconnect may have to await its previous lease expiry.
+If Windows does not confirm WFP-session closure, state stays unknown and
+cleanup is retried; a false successful unblock is not reported.
 
-Limiti: 256 client per operazione, 255 destinazioni totali e 128 risorse extra.
-Non usare come destinazioni InternetGuard IPv6 link-local con indicazione
-della scheda (`%numero`): preferire IP instradabili o hostname risolvibili.
+Limits: 256 clients per operation, 255 destinations and 128 extra resources.
+Do not use scoped link-local IPv6 (`%number`) as InternetGuard destinations;
+prefer routable IPs or resolvable hostnames.
 
-## Appello e profili classe–aula
+## Student names and class–room profiles
 
-**Appello → Richiedi nomi** apre il dialogo nelle postazioni selezionate.
-Lo studente risponde con OK o Invio. La didascalia è
-`[nome Appello] - account Windows - PC`, con sfondo distinto sul nome.
-Non sono previste conferme di presenza e il nome non è un'identità verificata.
+**Attendance → Request names** opens the dialog on selected clients.
+Students submit with OK or Enter. Captions show
+`[attendance name] - Windows account - PC`, highlighting only the name.
+There is no attendance-confirmation mechanism or verified identity.
 
-In **Posizioni e computer → Profili classe–aula…**:
+In **Locations & computers → Class–room profiles…**:
 
-1. Assegnare classe, aula e studente alle postazioni. L'editor parte dai PC
-   selezionati, oppure da quelli visualizzati in assenza di selezione.
-2. **Salva JSON** conserva le assegnazioni; **Carica JSON** le ricarica.
-   Non è il JSON del Configurator e non viene caricato automaticamente all'avvio.
-3. Modificare il nome assegnato oppure usare **Usa nomi dichiarati** sulle righe
-   scelte. Le risposte non riscrivono il file: salvarlo esplicitamente.
-4. **Esporta CSV** produce una copia leggibile con assegnazioni e dichiarazioni,
-   non ricaricabile come profilo.
-5. **Termina richieste e cancella nomi dichiarati** mantiene il profilo;
-   **Nuovo / scarica profilo** rimuove le etichette attive, non i file sul disco.
+1. Assign class, room and student to workstations. The editor starts with selected
+   PCs, or displayed PCs when none are selected.
+2. **Save JSON** preserves assignments; **Load JSON** restores them.
+   This is not Configurator JSON, and profiles do not load automatically at startup.
+3. Edit an assignment or **Use declared names** on selected rows.
+   Replies never rewrite the file automatically: save explicitly.
+4. **Export CSV** creates a readable copy of assignments and declarations,
+   not a reloadable profile.
+5. **End requests and clear declared names** keeps the profile;
+   **New / unload profile** clears active labels, not files on disk.
 
-I nomi precaricati sono distinti dalle dichiarazioni correnti. Alla disconnessione
-le dichiarazioni vengono eliminate, le assegnazioni restano.
-L'associazione usa l'UUID della postazione, non l'IP: con DHCP usare hostname
-risolvibili o aggiornare il Configurator. Il profilo non corregge vecchi IP.
-PC cancellati e ricreati vanno riassegnati. JSON/CSV contengono dati personali
-in chiaro e vanno conservati in cartelle protette, fuori dalla cartella del programma.
-Una scrittura su rete può finire dopo la chiusura del pannello.
+Preloaded names differ from current declarations. Disconnect clears declarations,
+not assignments. Matching uses workstation UUID, not IP.
+With DHCP, use resolvable hostnames or update Configurator; profiles do not fix
+old IPs. Deleted/recreated PCs need reassignment.
+JSON/CSV files contain cleartext personal data: keep them in protected folders
+outside the installation directory. A network write may finish after panel closure.
 
-## Trova client
+## Find clients
 
-**Automatico — preferisci IPv4** sceglie un annuncio IPv4 recente, altrimenti
-un IPv6 instradabile e infine link-local. **Solo IPv4** nasconde i risultati
-soltanto IPv6. La preferenza è personale e viene salvata chiudendo la Console;
-non disabilita IPv6 in Windows e non esegue failover TCP.
+**Automatic — prefer IPv4** uses a recent IPv4 announcement, otherwise routable
+IPv6 and then link-local. **IPv4 only** hides IPv6-only results.
+This personal preference is saved on normal Console exit; it does not disable
+Windows IPv6 or perform TCP failover.
 
-Una riga raggruppa gli indirizzi osservati della stessa identità discovery.
-Il tooltip li elenca; gli indirizzi semplicemente dichiarati nei metadati
-non vengono usati come prova. Il docente è escluso su tutte le schede.
-Annunci contraddittori restano visibili e non sono importabili automaticamente;
-PC clonati con identità e dati uguali possono essere indistinguibili.
+One row groups observed addresses for a discovery identity; its tooltip lists them.
+Metadata addresses alone are not evidence. The teacher is excluded on every adapter.
+Contradictory announcements stay visible and cannot be imported automatically.
+Cloned PCs with identical identity/metadata may be indistinguishable.
 
-**Nascondi i computer già presenti in Posizioni e computer** confronta gli
-indirizzi osservati con IP configurati e risposte DNS A/AAAA degli hostname.
-Considera tutte le aule. Nomi non risolti lasciano i risultati visibili;
-con DHCP un IP vecchio non prova l'identità di un PC.
-Disattivare il filtro per vedere anche i PC già noti.
+**Hide computers already in Locations & computers** matches observed addresses
+against configured IPs and DNS A/AAAA answers across all locations.
+Unresolved names leave results visible; an old DHCP IP is not stable identity.
+Disable the filter to see known PCs too.
 
-Verificare il destinatario prima dell'importazione. Servono diritti di scrittura
-sulla configurazione e riavvio del Master per visualizzare il nuovo PC.
-L'importazione non modifica chiavi o autorizzazioni.
-Un link-local conserva il numero della scheda del docente: vale su quel
-collegamento e può richiedere aggiornamento se la scheda cambia.
+Verify the destination before import. Configuration write rights and Master
+restart are required to display a new PC. Import does not alter keys/access rules.
+A link-local address retains the teacher's receiving-interface index, applies
+only on that link and may need updating after an adapter change.
 
-### Rete e porte
+### Network and ports
 
-- Stesso collegamento: multicast WS-Discovery su UDP 3702.
-- Altre subnet: indicare sui client nome/IP del docente in
-  `School/DiscoveryMaster`. Gli annunci diretti usano HTTP su TCP 3702;
-  routing e ACL devono consentirlo. L'installer accetta anche `/Master=NOME-PC`.
-- Le eccezioni discovery gestite sono limitate ai profili Privato/Dominio.
-  Il multicast non attraversa autonomamente VLAN/subnet; quello IPv6 è link-local.
+- Same link: WS-Discovery multicast on UDP 3702.
+- Other subnets: set the teacher's hostname/IP in client
+  `School/DiscoveryMaster`. Direct announcements use HTTP on TCP 3702;
+  routing/ACLs must allow it. Setup also accepts `/Master=PC-NAME`.
+- Managed discovery exceptions use Private/Domain profiles.
+  Multicast does not independently traverse VLANs/subnets; IPv6 multicast is link-local.
 
-## Blocco input e stato del servizio
+## Input lock and service status
 
-Il blocco software intercetta scorciatoie ordinarie e mostra una copertura.
-Le schermate protette restano accessibili: al ritorno la copertura viene ripristinata.
-Gli eventi segnalano osservazioni di sessione/desktop, non provano Ctrl+Alt+Canc.
-Transizioni brevissime possono sfuggire. Gli avvisi sono raggruppati circa ogni
-due secondi, inviati al Master che ha richiesto più recentemente il blocco e
-conservati in un riepilogo volatile di massimo 200 righe. Nessun testo digitato
-viene raccolto; dopo una riconnessione ripetere Unlock/Lock.
+Software lock intercepts ordinary shortcuts and displays a cover.
+Protected screens remain accessible; the cover is restored on return.
+Events describe session/desktop observations, not proof of Ctrl+Alt+Del.
+Very brief transitions may be missed. Notifications are grouped roughly every
+two seconds, sent to the most recent initiating Master and kept in a volatile
+summary of at most 200 lines. No typed text is collected.
+After reconnecting, repeat Unlock/Lock.
 
-L'icona del servizio mostra un riepilogo locale e il menu apre i dettagli.
-Controllare anche le icone nascoste di Windows. “In ascolto” non certifica
-raggiungibilità, autenticazione, discovery o blocco Internet.
+The service tray icon gives a local summary and opens details.
+Also check Windows hidden icons. “Listening” does not establish reachability,
+authentication, discovery or successful Internet blocking.
 
 ## Companion
 
-Da **Start → NetLink → Companion**, scegliere il ruolo ed eseguire **Analizza PC**.
-Le prove distinguono:
+Open **Start → NetLink → Companion**, choose a role and **Analyze PC**.
+Communication tests distinguish:
 
-- **Controllo remoto:** docente → client, normalmente TCP 11100, con servizio
-  attivo sul client; opzionalmente verifica il messaggio iniziale RFB.
-- **Discovery diretto:** client → docente, TCP 3702 e Console aperta. Prova
-  soltanto l'apertura TCP, non il multicast o un annuncio applicativo.
-- **TCP personalizzato:** destinazione/porta esplicite, anche loopback per il
-  confronto fra accesso locale e remoto.
+- **Remote control:** teacher → client, normally TCP 11100 with the client
+  service running; optionally verifies the initial RFB greeting.
+- **Direct discovery:** client → teacher, TCP 3702 with the Console open.
+  Tests TCP opening only, not multicast or application announcements.
+- **Custom TCP:** explicit destination/port, including loopback for local/remote comparison.
 
-Le prove durano al massimo 8 secondi. Il rapporto completo conserva fino a
-20 risultati della sessione e dati identificativi; il ridotto li omette.
-TCP raggiungibile, banner RFB e impronte pubbliche uguali non provano che
-l'autenticazione completa funzioni. Un test può produrre un avviso di
-autenticazione incompleta sul servizio.
+Tests take at most eight seconds. Full reports retain up to 20 session results
+and identifiers; reduced reports omit them.
+TCP success, RFB greetings and identical public-key fingerprints do not prove
+complete authentication. A probe can trigger an incomplete-authentication warning.
 
-### Collegamento protetto fra Companion
+### Protected Companion report transfer
 
-1. Sul ricevente: Analizza PC, **Ricevo il rapporto**, interfaccia della rete
-   e porta temporanea (TCP 11110 o 0 per automatica), **Genera invito e attendi**.
-2. Trasferire l'invito riservato con **Copia invito** o **Salva invito su file**.
-   Non è una chiave Veyon e non va importato nel Configurator.
-3. Sull'altro PC: Analizza PC, **Invio il mio rapporto**, incollare/aprire l'invito,
-   **Verifica destinatario e invia il mio rapporto**, confermare i dati condivisi.
-4. Attendere **CONSEGNATO** e **RICEVUTO**. Per invertire la direzione serve
-   un nuovo invito. **Annulla collegamento** chiude l'attesa.
+1. Receiver: Analyze PC, **Receive a report**, select network interface and
+   temporary port (TCP 11110 or 0 for automatic), then **Generate invitation and wait**.
+2. Transfer the private invitation with **Copy invitation** or **Save invitation**.
+   It is not a Veyon key and must not be imported into Configurator.
+3. Other PC: Analyze PC, **Send my report**, paste/open the invitation,
+   **Verify destination and send my report**, then confirm the data shared.
+4. Wait for **DELIVERED** and **RECEIVED**. Reverse direction requires a new
+   invitation. **Cancel connection** stops waiting.
 
-Il canale è TLS 1.2 o superiore, con certificato temporaneo, impronta e segreto
-monouso a 256 bit. Il formato compatto NL2 mantiene i segreti completi; accetta
-inviti NL1, mentre i client vecchi non leggono NL2. L'invito scade entro cinque
-minuti e consente un solo rapporto. Nessun listener parte automaticamente,
-nessuna regola firewall viene modificata e nessun comando remoto è eseguito.
-Un'eventuale autorizzazione firewall deve essere locale e mirata al ricevente.
-I rapporti sono istantanee non firmate, non attestazioni fidate del sistema.
+The channel uses TLS 1.2+, a temporary certificate, SHA-256 pin and one-use
+256-bit secret. Compact NL2 retains complete secrets; NL1 invitations are accepted,
+but older clients cannot read NL2. Invitations expire within five minutes
+and allow one report. No automatic listener, firewall modification or remote command
+is added. Any firewall authorization must be local and narrowly scoped to the receiver.
+Reports are unsigned snapshots, not trusted system attestations.
