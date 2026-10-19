@@ -1,7 +1,38 @@
-# Audit and release gates — NetLink 1.0.0-alpha.18
+# Audit and release gates — NetLink 1.0.0-alpha.19
 
 Status: **partial audit and preliminary implementation, not a completed security
 audit, certified WS-Discovery implementation or production-ready release**.
+
+## Alpha 19 known-computer discovery filter
+
+The Master opens Find clients with Hide computers already in Locations & computers
+enabled. It snapshots all built-in configured destinations, cached directory
+entries and current control interfaces, not only selected thumbnails. Cached
+directory traversal never invokes synchronous updates or lazy network fetches.
+Matching uses configured IPv4 addresses and IPv4 DNS answers for configured host
+names, never an unauthenticated peer's claimed display name or discovery UUID.
+Veyon host:port destinations and IPv4-mapped literals are normalized.
+
+Hostname checks are dialog-owned, asynchronous, at most eight in flight with a
+five-second batch deadline. Unresolved/failed checks leave peers visible; pending
+and unresolved counts are explicit. Closing cancels outstanding lookups and
+context ownership suppresses late callbacks. Reopening creates a new index;
+the operating system/Qt DNS cache can still affect freshness. An IP match is not
+authenticated machine identity and a stale DHCP lease can match another PC.
+
+The unfiltered view labels known peers and import checks reject known addresses
+both before and after the nonmodal confirmation. Successful imports update the
+filter immediately. Selection follows endpoint identity across rebuilds and is
+cleared when its row is hidden; reappearing rows are not selected automatically.
+Existing key/access validation is unchanged. The discovery result list remains
+IPv4-only, including on dual-stack Windows; IPv6-only discovery is not introduced.
+No client protocol, service, key path, firewall rule or runtime library changes.
+
+Isolated tests cover matching, failure/timeout/cancellation, concurrency limits,
+DHCP answer changes on reopen, duplicate import rejection, asynchronous table
+updates, selection, Italian/English and three DPI scales. They do not establish
+DNS correctness or native network behaviour in the school deployment. Run the
+two-PC pilot before considering this alpha validated for classroom use.
 
 ## Alpha 18 persistent pin and explicit edge selection
 

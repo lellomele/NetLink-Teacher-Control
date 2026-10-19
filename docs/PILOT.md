@@ -18,6 +18,32 @@ Non pubblicare chiavi private, password o esportazioni di configurazione.
    servizio dopo modifiche. Nel Master la miniatura deve aggiornarsi.
 5. Annotare build OS, antivirus/firewall, latenza e carico CPU a riposo.
 
+## 1.0.0-alpha.19: filtro dei client già configurati
+
+1. Esportare il JSON del Configurator e conservare le chiavi esistenti. Chiudere
+   le applicazioni sul MATEBOOK e aggiornare con il pacchetto completo come
+   amministratore, senza disinstallare o rigenerare `netlink_test`. Se richiesto,
+   riavviare Windows e rieseguire lo stesso installer. Verificare la versione
+   **1.0.0-alpha.19** in Informazioni e la configurazione/chiave conservate.
+2. Con il DELL acceso e già presente in Posizioni e computer, aprire Trova client.
+   Il filtro deve essere attivo: il DELL non deve apparire tra i nuovi risultati,
+   ma deve essere incluso nel conteggio dei PC già configurati dopo gli annunci.
+3. Disattivare il filtro: il DELL deve ricomparire con il proprio IPv4 e la voce
+   Già configurato. Tentare l'importazione non deve creare una seconda riga.
+   Riattivare il filtro: la selezione di un PC nascosto non deve spostarsi su un
+   altro risultato. Il docente stesso continua a essere escluso.
+4. Se un PC è configurato per hostname, attendere il controllo DNS; errori o
+   timeout devono lasciare il risultato visibile e aumentare i non risolti, senza
+   bloccare la Console. Chiudere durante il controllo e riaprire senza crash.
+   Con DHCP la verifica dipende dalla risoluzione corretta e aggiornata del nome.
+5. Se è disponibile un ulteriore PC non configurato, verificarne l'importazione
+   esplicita: deve sparire dai nuovi risultati subito dopo il salvataggio.
+   Verificare nuovamente miniatura, controllo remoto, Appello e InternetGuard.
+
+Per questo filtro è sufficiente aggiornare il Master; il DELL può restare alla
+versione precedente. Nessun nuovo prerequisito o configurazione sui client.
+La ricerca continua a includere solo risultati IPv4: non è un collaudo IPv6-only.
+
 ## 1.0.0-alpha.18: puntina permanente e un solo bordo attivo
 
 1. Conservare JSON e chiavi; chiudere le applicazioni e aggiornare il Master con

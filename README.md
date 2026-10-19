@@ -5,7 +5,7 @@ InternetGuard basato su Windows Filtering Platform, Appello con il nome dichiara
 dallo studente sulle miniature e ricerca dei client tramite WS-Discovery 1.1.
 Le funzioni sono integrate: non occorre installare un plugin esterno.
 
-**Versione preliminare 1.0.0-alpha.18: destinata a PC di prova, non al laboratorio in uso.**
+**Versione preliminare 1.0.0-alpha.19: destinata a PC di prova, non al laboratorio in uso.**
 
 ## Installazione
 
@@ -137,7 +137,17 @@ docenti. Non distribuire la chiave privata ai client.
   attive e consente di costruire un altro profilo, senza cancellare i file salvati.
 - **Trova client:** mostra soltanto PC remoti con indirizzi IPv4, escludendo il
   computer docente e tutte le sue schede, anche virtuali. IPv6 di Windows resta
-  attivo. Verificare i PC rilevati prima di importare quello selezionato.
+  attivo. **Nascondi i computer già presenti in Posizioni e computer**, attivo
+  all'apertura, esclude gli IP già configurati in tutte le aule e gli IPv4
+  risolti dai nomi host configurati. Disattivarlo per vedere anche i PC già noti.
+  Il conteggio distingue risultati visibili, già configurati e nomi non risolti;
+  questi ultimi non fanno nascondere un PC. Il solo nome dichiarato dal client
+  non determina una corrispondenza. Con DHCP usare nomi host risolvibili:
+  un vecchio IP salvato non identifica stabilmente lo stesso computer.
+  Un PC con IPv4 e IPv6 viene elencato tramite IPv4; un PC raggiungibile soltanto
+  via IPv6 non entra nei risultati. La tabella del Configurator accetta IPv6
+  inseriti manualmente, ma l'intera suite non è collaudata su una rete solo IPv6.
+  Verificare i PC rilevati prima di importare quello selezionato.
   L’importazione richiede diritti di scrittura sulla configurazione e il riavvio
   del Master. Non modifica automaticamente le chiavi o le autorizzazioni.
 

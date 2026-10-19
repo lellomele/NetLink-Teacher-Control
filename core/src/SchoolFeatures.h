@@ -50,6 +50,7 @@ private:
     void tick();
     void attendance(VeyonMasterInterface&, const ComputerControlInterfaceList&);
     void discovery(VeyonMasterInterface&);
+    void discovery(VeyonMasterInterface&, const QStringList& configuredHosts);
     void beginPolicyResolution(const ComputerControlInterfaceList&, const QStringList& resources);
     FeatureList m_features;
     const QUuid m_guardUid, m_attendanceUid, m_discoveryUid;

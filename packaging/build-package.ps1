@@ -3,7 +3,7 @@ $ErrorActionPreference='Stop'
 $repoRoot=Split-Path $PSScriptRoot
 $buildRoot=(Resolve-Path (Join-Path $repoRoot $Build)).Path
 $distRoot=Join-Path $repoRoot 'dist'
-$packageRoot=Join-Path $distRoot 'NetLink-1.0.0-alpha.18-win64'
+$packageRoot=Join-Path $distRoot 'NetLink-1.0.0-alpha.19-win64'
 if(Test-Path -LiteralPath $packageRoot){throw "Use a fresh package directory; existing files will not be overwritten: $packageRoot"}
 New-Item -ItemType Directory -Path $packageRoot | Out-Null
 foreach($dir in @('plugins','platforms','imageformats','crypto','translations','licenses')){New-Item -ItemType Directory -Path (Join-Path $packageRoot $dir) | Out-Null}

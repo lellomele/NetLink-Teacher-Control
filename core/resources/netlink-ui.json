@@ -344,6 +344,30 @@
     "it": "Nome dichiarato dal PC"
   },
   {
+    "source": "Hide computers already in Locations & computers",
+    "it": "Nascondi i computer già presenti in Posizioni e computer"
+  },
+  {
+    "source": "Locations & computers",
+    "it": "Posizioni e computer"
+  },
+  {
+    "source": "Matches configured IP addresses and current IPv4 hostname resolution, not display names. Unresolved hostnames leave computers visible. This is not authentication.",
+    "it": "Confronta gli IP configurati e la risoluzione IPv4 attuale dei nomi host, non i nomi visualizzati. Se un nome host non si risolve, i computer restano visibili. Non è una verifica di autenticazione."
+  },
+  {
+    "source": "%1 shown / %2 found; %3 already configured. Hostname checks: %4 pending, %5 unresolved.",
+    "it": "%1 visibili / %2 trovati; %3 già configurati. Verifiche nomi host: %4 in corso, %5 non risolti."
+  },
+  {
+    "source": "Already configured",
+    "it": "Già configurato"
+  },
+  {
+    "source": "Not matched in the list",
+    "it": "Non associato nell’elenco"
+  },
+  {
     "source": "Import selected computer",
     "it": "Importa PC selezionato"
   },
