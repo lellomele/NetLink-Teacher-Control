@@ -38,6 +38,15 @@ binary directory in PATH. Tests must pass before packaging. For a release build,
 configure a fresh `build-release` with the same options except `WITH_TESTS=OFF`;
 this removes developer plugin search paths and runtime test hooks.
 
+Discovery mode is stored with the Master's per-user settings under
+`SchoolDiscovery/AddressMode` (`Automatic` or `IPv4Only`). Lifecycle tests inject
+an in-memory store, simulated announcements and asynchronous DNS. The additional
+IPv6 UDP test binds only ephemeral loopback sockets, explicitly skipping if IPv6
+is unavailable. It does not open school firewall rules or probe configured PCs.
+Set `VEYON_SCHOOL_SCHEMA_FIXTURES` to a build directory before running school-tests
+to export the six SOAP samples, then run `tests/validate-discovery.ps1 -Fixtures`
+with that directory. Dual-family metadata is covered by the same official schemas.
+
 Generate icons if the vector design changes:
 `powershell -NoProfile -ExecutionPolicy Bypass -File branding/render-icon.ps1`.
 The icon rasterizer uses built-in Windows drawing APIs; the original SVG is retained.

@@ -18,6 +18,40 @@ Non pubblicare chiavi private, password o esportazioni di configurazione.
    servizio dopo modifiche. Nel Master la miniatura deve aggiornarsi.
 5. Annotare build OS, antivirus/firewall, latenza e carico CPU a riposo.
 
+## 1.0.0-alpha.20: discovery automatico IPv4/IPv6
+
+1. Esportare il JSON del Configurator e conservare le chiavi. Chiudere le app,
+   aggiornare MATEBOOK e DELL con il pacchetto completo come amministratore,
+   senza disinstallare né rigenerare `netlink_test`. Se richiesto, riavviare e
+   rieseguire l'installer. Verificare **1.0.0-alpha.20**, chiavi e configurazione.
+2. Aprire Trova client sul MATEBOOK: la modalità iniziale è **Automatico —
+   preferisci IPv4**. Con il filtro disattivato il DELL deve apparire una sola
+   volta tramite `192.168.1.109`; il MATEBOOK non deve apparire. Il tooltip
+   dell'indirizzo elenca gli indirizzi realmente osservati, non necessariamente
+   tutti quelli installati sul DELL. Attendere gli annunci, fino a 30 secondi.
+3. Attivare il filtro: un DELL configurato tramite il suo IP o un hostname
+   correttamente risolto deve sparire dai nuovi risultati anche se annuncia
+   IPv6. Disattivando il filtro deve tornare come Già configurato; Importa
+   non deve duplicarlo. Provare anche se il nome del PC nell'elenco è diverso.
+4. Scegliere **Solo IPv4**, poi Automatico: nessuna seconda riga o perdita di
+   selezione su altri PC. Chiudere normalmente la Console e riaprirla per
+   verificare la preferenza salvata. Non è una modifica della rete Windows.
+5. Se disponibile una rete IPv6 di prova, verificare un client che annunci solo
+   IPv6: visibile in Automatico, assente in Solo IPv4. Non disabilitare IPv4 su
+   una macchina gestita da remoto senza accesso fisico. Preferire IPv6 ULA/globali
+   instradabili o un hostname; un link-local usa il numero scheda del MATEBOOK
+   e non è un collaudo InternetGuard. I filtri/routing di rete devono consentire
+   multicast UDP 3702 o l'annuncio diretto al Master su TCP 3702.
+6. Su PC non ancora configurato verificare l'importazione esplicita, un'unica
+   riga salvata e l'esclusione immediata dai nuovi risultati. Su entrambi i PC
+   controllare di nuovo miniatura, controllo remoto, Appello e InternetGuard su
+   IPv4. Provare chiusura della finestra durante DNS/ricerca senza blocchi.
+
+La preferenza IPv4 dipende dagli annunci recenti (95 secondi), non dal successo
+di una connessione TCP. Per un test di raggiungibilità usare Companion. La
+discovery IPv6 multicast è locale al collegamento: non attraversa VLAN/subnet
+da sola. Il supporto discovery non certifica l'intera suite su una rete IPv6-only.
+
 ## 1.0.0-alpha.19: filtro dei client già configurati
 
 1. Esportare il JSON del Configurator e conservare le chiavi esistenti. Chiudere

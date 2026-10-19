@@ -9,6 +9,7 @@
 #include <QTimer>
 #include <functional>
 #include "VeyonCore.h"
+#include "SchoolDiscovery.h"
 
 // A dialog-local index of configured destinations, never of names advertised by
 // unauthenticated discovery peers. DNS work is asynchronous, bounded and owned.
@@ -19,6 +20,7 @@ public:
     ~SchoolDiscoveryKnownHosts() override;
     void start();
     bool contains(const QString& address) const;
+    bool contains(const SchoolDiscovery::Record& record) const;
     void rememberAddress(const QString& address);
     int pendingCount() const { return m_pending.size() + m_lookups.size(); }
     int unresolvedCount() const { return m_unresolved; }
@@ -32,7 +34,7 @@ private:
     void pump();
     void resolved(const QHostInfo& info);
     void cancel();
-    QSet<quint32> m_addresses;
+    QSet<QString> m_addresses;
     QQueue<QString> m_pending;
     QHash<int, QString> m_lookups;
     QTimer m_deadline;

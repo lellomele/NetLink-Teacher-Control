@@ -15,13 +15,19 @@
 class SchoolLifecycleTests;
 class SchoolTests;
 namespace SchoolDiscovery {
+enum class AddressMode { Automatic, Ipv4Only };
+// Canonical unicast destination. Link-local IPv6 requires a local interface;
+// the remote peer's advertised zone number is never used for reception.
+VEYON_CORE_EXPORT QString addressKey(const QHostAddress& address, uint interfaceIndex = 0);
 struct Record {
     QString endpoint, name, address;
+    QStringList addresses;
     int port = 11100;
     qint64 seen = 0;
     quint64 instance = 0, sequence = 0;
     bool client = false;
     bool proxy = false;
+    bool conflict = false;
 };
 struct Message {
     QString action, id, relatesTo, to, types, scopes, matchBy;
@@ -36,7 +42,8 @@ class VEYON_CORE_EXPORT Agent : public QObject {
 public:
     Agent(bool master, const QString& bootstrap, int port, QObject* parent);
     ~Agent() override;
-    QList<Record> records() const;
+    QList<Record> records(AddressMode mode = AddressMode::Automatic) const;
+    bool isCurrent(const Record& selected, AddressMode mode) const;
     QString error() const { return m_error; }
     void probe();
 private:
@@ -46,10 +53,11 @@ private:
     Message announcement(const QString& action) const;
     void refreshInterfaces();
     bool isLocalIpv4(const QHostAddress& address) const;
+    bool isLocalAddress(const QHostAddress& address) const;
     void announce();
     void multicast(const QByteArray& data);
     void readUdp(QUdpSocket* socket);
-    QByteArray process(const QByteArray& xml, const QHostAddress& source, bool http);
+    QByteArray process(const QByteArray& xml, const QHostAddress& source, bool http, uint interfaceIndex = 0);
     void acceptHttp();
     bool m_master;
     QString m_bootstrap, m_error, m_endpoint;
@@ -65,6 +73,9 @@ private:
     QHash<QString, int> m_rate;
     QList<QNetworkInterface> m_interfaces;
     QSet<quint32> m_localIpv4;
+    QSet<QString> m_localIpv6;
+    QSet<uint> m_joined4, m_joined6;
+    QSet<QString> m_membershipErrors;
     QSet<QUdpSocket*> m_udpDrainScheduled;
     QElapsedTimer m_clock;
     qint64 m_lastProbe = -2000;

@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QFile>
 #include <QNetworkProxy>
+#include <QNetworkDatagram>
 #include <QNetworkReply>
 #include "FeatureMessage.h"
 #include "SchoolDiscovery.h"
@@ -57,6 +58,16 @@ private Q_SLOTS:
         SchoolDiscovery::Message output;QVERIFY(SchoolDiscovery::decode(SchoolDiscovery::encode(input),output));
         QVERIFY(output.types.contains("urn:veyon-school:discovery:1}Client"));
     }
+    void discoveryCodecSupportsBothFamiliesWithoutAdvertisingLocalZoneNumbers() {
+        SchoolDiscovery::Message message;message.action="Hello";message.instance=1;message.sequence=1;
+        SchoolDiscovery::Record record;record.endpoint="urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces);record.name="Dual stack";record.port=11123;
+        record.addresses=QStringList{"192.0.2.25","2001:db8::25","fe80::25%17"};message.records.append(record);
+        const auto xml=SchoolDiscovery::encode(message);QVERIFY(!xml.contains("%17"));QVERIFY(!xml.contains("%2517"));
+        SchoolDiscovery::Message parsed;QVERIFY(SchoolDiscovery::decode(xml,parsed));QCOMPARE(parsed.records.size(),1);
+        QCOMPARE(parsed.records.first().port,11123);QCOMPARE(parsed.records.first().addresses,QStringList({"192.0.2.25","2001:db8::25","fe80::25"}));
+        record.addresses=QStringList{"2001:db8::25"};message.records={record};QVERIFY(SchoolDiscovery::decode(SchoolDiscovery::encode(message),parsed));
+        QCOMPARE(parsed.records.first().address,QString("2001:db8::25"));QCOMPARE(parsed.records.first().port,11123);
+    }
     void independentProbeFixture() {
         const QByteArray fixture("<s:Envelope xmlns:s='http://www.w3.org/2003/05/soap-envelope' xmlns:w='http://www.w3.org/2005/08/addressing' xmlns:dis='http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01' xmlns:school='urn:veyon-school:discovery:1'>"
             "<s:Header><w:Action>http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01/Probe</w:Action><w:MessageID>urn:uuid:0a6dc791-2be6-4991-9af1-454778a1917a</w:MessageID><w:To>urn:docs-oasis-open-org:ws-dd:ns:discovery:2009:01</w:To></s:Header>"
@@ -93,6 +104,7 @@ private Q_SLOTS:
         const auto directory=qEnvironmentVariable("VEYON_SCHOOL_SCHEMA_FIXTURES");if(directory.isEmpty()) QSKIP("Schema fixture export not requested");
         QDir().mkpath(directory);
         SchoolDiscovery::Record record;record.endpoint="urn:uuid:98190dc2-0890-4ef8-ac9a-5940995e6119";record.name="Lab01";record.address="192.0.2.25";record.port=11100;
+        record.addresses=QStringList{record.address,"2001:db8::25","fe80::25%17"};
         for(const auto& action:{"Hello","Bye","Probe","ProbeMatches","Resolve","ResolveMatches"}) {
             SchoolDiscovery::Message message;message.action=action;message.instance=100;message.sequence=1;message.resolve=record.endpoint;
             if(message.action!="Probe" && message.action!="Resolve") message.records.append(record);
@@ -106,6 +118,20 @@ private Q_SLOTS:
             QByteArray input(int(random.bounded(1024u)),'\0');for(auto& byte:input) byte=char(random.generate()&255);
             QVERIFY(!SchoolDiscovery::decode(input,message));
         }
+    }
+    void discoveryRealIpv6UdpProbeOnLoopback() {
+        SchoolDiscovery::Agent agent(false,{},11100,this,false);
+        if(!agent.m_udp6.bind(QHostAddress(QHostAddress::LocalHostIPv6),quint16(0))) QSKIP("IPv6 loopback is disabled on this test host");
+        connect(&agent.m_udp6,&QUdpSocket::readyRead,&agent,[&agent]{agent.readUdp(&agent.m_udp6);});
+        QUdpSocket requester;QVERIFY(requester.bind(QHostAddress(QHostAddress::LocalHostIPv6),quint16(0)));
+        SchoolDiscovery::Message probe;probe.action="Probe";probe.id="urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces);
+        const auto bytes=SchoolDiscovery::encode(probe);
+        QCOMPARE(requester.writeDatagram(bytes,QHostAddress::LocalHostIPv6,agent.m_udp6.localPort()),qint64(bytes.size()));
+        QTRY_VERIFY_WITH_TIMEOUT(requester.hasPendingDatagrams(),2000);
+        const auto datagram=requester.receiveDatagram();SchoolDiscovery::Message answer;
+        QVERIFY(SchoolDiscovery::decode(datagram.data(),answer));QCOMPARE(answer.relatesTo,probe.id);
+        QCOMPARE(answer.records.size(),1);QCOMPARE(answer.records.first().endpoint,agent.m_endpoint);
+        QCOMPARE(datagram.senderAddress(),QHostAddress(QHostAddress::LocalHostIPv6));
     }
 };
 QTEST_GUILESS_MAIN(SchoolTests)

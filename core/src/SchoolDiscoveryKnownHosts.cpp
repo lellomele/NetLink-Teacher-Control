@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Copyright (C) 2026 prof. Ing. Raffaele Mele
 #include "SchoolDiscoveryKnownHosts.h"
+#include "HostAddress.h"
 #include <QHostAddress>
 #include <QUrl>
 
@@ -18,14 +19,13 @@ SchoolDiscoveryKnownHosts::SchoolDiscoveryKnownHosts(const QStringList& hosts, Q
         auto host = input.trimmed().toLower();
         // Veyon's configured destinations may include an explicit TCP port.
         if(host.startsWith(QLatin1Char('[')) || host.count(QLatin1Char(':')) == 1) {
-            const QUrl endpoint(QStringLiteral("tcp://") + host, QUrl::StrictMode);
-            if(endpoint.isValid() && endpoint.port() > 0 && endpoint.port() <= 65535 &&
-                endpoint.userInfo().isEmpty() && endpoint.path().isEmpty()) host = endpoint.host();
+            const auto parsed=HostAddress::parseHost(host);
+            if(!parsed.isEmpty()) host=parsed;
         }
         QHostAddress address;
         if(address.setAddress(host)) {
             rememberAddress(host);
-            continue; // IPv6 literals are not DNS names and cannot match IPv4 peers.
+            continue;
         }
         if(host.endsWith(QLatin1Char('.'))) host.chop(1);
         if(host.isEmpty() || unique.contains(host)) continue;
@@ -46,15 +46,20 @@ SchoolDiscoveryKnownHosts::SchoolDiscoveryKnownHosts(const QStringList& hosts, Q
 SchoolDiscoveryKnownHosts::~SchoolDiscoveryKnownHosts() { cancel(); }
 
 bool SchoolDiscoveryKnownHosts::contains(const QString& address) const {
-    bool ipv4 = false;
-    const auto value = QHostAddress(address).toIPv4Address(&ipv4);
-    return ipv4 && m_addresses.contains(value);
+    const auto key=SchoolDiscovery::addressKey(QHostAddress(address));
+    return !key.isEmpty() && m_addresses.contains(key);
+}
+
+bool SchoolDiscoveryKnownHosts::contains(const SchoolDiscovery::Record& record) const {
+    if(record.conflict) return false; // Do not hide conflicting unauthenticated identities.
+    if(contains(record.address)) return true;
+    for(const auto& address:record.addresses) if(contains(address)) return true;
+    return false;
 }
 
 void SchoolDiscoveryKnownHosts::rememberAddress(const QString& address) {
-    bool ipv4 = false;
-    const auto value = QHostAddress(address).toIPv4Address(&ipv4);
-    if(ipv4 && !m_addresses.contains(value)) {
+    const auto value=SchoolDiscovery::addressKey(QHostAddress(address));
+    if(!value.isEmpty() && !m_addresses.contains(value)) {
         m_addresses.insert(value);
         Q_EMIT changed();
     }
@@ -82,9 +87,8 @@ void SchoolDiscoveryKnownHosts::resolved(const QHostInfo& info) {
     if(m_finished || !m_lookups.remove(info.lookupId())) return;
     bool usable = false;
     if(info.error() == QHostInfo::NoError) for(const auto& address : info.addresses()) {
-        bool ipv4 = false;
-        const auto value = address.toIPv4Address(&ipv4);
-        if(ipv4) { m_addresses.insert(value); usable = true; }
+        const auto value=SchoolDiscovery::addressKey(address);
+        if(!value.isEmpty()) { m_addresses.insert(value); usable = true; }
     }
     if(!usable) ++m_unresolved;
     pump();

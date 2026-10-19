@@ -1,4 +1,5 @@
 [
+  {"source":"\nThis IPv6 link-local address is tied to this Master's network interface. For InternetGuard use a routable IP address or a resolvable hostname instead.","it":"\nQuesto indirizzo IPv6 link-local dipende dalla scheda di rete di questo docente. Per InternetGuard usa invece un IP instradabile o un nome host risolvibile."},
   {"source":"Hover to show controls. Left-click to pin or unpin. Right-click to move the pin and toolbar to the next edge.","it":"Passa il mouse per mostrare i comandi. Clic sinistro per fissare o sbloccare la barra. Clic destro per spostare puntina e barra al bordo successivo."},
   {"source":"Toolbar pinned. Left-click to enable automatic hiding. Right-click to move to the next edge.","it":"Barra fissata. Clic sinistro per riattivare la scomparsa automatica. Clic destro per spostarla al bordo successivo."},
   {"source":"Remote access controls","it":"Comandi del controllo remoto"},
@@ -343,6 +344,15 @@
     "source": "Name reported by computer",
     "it": "Nome dichiarato dal PC"
   },
+  {"source":"Only remote computers are shown; this computer is excluded. Automatic mode prefers a recent IPv4 announcement, otherwise IPv6.\nAnnouncements are not authenticated and discovery does not test TCP reachability.\nAcross subnets configure School/DiscoveryMaster; IPv6 multicast is link-local. ","it":"Sono mostrati soltanto i PC remoti; questo computer è escluso. La modalità automatica preferisce un annuncio IPv4 recente, altrimenti IPv6.\nGli annunci non sono autenticati e il discovery non verifica la raggiungibilità TCP.\nTra subnet configura School/DiscoveryMaster; il multicast IPv6 è locale al collegamento. "},
+  {"source":"Address mode","it":"Modalità indirizzi"},
+  {"source":"Automatic — prefer IPv4","it":"Automatico — preferisci IPv4"},
+  {"source":"IPv4 only","it":"Solo IPv4"},
+  {"source":"Detected address","it":"Indirizzo rilevato"},
+  {"source":"Observed addresses:","it":"Indirizzi rilevati:"},
+  {"source":"Conflicting announcements — add manually","it":"Annunci discordanti — aggiungere manualmente"},
+  {"source":"Discovery results changed or conflict. Select the computer again or add it manually.","it":"I risultati discovery sono cambiati o discordanti. Seleziona di nuovo il PC oppure aggiungilo manualmente."},
+  {"source":"Matches all observed addresses against configured IP addresses and hostname resolution, not display names. Unresolved hostnames and conflicting announcements stay visible. This is not authentication.","it":"Confronta tutti gli indirizzi rilevati con gli IP configurati e la risoluzione dei nomi host, non i nomi visualizzati. Nomi non risolti e annunci discordanti restano visibili. Non è una verifica di autenticazione."},
   {
     "source": "Hide computers already in Locations & computers",
     "it": "Nascondi i computer già presenti in Posizioni e computer"

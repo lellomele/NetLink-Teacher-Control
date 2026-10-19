@@ -128,12 +128,35 @@ QStringList HostAddress::lookupIpAddresses() const
 
 static QUrl parseAddressToUrl( const QString& address )
 {
+	const QHostAddress literal(address);
+	if(!literal.isNull()) {
+		QUrl url;url.setScheme(QStringLiteral("scheme"));url.setHost(literal.toString());return url;
+	}
+	if(address.startsWith(QLatin1Char('['))) {
+		// Configuration destinations use Windows literal zones (%17), not
+		// URI-encoded zones (%2517). Parse the brackets before building a URL.
+		const auto end=address.indexOf(QLatin1Char(']'));
+		const QHostAddress host(address.mid(1,end-1));
+		if(end<0 || host.isNull()) return {};
+		QUrl url;url.setScheme(QStringLiteral("scheme"));url.setHost(host.toString());
+		const auto suffix=address.mid(end+1);
+		if(suffix.isEmpty()) return url;
+		bool valid=false;const auto port=suffix.mid(1).toInt(&valid);
+		if(!suffix.startsWith(QLatin1Char(':')) || !valid || port<1 || port>65535) return {};
+		url.setPort(port);return url;
+	}
 	const auto colonCount = address.count( QLatin1Char(':') );
 	if( colonCount > 1 )
 	{
-		const auto parts = address.split( QLatin1Char(':') );
-		return QUrl( QStringLiteral("scheme://[%1]:%2").arg( parts.mid( 0, colonCount ).join( QLatin1Char(':') ),
-															   parts.last() ) );
+		// Preserve the legacy unbracketed IPv6:port form only when the full
+		// input is not itself an IPv6 literal and the remaining host is valid.
+		const auto separator=address.lastIndexOf(QLatin1Char(':'));
+		const QHostAddress host(address.left(separator));bool valid=false;
+		const auto port=address.mid(separator+1).toInt(&valid);
+		if(!host.isNull() && valid && port>0 && port<=65535) {
+			QUrl url;url.setScheme(QStringLiteral("scheme"));url.setHost(host.toString());url.setPort(port);return url;
+		}
+		return {};
 	}
 
 	return QUrl( QStringLiteral("scheme://%1").arg( address ) );

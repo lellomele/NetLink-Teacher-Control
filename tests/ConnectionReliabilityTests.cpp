@@ -18,6 +18,7 @@
 #include "VncConnection.h"
 #include "VncEvents.h"
 #include "ComputerControlInterface.h"
+#include "HostAddress.h"
 
 class ConnectionReliabilityTests : public QObject
 {
@@ -37,6 +38,22 @@ class ConnectionReliabilityTests : public QObject
     };
 
 private Q_SLOTS:
+    void ipv6DestinationsPreserveScopeAndDoNotConfuseHostWithPort() {
+        struct Case {QString input,host;int port;};
+        const QList<Case> cases{
+            {"dell.example:11100","dell.example",11100},{"192.0.2.25","192.0.2.25",-1},
+            {"192.0.2.25:11100","192.0.2.25",11100},{"2001:db8::25","2001:db8::25",-1},
+            {"2001:db8::1234","2001:db8::1234",-1},{"[2001:db8::25]:11100","2001:db8::25",11100},
+            {"fe80::25%17","fe80::25%17",-1},{"[fe80::25%17]","fe80::25%17",-1},{"[fe80::25%17]:11100","fe80::25%17",11100},
+            {"::1","::1",-1},{"::1:11100","::1",11100},
+            {"[::ffff:192.0.2.25]:11100","::ffff:192.0.2.25",11100}};
+        for(const auto& value:cases) {
+            QCOMPARE(HostAddress::parseHost(value.input),value.host);QCOMPARE(HostAddress::parsePortNumber(value.input),value.port);
+            VncConnection connection(m_configuration);connection.setHost(value.input);
+            QCOMPARE(connection.host(),value.host.startsWith("::ffff:")?QString("192.0.2.25"):value.host);
+            QCOMPARE(connection.m_port,value.port);
+        }
+    }
     void stoppedDeletionIsIdempotentAndNeedsNoCoreLifetime()
     {
         auto connection=new VncConnection(m_configuration);

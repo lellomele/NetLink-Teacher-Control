@@ -42,6 +42,7 @@
 #include "VncConnection.h"
 #include "SocketDevice.h"
 #include "VncEvents.h"
+#include "HostAddress.h"
 
 
 rfbBool VncConnection::hookInitFrameBuffer( rfbClient* client )
@@ -314,31 +315,15 @@ void VncConnection::setHost( const QString& host )
 	QMutexLocker locker( &m_globalMutex );
 	m_host = host;
 
-	QRegularExpressionMatch match;
-	if(
-		// if IPv6-mapped IPv4 address use plain IPv4 address as libvncclient cannot handle IPv6-mapped IPv4 addresses on Windows properly
-		( match = QRegularExpression( QStringLiteral("^::[fF]{4}:(\\d+.\\d+.\\d+.\\d+)$") ).match( m_host ) ).hasMatch() ||
-		( match = QRegularExpression( QStringLiteral("^::[fF]{4}:(\\d+.\\d+.\\d+.\\d+):(\\d+)$") ).match( m_host ) ).hasMatch() ||
-		( match = QRegularExpression( QStringLiteral("^\\[::[fF]{4}:(\\d+.\\d+.\\d+.\\d+)\\]:(\\d+)$") ).match( m_host ) ).hasMatch() ||
-		// any other IPv6 address with port number
-		( match = QRegularExpression( QStringLiteral("^\\[([0-9a-fA-F:]+)\\]:(\\d+)$") ).match( m_host ) ).hasMatch() ||
-		// irregular IPv6 address + port number specification where port number can be identified if > 9999
-		( match = QRegularExpression( QStringLiteral("^([0-9a-fA-F:]+):(\\d{5})$"), QRegularExpression::InvertedGreedinessOption ).match( m_host ) ).hasMatch() ||
-		// any other notation with trailing port number
-		( match = QRegularExpression( QStringLiteral("^([^:]+):(\\d+)$") ).match( m_host ) ).hasMatch()
-		)
-	{
-		const auto matchedHost = match.captured( 1 );
-		if( matchedHost.isEmpty() == false )
-		{
-			m_host = matchedHost;
-		}
-
-		const auto port = match.captured( 2 ).toInt();
-		if( port > 0 )
-		{
-			m_port = port;
-		}
+	const auto parsed=HostAddress::parseHost(host);
+	if(!parsed.isEmpty()) m_host=parsed;
+	const auto port=HostAddress::parsePortNumber(host);
+	if(port>0 && port<=65535) m_port=port;
+	const QHostAddress address(m_host);
+	if(address.protocol()==QAbstractSocket::IPv6Protocol) {
+		const auto bytes=address.toIPv6Address();bool mapped=bytes.c[10]==0xff && bytes.c[11]==0xff;
+		for(int i=0;i<10;++i) if(bytes.c[i]) mapped=false;
+		if(mapped) m_host=QHostAddress(address.toIPv4Address()).toString();
 	}
 }
 

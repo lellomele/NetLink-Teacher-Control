@@ -22,6 +22,8 @@
 #include <QtConcurrent>
 #include <QDialogButtonBox>
 #include <QCheckBox>
+#include <QComboBox>
+#include <QHBoxLayout>
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QFutureWatcher>
@@ -455,51 +457,68 @@ void SchoolFeatures::discovery(VeyonMasterInterface& master,const QStringList& c
     if(bringForward(m_discoveryDialog) || !m_discovery) return;
     m_discovery->probe();
     auto dialog=new QDialog(master.mainWindow());m_discoveryDialog=dialog;prepareDialog(dialog,"schoolDiscoveryDialog");dialog->setWindowTitle(NetLinkUi::text("Discovered clients — WS-Discovery"));dialog->resize(800,400);
-    auto layout=new QVBoxLayout(dialog);auto help=new QLabel(NetLinkUi::text("Only remote computers with IPv4 addresses are shown; this computer is excluded.\nAnnouncements are not authenticated. Verify computers before importing them.\nFor other subnets, distribute School/DiscoveryMaster to clients. ")+m_discovery->error(),dialog);help->setWordWrap(true);help->setTextFormat(Qt::PlainText);layout->addWidget(help);
+    auto layout=new QVBoxLayout(dialog);auto help=new QLabel(NetLinkUi::text("Only remote computers are shown; this computer is excluded. Automatic mode prefers a recent IPv4 announcement, otherwise IPv6.\nAnnouncements are not authenticated and discovery does not test TCP reachability.\nAcross subnets configure School/DiscoveryMaster; IPv6 multicast is link-local. ")+m_discovery->error(),dialog);help->setWordWrap(true);help->setTextFormat(Qt::PlainText);layout->addWidget(help);
+    auto addressControls=new QHBoxLayout;layout->addLayout(addressControls);
+    auto modeLabel=new QLabel(NetLinkUi::text("Address mode"),dialog);auto mode=new QComboBox(dialog);mode->setObjectName("schoolDiscoveryAddressMode");
+    mode->addItem(NetLinkUi::text("Automatic — prefer IPv4"));mode->addItem(NetLinkUi::text("IPv4 only"));modeLabel->setBuddy(mode);
+    QPointer<Configuration::Object> settings(master.userConfigurationObject());
+    mode->setCurrentIndex(settings && settings->value("AddressMode","SchoolDiscovery","Automatic").toString()=="IPv4Only"?1:0);
+    addressControls->addWidget(modeLabel);addressControls->addWidget(mode);addressControls->addStretch();
     auto hideKnown=new QCheckBox(NetLinkUi::text("Hide computers already in Locations & computers").replace("&","&&"),dialog);hideKnown->setObjectName("schoolDiscoveryHideKnown");hideKnown->setChecked(true);
-    hideKnown->setToolTip(NetLinkUi::text("Matches configured IP addresses and current IPv4 hostname resolution, not display names. Unresolved hostnames leave computers visible. This is not authentication."));layout->addWidget(hideKnown);
+    hideKnown->setToolTip(NetLinkUi::text("Matches all observed addresses against configured IP addresses and hostname resolution, not display names. Unresolved hostnames and conflicting announcements stay visible. This is not authentication."));layout->addWidget(hideKnown);
     auto summary=new QLabel(dialog);summary->setObjectName("schoolDiscoverySummary");summary->setWordWrap(true);summary->setTextFormat(Qt::PlainText);layout->addWidget(summary);
-    auto table=new QTableWidget(dialog);table->setColumnCount(4);table->setHorizontalHeaderLabels({NetLinkUi::text("Name reported by computer"),NetLinkUi::text("Detected IPv4"),NetLinkUi::text("Port"),NetLinkUi::text("Locations & computers")});table->setSelectionBehavior(QAbstractItemView::SelectRows);table->setSelectionMode(QAbstractItemView::SingleSelection);table->setEditTriggers(QAbstractItemView::NoEditTriggers);table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);layout->addWidget(table);
+    auto table=new QTableWidget(dialog);table->setColumnCount(4);table->setHorizontalHeaderLabels({NetLinkUi::text("Name reported by computer"),NetLinkUi::text("Detected address"),NetLinkUi::text("Port"),NetLinkUi::text("Locations & computers")});table->setSelectionBehavior(QAbstractItemView::SelectRows);table->setSelectionMode(QAbstractItemView::SingleSelection);table->setEditTriggers(QAbstractItemView::NoEditTriggers);table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);layout->addWidget(table);
     auto known=new SchoolDiscoveryKnownHosts(configuredHosts,dialog);
     auto records=QSharedPointer<QList<SchoolDiscovery::Record>>::create();
     auto knownRows=QSharedPointer<QList<bool>>::create();
-    auto refresh=[this,table,records,knownRows,known,hideKnown,summary] {
-        auto updated=m_discovery->records();
+    auto refresh=[this,table,records,knownRows,known,hideKnown,summary,mode] {
+        auto updated=m_discovery->records(mode->currentIndex()==1?SchoolDiscovery::AddressMode::Ipv4Only:SchoolDiscovery::AddressMode::Automatic);
         const int total=updated.size();
         int configured=0;
-        for(int i=updated.size()-1;i>=0;--i) if(known->contains(updated[i].address)) {
+        for(int i=updated.size()-1;i>=0;--i) if(known->contains(updated[i])) {
             ++configured;
             if(hideKnown->isChecked()) updated.removeAt(i);
         }
         summary->setText(NetLinkUi::text("%1 shown / %2 found; %3 already configured. Hostname checks: %4 pending, %5 unresolved.").arg(updated.size()).arg(total).arg(configured).arg(known->pendingCount()).arg(known->unresolvedCount()));
         std::sort(updated.begin(),updated.end(),[](const SchoolDiscovery::Record& a,const SchoolDiscovery::Record& b) {return a.endpoint<b.endpoint;});
-        QList<bool> updatedKnown;for(const auto& record:updated) updatedKnown.append(known->contains(record.address));
+        QList<bool> updatedKnown;for(const auto& record:updated) updatedKnown.append(known->contains(record));
         bool changed=updated.size()!=records->size();
         if(!changed) for(int i=0;i<updated.size();++i) {
             const auto& a=updated[i];const auto& b=(*records)[i];
-            if(a.endpoint!=b.endpoint || a.name!=b.name || a.address!=b.address || a.port!=b.port || updatedKnown[i]!=knownRows->value(i)) {changed=true;break;}
+            if(a.endpoint!=b.endpoint || a.name!=b.name || a.address!=b.address || a.addresses!=b.addresses || a.conflict!=b.conflict || a.port!=b.port || updatedKnown[i]!=knownRows->value(i)) {changed=true;break;}
         }
         if(!changed) return;
         const int selected=table->currentRow();const auto endpoint=selected>=0 && selected<records->size() ? (*records)[selected].endpoint : QString{};
         *records=updated;*knownRows=updatedKnown;table->setUpdatesEnabled(false);table->clearSelection();table->setCurrentItem(nullptr);table->setRowCount(records->size());
-        for(int i=0;i<records->size();++i) {const auto& record=(*records)[i];table->setItem(i,0,new QTableWidgetItem(record.name));table->setItem(i,1,new QTableWidgetItem(record.address));table->setItem(i,2,new QTableWidgetItem(QString::number(record.port)));table->setItem(i,3,new QTableWidgetItem(NetLinkUi::text(updatedKnown[i]?"Already configured":"Not matched in the list")));if(record.endpoint==endpoint) table->selectRow(i);}
+        for(int i=0;i<records->size();++i) {const auto& record=(*records)[i];table->setItem(i,0,new QTableWidgetItem(record.name));auto address=new QTableWidgetItem(record.address);address->setToolTip(NetLinkUi::text("Observed addresses:")+"\n"+record.addresses.join('\n'));table->setItem(i,1,address);table->setItem(i,2,new QTableWidgetItem(QString::number(record.port)));table->setItem(i,3,new QTableWidgetItem(NetLinkUi::text(record.conflict?"Conflicting announcements — add manually":updatedKnown[i]?"Already configured":"Not matched in the list")));if(record.endpoint==endpoint) table->selectRow(i);}
         table->setUpdatesEnabled(true);
     };
     auto timer=new QTimer(dialog);timer->setObjectName("schoolDiscoveryRefresh");connect(timer,&QTimer::timeout,dialog,refresh);timer->start(2000);
     connect(hideKnown,&QCheckBox::toggled,dialog,refresh);connect(known,&SchoolDiscoveryKnownHosts::changed,dialog,refresh);refresh();
+    connect(mode,QOverload<int>::of(&QComboBox::currentIndexChanged),dialog,[settings,refresh](int index) {
+        if(settings) settings->setValue("AddressMode",index==1?"IPv4Only":"Automatic","SchoolDiscovery");
+        refresh();
+    });
     QTimer::singleShot(0,known,&SchoolDiscoveryKnownHosts::start);
     auto buttons=new QDialogButtonBox(QDialogButtonBox::Close,dialog);layout->addWidget(buttons);
     auto import=buttons->addButton(NetLinkUi::text("Import selected computer"),QDialogButtonBox::ActionRole);
-    connect(import,&QPushButton::clicked,dialog,[this,dialog,table,records,import,known] {
+    auto current=[this,mode](const SchoolDiscovery::Record& selected) {
+        return m_discovery->isCurrent(selected,mode->currentIndex()==1?SchoolDiscovery::AddressMode::Ipv4Only:SchoolDiscovery::AddressMode::Automatic);
+    };
+    connect(import,&QPushButton::clicked,dialog,[this,dialog,table,records,import,known,current] {
         const int row=table->currentRow();if(row<0 || row>=records->size()) return;
         const auto record=(*records)[row];
-        if(known->contains(record.address)) {notify(dialog,QMessageBox::Information,"Discovery",NetLinkUi::text("Computer already configured."));return;}
+        if(known->contains(record)) {notify(dialog,QMessageBox::Information,"Discovery",NetLinkUi::text("Computer already configured."));return;}
+        if(!current(record)) {notify(dialog,QMessageBox::Warning,"Discovery",NetLinkUi::text("Discovery results changed or conflict. Select the computer again or add it manually."));return;}
         if(record.port!=VeyonCore::config().veyonServerPort()) {notify(dialog,QMessageBox::Warning,"Discovery",NetLinkUi::text("Port differs from the configured port: add the computer manually."));return;}
-        auto confirmation=new QMessageBox(QMessageBox::Question,NetLinkUi::text("Import computer"),record.name+" — "+record.address+NetLinkUi::text("\nConfirm that this computer belongs to the school?"),QMessageBox::Yes|QMessageBox::No,dialog);
+        auto prompt=record.name+" — "+record.address+NetLinkUi::text("\nConfirm that this computer belongs to the school?");
+        if(QHostAddress(record.address).isLinkLocal()) prompt+=NetLinkUi::text("\nThis IPv6 link-local address is tied to this Master's network interface. For InternetGuard use a routable IP address or a resolvable hostname instead.");
+        auto confirmation=new QMessageBox(QMessageBox::Question,NetLinkUi::text("Import computer"),prompt,QMessageBox::Yes|QMessageBox::No,dialog);
         confirmation->setTextFormat(Qt::PlainText);confirmation->setAttribute(Qt::WA_DeleteOnClose);import->setEnabled(false);
-        connect(confirmation,&QMessageBox::finished,dialog,[dialog,record,import,known](int answer) {
+        connect(confirmation,&QMessageBox::finished,dialog,[dialog,record,import,known,current](int answer) {
         import->setEnabled(true);if(answer!=QMessageBox::Yes) return;
-        if(known->contains(record.address)) {notify(dialog,QMessageBox::Information,"Discovery",NetLinkUi::text("Computer already configured."));return;}
+        if(known->contains(record)) {notify(dialog,QMessageBox::Information,"Discovery",NetLinkUi::text("Computer already configured."));return;}
+        if(!current(record)) {notify(dialog,QMessageBox::Warning,"Discovery",NetLinkUi::text("Discovery results changed or conflict. Select the computer again or add it manually."));return;}
         auto& config=VeyonCore::config();
         if(!Configuration::LocalStore(Configuration::LocalStore::System).isWritable()) {
             notify(dialog,QMessageBox::Warning,"Discovery",NetLinkUi::text("Administrator rights are required to import a computer into configuration."));return;
@@ -513,6 +532,7 @@ void SchoolFeatures::discovery(VeyonMasterInterface& master,const QStringList& c
         ConfigurationManager manager;
         if(!manager.saveConfiguration()) {notify(dialog,QMessageBox::Warning,"Discovery",manager.errorString());return;}
         known->rememberAddress(record.address);
+        for(const auto& address:record.addresses) known->rememberAddress(address);
         notify(dialog,QMessageBox::Information,"Discovery",NetLinkUi::text("Computer imported. Restart the Master to display it; key authentication is still required."));
         });confirmation->open();
     });

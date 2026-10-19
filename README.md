@@ -5,7 +5,7 @@ InternetGuard basato su Windows Filtering Platform, Appello con il nome dichiara
 dallo studente sulle miniature e ricerca dei client tramite WS-Discovery 1.1.
 Le funzioni sono integrate: non occorre installare un plugin esterno.
 
-**Versione preliminare 1.0.0-alpha.19: destinata a PC di prova, non al laboratorio in uso.**
+**Versione preliminare 1.0.0-alpha.20: destinata a PC di prova, non al laboratorio in uso.**
 
 ## Installazione
 
@@ -135,18 +135,30 @@ docenti. Non distribuire la chiave privata ai client.
   diverso dall’assegnazione è segnalato. **Termina richieste e cancella nomi
   dichiarati** mantiene il profilo; **Nuovo / scarica profilo** elimina le etichette
   attive e consente di costruire un altro profilo, senza cancellare i file salvati.
-- **Trova client:** mostra soltanto PC remoti con indirizzi IPv4, escludendo il
-  computer docente e tutte le sue schede, anche virtuali. IPv6 di Windows resta
-  attivo. **Nascondi i computer già presenti in Posizioni e computer**, attivo
-  all'apertura, esclude gli IP già configurati in tutte le aule e gli IPv4
-  risolti dai nomi host configurati. Disattivarlo per vedere anche i PC già noti.
+- **Trova client:** mostra soltanto PC remoti, escludendo il docente e tutte le
+  sue schede, anche virtuali. **Automatico — preferisci IPv4** usa un annuncio
+  IPv4 recente, altrimenti IPv6; non verifica la raggiungibilità TCP né effettua
+  failover di connessioni remote. **Solo IPv4** nasconde i risultati solo IPv6.
+  La modalità scelta è una preferenza personale della Console, conservata alla
+  sua chiusura; non disabilita IPv6 in Windows.
+  **Nascondi i computer già presenti in Posizioni e computer**, attivo
+  all'apertura, confronta tutti gli indirizzi osservati dello stesso client con
+  gli IPv4/IPv6 configurati in tutte le aule e con le risposte DNS dei nomi host.
+  Disattivarlo per vedere anche i PC già noti.
   Il conteggio distingue risultati visibili, già configurati e nomi non risolti;
   questi ultimi non fanno nascondere un PC. Il solo nome dichiarato dal client
   non determina una corrispondenza. Con DHCP usare nomi host risolvibili:
   un vecchio IP salvato non identifica stabilmente lo stesso computer.
-  Un PC con IPv4 e IPv6 viene elencato tramite IPv4; un PC raggiungibile soltanto
-  via IPv6 non entra nei risultati. La tabella del Configurator accetta IPv6
-  inseriti manualmente, ma l'intera suite non è collaudata su una rete solo IPv6.
+  Un'identità discovery produce una sola riga anche con più indirizzi; il tooltip
+  ne mostra gli indirizzi osservati. Annunci contraddittori restano visibili e
+  non sono importabili automaticamente. Le identità non sono autenticate: PC
+  clonati con la stessa identità e gli stessi dati possono risultare indistinguibili.
+  Un IPv6 link-local conserva il numero della scheda del docente (`%numero`): vale
+  solo su quel collegamento e può richiedere aggiornamento dopo un cambio scheda.
+  Per InternetGuard usare IP instradabili o hostname risolvibili, non destinazioni
+  link-local con `%numero`. Il multicast IPv6 non attraversa subnet o VLAN.
+  Aggiornare anche i client per il supporto completo ai metadati IPv6; l'intera
+  suite non è ancora collaudata in un laboratorio solo IPv6.
   Verificare i PC rilevati prima di importare quello selezionato.
   L’importazione richiede diritti di scrittura sulla configurazione e il riavvio
   del Master. Non modifica automaticamente le chiavi o le autorizzazioni.

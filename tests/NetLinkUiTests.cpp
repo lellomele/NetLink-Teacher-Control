@@ -72,6 +72,7 @@ private Q_SLOTS:
     void cleanupTestCase() { delete m_appearance;m_settings.reset();QLocale::setDefault(m_initialLocale); }
     void legacyBrandingDoesNotOverrideNetLink() {
         QCOMPARE(NetLinkUi::displayVersion("4.7.5-netlink.1.0.0-alpha.19"),QString("1.0.0-alpha.19"));
+        QCOMPARE(NetLinkUi::displayVersion("4.7.5-netlink.1.0.0-alpha.20"),QString("1.0.0-alpha.20"));
         QCOMPARE(NetLinkUi::displayVersion("4.7.5-netlink.1.0.0-alpha.18"),QString("1.0.0-alpha.18"));
         QCOMPARE(NetLinkUi::displayVersion("4.7.5-netlink.0.1.0-alpha.16"),QString("0.1.0-alpha.16"));
         QCOMPARE(NetLinkUi::displayVersion("4.7.5"),QString("4.7.5"));

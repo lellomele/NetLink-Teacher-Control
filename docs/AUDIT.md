@@ -1,7 +1,43 @@
-# Audit and release gates — NetLink 1.0.0-alpha.19
+# Audit and release gates — NetLink 1.0.0-alpha.20
 
 Status: **partial audit and preliminary implementation, not a completed security
 audit, certified WS-Discovery implementation or production-ready release**.
+
+## Alpha 20 automatic IPv4/IPv6 discovery
+
+Find clients defaults to Automatic: fresh observed IPv4 wins over routable IPv6,
+then scoped link-local IPv6. IPv4 only remains available. This is advertisement
+selection, not a TCP reachability test or live connection failover. The preference
+is personal to the Master and is flushed with its existing user settings on exit.
+
+The cache holds bounded observations per endpoint and source, with per-source
+sequence/replay handling and 95-second freshness. A shared MessageID received
+over both transports does not consume the other source's response. Bye removes
+only its observed source. Records are collapsed by EPR, not claimed computer name;
+conflicting names/ports remain one visible, non-importable identity. Identical
+cloned EPRs and metadata cannot be distinguished without authenticated identity.
+Metadata addresses are never used as observed aliases or followed automatically.
+
+IPv6 multicast membership follows active interfaces. Link-local sources acquire
+the receiving interface's local index; remote interface numbers are never trusted
+or advertised. Local addresses across both families and virtual NICs are excluded.
+The known-computer filter checks all observed aliases against configured literals
+and asynchronous DNS A/AAAA answers, keeping scopes distinct and failures visible.
+Import revalidates freshness/conflicts/mode before and after confirmation.
+
+Host parsing now preserves bare IPv6 and scoped Windows literals, with bracketed
+syntax for explicit ports. The VNC client uses the same parser. Scoped link-local
+destinations are not accepted by InternetGuard's resource validator; import warns
+to use routable addresses or resolvable hostnames instead. No WFP validation is
+weakened and no service identity, key path, port, driver or runtime library changes.
+
+Tests exercise both announcement orders, shared MessageIDs, expiry/Bye fallback,
+scope normalization, local exclusion, conflicts, observation limits, dual-family
+DNS/filtering, mode persistence, and VNC destination parsing. A native IPv6 UDP
+loopback Probe checks real socket reply handling (skips explicitly if unavailable).
+SOAP fixtures include IPv4 and IPv6 metadata for official-schema validation.
+Automated tests do not establish native remote-control/WFP behaviour on IPv6-only
+school networks: complete the two-PC pilot before classroom deployment.
 
 ## Alpha 19 known-computer discovery filter
 
