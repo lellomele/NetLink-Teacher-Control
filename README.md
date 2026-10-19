@@ -42,14 +42,10 @@ ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
 4. Se l'installer segnala file in uso o rimozioni pendenti, riavviare Windows e
    rieseguire il pacchetto. Non sostituire singole DLL e non saltare file.
 
-Il riferimento è **Windows 10 a 64 bit**. Le dipendenze sono incluse:
-non servono Python, .NET aggiuntivo, DDS, Zenoh o nuovi driver kernel sui PC.
+Il riferimento è **Windows 10 a 64 bit**. Le dipendenze sono incluse.
 
-La configurazione Veyon è riutilizzata. La privata resta soltanto sul docente;
-ai client si distribuisce la pubblica. Il servizio del fork è
-`VeyonSchoolService`: non eseguirlo insieme al servizio Veyon originale sulle
-stesse porte. Gli eseguibili si chiamano `netlink-*.exe`; la cartella
-`C:\Program Files\Veyon School` e le identità interne restano per compatibilità.
+La configurazione Veyon è riutilizzata. La chiave privata resta soltanto sul pc docente;
+ai client si distribuisce la chiave pubblica.
 
 L'installer verifica i file prima della copia e conserva configurazione e chiavi.
 La disinstallazione può mantenere oppure eliminare le impostazioni; rimuove
