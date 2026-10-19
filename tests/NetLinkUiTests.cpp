@@ -272,7 +272,7 @@ private Q_SLOTS:
             QVERIFY(text.size()<=127);QCOMPARE(text.count('\n'),3);QVERIFY(!text.contains(QChar(0x202e)));
             QVERIFY(!text.contains("raggiungibile"));QVERIFY(text.contains(keys?"Chiave":"Account"));
         }
-        const auto text=NetLinkUi::traySummary("MATEBOOK",11100,true,false,true,true,1,0);
+        const auto text=NetLinkUi::traySummary("TEACHER-PC",11100,true,false,true,true,1,0);
         QVERIFY(text.contains("in ascolto"));QVERIFY(text.contains("Accessi 1"));QVERIFY(text.contains("WSD config."));
     }
     void groupConfirmationKeepsTheOriginalTarget() {

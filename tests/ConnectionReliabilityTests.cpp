@@ -41,7 +41,7 @@ private Q_SLOTS:
     void ipv6DestinationsPreserveScopeAndDoNotConfuseHostWithPort() {
         struct Case {QString input,host;int port;};
         const QList<Case> cases{
-            {"dell.example:11100","dell.example",11100},{"192.0.2.25","192.0.2.25",-1},
+            {"client.example:11100","client.example",11100},{"192.0.2.25","192.0.2.25",-1},
             {"192.0.2.25:11100","192.0.2.25",11100},{"2001:db8::25","2001:db8::25",-1},
             {"2001:db8::1234","2001:db8::1234",-1},{"[2001:db8::25]:11100","2001:db8::25",11100},
             {"fe80::25%17","fe80::25%17",-1},{"[fe80::25%17]","fe80::25%17",-1},{"[fe80::25%17]:11100","fe80::25%17",11100},

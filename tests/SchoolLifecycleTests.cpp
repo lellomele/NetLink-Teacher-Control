@@ -289,8 +289,8 @@ private Q_SLOTS:
     }
     void discoveryHidesLocalWifiVirtualAndLoopbackAddresses() {
         SchoolDiscovery::Agent agent(true,{},11100,nullptr,false);
-        for(const auto& local:{"192.168.1.195","172.24.176.1"}) agent.m_localIpv4.insert(QHostAddress(local).toIPv4Address());
-        for(const auto& source:{"192.168.1.195","172.24.176.1","::ffff:172.24.176.1","127.0.0.1","127.2.3.4","::ffff:127.0.0.1"}) {
+        for(const auto& local:{"192.0.2.10","198.51.100.10"}) agent.m_localIpv4.insert(QHostAddress(local).toIPv4Address());
+        for(const auto& source:{"192.0.2.10","198.51.100.10","::ffff:198.51.100.10","127.0.0.1","127.2.3.4","::ffff:127.0.0.1"}) {
             const auto endpoint="urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces);
             agent.process(SchoolDiscovery::encode(discoveryPacket("Hello",endpoint)),QHostAddress(source),false);
             QVERIFY(!agent.m_records.contains(endpoint));QVERIFY(agent.records().isEmpty());
@@ -299,14 +299,14 @@ private Q_SLOTS:
     }
     void discoverySelfFilterKeepsRemoteSameNameClonedIdentityAndOtherSubnets() {
         SchoolDiscovery::Agent agent(true,{},11100,nullptr,false),localClient(false,{},11100,nullptr,false);
-        agent.m_localIpv4.insert(QHostAddress("192.168.1.195").toIPv4Address());
-        agent.m_localIpv4.insert(QHostAddress("172.24.176.1").toIPv4Address());
-        const auto sources=QStringList{"192.168.1.109","172.24.176.20","10.20.30.40"};
+        agent.m_localIpv4.insert(QHostAddress("192.0.2.10").toIPv4Address());
+        agent.m_localIpv4.insert(QHostAddress("198.51.100.10").toIPv4Address());
+        const auto sources=QStringList{"192.0.2.20","198.51.100.20","10.20.30.40"};
         for(int i=0;i<sources.size();++i) {
             // A matching hostname or machine-derived endpoint alone must never
             // hide a remote computer (e.g. a cloned classroom image).
             const auto endpoint=i==0?localClient.m_endpoint:"urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces);
-            auto packet=discoveryPacket("Hello",endpoint);packet.records.first().name=QHostInfo::localHostName();packet.records.first().address="192.168.1.195";
+            auto packet=discoveryPacket("Hello",endpoint);packet.records.first().name=QHostInfo::localHostName();packet.records.first().address="192.0.2.10";
             agent.process(SchoolDiscovery::encode(packet),QHostAddress(sources[i]),true);
         }
         QCOMPARE(agent.records().size(),sources.size());
@@ -329,7 +329,7 @@ private Q_SLOTS:
     }
     void discoveryIpv4SourcesRemainValidAcrossSubnetsAndIgnoreClaimedAddresses() {
         SchoolDiscovery::Agent agent(true,{},11100,nullptr,false);
-        for(const auto& source:{"10.20.30.40","172.24.176.20","192.0.2.25"}) {
+        for(const auto& source:{"10.20.30.40","198.51.100.20","192.0.2.25"}) {
             const auto endpoint="urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces);const auto packet=discoveryPacket("Hello",endpoint);
             agent.process(SchoolDiscovery::encode(packet),QHostAddress(source),true);QVERIFY(agent.m_records.contains(endpoint+QChar(0)+source));QCOMPARE(agent.m_records[endpoint+QChar(0)+source].address,QString(source));
         }
@@ -379,9 +379,9 @@ private Q_SLOTS:
             SchoolDiscovery::Agent agent(true,{},11100,nullptr,false);const auto endpoint="urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces);
             auto reply=discoveryPacket(action,endpoint);reply.relatesTo="urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces);agent.m_queries.insert(reply.relatesTo,0);
             agent.process(SchoolDiscovery::encode(reply),QHostAddress("2001:db8::25"),false);QVERIFY(agent.records(SchoolDiscovery::AddressMode::Ipv4Only).isEmpty());
-            agent.process(SchoolDiscovery::encode(reply),QHostAddress("172.24.176.20"),false);QCOMPARE(agent.records().size(),1);QCOMPARE(agent.records().first().address,QString("172.24.176.20"));
+            agent.process(SchoolDiscovery::encode(reply),QHostAddress("198.51.100.20"),false);QCOMPARE(agent.records().size(),1);QCOMPARE(agent.records().first().address,QString("198.51.100.20"));
             auto newer=discoveryPacket("Hello",endpoint,2);newer.instance=reply.instance+1;agent.process(SchoolDiscovery::encode(newer),QHostAddress("2001:db8::25"),false);
-            auto ipv4=discoveryPacket("Hello",endpoint,3);agent.process(SchoolDiscovery::encode(ipv4),QHostAddress("172.24.176.21"),false);QCOMPARE(agent.records().first().address,QString("172.24.176.21"));
+            auto ipv4=discoveryPacket("Hello",endpoint,3);agent.process(SchoolDiscovery::encode(ipv4),QHostAddress("198.51.100.21"),false);QCOMPARE(agent.records().first().address,QString("198.51.100.21"));
         }
     }
     void discoveryTableRetainsSelectionAndClosesWithPendingTimers_data() {
@@ -399,8 +399,8 @@ private Q_SLOTS:
         SchoolDiscovery::Record second=first;second.endpoint="urn:uuid:00000000-0000-0000-0000-000000000002";second.address="192.0.2.26";
         features.m_discovery->m_records.insert(first.endpoint,first);features.m_discovery->m_records.insert(second.endpoint,second);
         auto ipv6=first;ipv6.endpoint="urn:uuid:00000000-0000-0000-0000-000000000003";ipv6.address="2001:db8::25";features.m_discovery->m_records.insert(ipv6.endpoint,ipv6);
-        features.m_discovery->m_localIpv4.insert(QHostAddress("192.168.1.195").toIPv4Address());
-        auto self=first;self.endpoint="urn:uuid:00000000-0000-0000-0000-000000000004";self.address="192.168.1.195";features.m_discovery->m_records.insert(self.endpoint,self);
+        features.m_discovery->m_localIpv4.insert(QHostAddress("192.0.2.10").toIPv4Address());
+        auto self=first;self.endpoint="urn:uuid:00000000-0000-0000-0000-000000000004";self.address="192.0.2.10";features.m_discovery->m_records.insert(self.endpoint,self);
         features.discovery(master,{});QPointer<QDialog> dialog=features.m_discoveryDialog;QVERIFY(dialog);
         auto mode=dialog->findChild<QComboBox*>("schoolDiscoveryAddressMode");QVERIFY(mode);QCOMPARE(mode->currentIndex(),0);mode->setCurrentIndex(1);
         auto table=dialog->findChild<QTableWidget*>();QVERIFY(table);QCOMPARE(table->rowCount(),2);QCOMPARE(table->horizontalHeaderItem(1)->text(),expectedHeader);table->selectRow(1);
@@ -417,13 +417,13 @@ private Q_SLOTS:
         FakeDns dns;
         SchoolDiscoveryKnownHosts known({" 192.0.2.25 ","::ffff:192.0.2.26","2001:db8::1",
             "192.0.2.27:11100","[::ffff:192.0.2.28]:11100",
-            "Dell.Example.","dell.example:11100","other.invalid"},nullptr,dns.lookup(),dns.abort(),500);
+            "Client.Example.","client.example:11100","other.invalid"},nullptr,dns.lookup(),dns.abort(),500);
         QVERIFY(known.contains("192.0.2.25"));QVERIFY(known.contains("::ffff:192.0.2.25"));
         QVERIFY(known.contains("192.0.2.26"));QVERIFY(known.contains("2001:db8::1"));
         QVERIFY(known.contains("192.0.2.27"));QVERIFY(known.contains("192.0.2.28"));
-        QVERIFY(!known.contains("dell.example"));QCOMPARE(known.pendingCount(),2);
+        QVERIFY(!known.contains("client.example"));QCOMPARE(known.pendingCount(),2);
         QCOMPARE(dns.requested.size(),0);known.start();known.start();QCOMPARE(dns.requested.size(),2);
-        QCOMPARE(dns.requested.value(1),QString("dell.example"));
+        QCOMPARE(dns.requested.value(1),QString("client.example"));
         QSignalSpy changed(&known,&SchoolDiscoveryKnownHosts::changed);
         dns.reply(1,{QHostAddress("2001:db8::2"),QHostAddress("192.0.2.109"),QHostAddress("::ffff:192.0.2.110")});
         QVERIFY(known.contains("192.0.2.109"));QVERIFY(known.contains("192.0.2.110"));
@@ -455,11 +455,11 @@ private Q_SLOTS:
     }
     void discoveryKnownHostsOwnCancellationAndRefreshDhcpOnReopen() {
         FakeDns dns;
-        auto known=new SchoolDiscoveryKnownHosts({"dell.example"},nullptr,dns.lookup(),dns.abort(),500);
+        auto known=new SchoolDiscoveryKnownHosts({"client.example"},nullptr,dns.lookup(),dns.abort(),500);
         known->start();delete known;QCOMPARE(dns.aborted,QList<int>{1});
-        SchoolDiscoveryKnownHosts first({"dell.example"},nullptr,dns.lookup(),dns.abort(),500);
+        SchoolDiscoveryKnownHosts first({"client.example"},nullptr,dns.lookup(),dns.abort(),500);
         first.start();dns.reply(2,{QHostAddress("192.0.2.109")});QVERIFY(first.contains("192.0.2.109"));
-        SchoolDiscoveryKnownHosts reopened({"dell.example"},nullptr,dns.lookup(),dns.abort(),500);
+        SchoolDiscoveryKnownHosts reopened({"client.example"},nullptr,dns.lookup(),dns.abort(),500);
         reopened.start();dns.reply(3,{QHostAddress("192.0.2.110")});
         QVERIFY(reopened.contains("192.0.2.110"));QVERIFY(!reopened.contains("192.0.2.109"));
     }
@@ -512,18 +512,18 @@ private Q_SLOTS:
         FakeDns dns;IsolatedSchoolMaster master;SchoolFeatures features(nullptr,false);
         features.m_discovery=new SchoolDiscovery::Agent(true,{},11100,&features,false);
         for(int i=1;i<=2;++i) {
-            SchoolDiscovery::Record record;record.endpoint=QString::number(i);record.name="dell.example";
+            SchoolDiscovery::Record record;record.endpoint=QString::number(i);record.name="client.example";
             record.address=QString("192.0.2.%1").arg(24+i);features.m_discovery->m_records.insert(record.endpoint,record);
         }
-        features.discovery(master,{"dell.example"});
+        features.discovery(master,{"client.example"});
         QPointer<QDialog> dialog=features.m_discoveryDialog;auto known=dialog->findChild<SchoolDiscoveryKnownHosts*>();
         QVERIFY(known);known->m_lookup=dns.lookup();known->m_abort=dns.abort();
         auto table=dialog->findChild<QTableWidget*>();QCOMPARE(table->rowCount(),2);table->selectRow(1);
-        QTRY_COMPARE_WITH_TIMEOUT(dns.requested.size(),1,500);QCOMPARE(dns.requested.value(1),QString("dell.example"));
+        QTRY_COMPARE_WITH_TIMEOUT(dns.requested.size(),1,500);QCOMPARE(dns.requested.value(1),QString("client.example"));
         dns.reply(1,{QHostAddress("192.0.2.25")});QCOMPARE(table->rowCount(),1);
         QCOMPARE(table->item(0,1)->text(),QString("192.0.2.26"));QCOMPARE(table->currentRow(),0);
         dialog->reject();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);QVERIFY(!dialog);
-        features.discovery(master,{"dell.example"});dialog=features.m_discoveryDialog;
+        features.discovery(master,{"client.example"});dialog=features.m_discoveryDialog;
         known=dialog->findChild<SchoolDiscoveryKnownHosts*>();known->m_lookup=dns.lookup();known->m_abort=dns.abort();
         QTRY_COMPARE_WITH_TIMEOUT(dns.requested.size(),2,500);
         dialog->reject();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);QVERIFY(!dialog);
@@ -606,7 +606,7 @@ private Q_SLOTS:
         agent.process(SchoolDiscovery::encode(discoveryPacket("Hello",other)),QHostAddress("192.0.2.25"),false);QCOMPARE(agent.records().size(),2);
     }
     void discoveryKnownFilterMatchesIpv6AliasesAndKeepsLinkLocalZonesDistinct() {
-        FakeDns dns;SchoolDiscoveryKnownHosts known({"2001:0db8::25","[fe80::25%17]:11100","dell.example"},nullptr,dns.lookup(),dns.abort(),500);
+        FakeDns dns;SchoolDiscoveryKnownHosts known({"2001:0db8::25","[fe80::25%17]:11100","client.example"},nullptr,dns.lookup(),dns.abort(),500);
         QVERIFY(known.contains("2001:db8::25"));QVERIFY(known.contains("fe80::25%17"));QVERIFY(!known.contains("fe80::25%18"));QVERIFY(!known.contains("fe80::25"));
         SchoolDiscovery::Record record;record.address="192.0.2.25";record.addresses=QStringList{record.address,"2001:db8::25"};
         QVERIFY(known.contains(record));record.conflict=true;QVERIFY(!known.contains(record));
