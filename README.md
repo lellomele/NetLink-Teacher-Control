@@ -5,7 +5,7 @@ InternetGuard basato su Windows Filtering Platform, Appello con il nome dichiara
 dallo studente sulle miniature e ricerca dei client tramite WS-Discovery 1.1.
 Le funzioni sono integrate: non occorre installare un plugin esterno.
 
-**Versione preliminare 1.0.0-alpha.20: destinata a PC di prova, non al laboratorio in uso.**
+**Versione preliminare 1.0.0-alpha.20: usare consapevolmente.**
 
 ## Installazione
 
