@@ -136,7 +136,7 @@ raggiungibilità, autenticazione, discovery o blocco Internet.
 
 ## Companion
 
-Da **Start → NetLink → Companion**, scegliere il ruolo ed eseguire **Analizza PC**.
+Se installato, da **Start → NetLink → NetLink Companion**, scegliere il ruolo ed eseguire **Analizza PC**.
 Le prove distinguono:
 
 - **Controllo remoto:** docente → client, normalmente TCP 11100, con servizio

@@ -129,7 +129,7 @@ authentication, discovery or successful Internet blocking.
 
 ## Companion
 
-Open **Start → NetLink → Companion**, choose a role and **Analyze PC**.
+If installed, open **Start → NetLink → NetLink Companion**, choose a role and **Analyze PC**.
 Communication tests distinguish:
 
 - **Remote control:** teacher → client, normally TCP 11100 with the client
