@@ -1,8 +1,9 @@
-param([string]$Toolchain='C:/msys64/mingw64',[string]$PackageCache='C:/msys64/var/cache/pacman/pkg')
+param([string]$Toolchain='C:/msys64/mingw64',[string]$PackageCache='C:/msys64/var/cache/pacman/pkg',
+    [string]$Output='build-runtime-sources',[string]$QtBasePackage='')
 $ErrorActionPreference='Stop'
 $repoRoot=Split-Path $PSScriptRoot
-$output=Join-Path $repoRoot 'build-runtime-sources'
-New-Item -ItemType Directory -Force -Path $output | Out-Null
+$outputRoot=if([IO.Path]::IsPathRooted($Output)){$Output}else{Join-Path $repoRoot $Output}
+New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
 $gitApi='repos/msys2/MINGW-packages'
 function GithubJson([string]$endpoint) {
     $reply=& gh api $endpoint
@@ -36,10 +37,19 @@ $components=@(
 $records=@()
 foreach($component in $components) {
     $package='mingw-w64-x86_64-'+$component[0]
-    $packageInfo=& C:/msys64/usr/bin/pacman.exe -Q $package
-    if($LASTEXITCODE-ne0){throw "Missing installed package: $package"}
-    $version=($packageInfo -split '\s+')[1]
-    $archive=Get-ChildItem -LiteralPath $PackageCache -File | Where-Object {$_.Name.StartsWith("$package-$version-") -and $_.Name.EndsWith('.pkg.tar.zst')} | Select-Object -First 1
+    if($component[0]-eq'qt5-base' -and $QtBasePackage) {
+        $archive=Get-Item -LiteralPath $QtBasePackage
+        $packageInfo=& C:/msys64/usr/bin/tar.exe --force-local -xOf $archive.FullName .PKGINFO
+        if($LASTEXITCODE-ne0){throw 'Cannot read isolated Qt package metadata'}
+        $packageName=(($packageInfo | Select-String '^pkgname = ').Line -split ' = ')[1]
+        if($packageName-ne$package){throw 'Wrong isolated Qt package identity'}
+        $version=(($packageInfo | Select-String '^pkgver = ').Line -split ' = ')[1]
+    } else {
+        $packageInfo=& C:/msys64/usr/bin/pacman.exe -Q $package
+        if($LASTEXITCODE-ne0){throw "Missing installed package: $package"}
+        $version=($packageInfo -split '\s+')[1]
+        $archive=Get-ChildItem -LiteralPath $PackageCache -File | Where-Object {$_.Name.StartsWith("$package-$version-") -and $_.Name.EndsWith('.pkg.tar.zst')} | Select-Object -First 1
+    }
     if(!$archive){throw "Missing original package archive: $package $version"}
     $metadata=& C:/msys64/usr/bin/tar.exe --force-local -xOf $archive.FullName .BUILDINFO
     if($LASTEXITCODE-ne0){throw "Cannot read BUILDINFO: $package"}
@@ -53,7 +63,7 @@ foreach($component in $components) {
     }
     if(!$matched){throw "No exact recipe found for $package $version ($expected)"}
     Write-Output "Matched $package $version at $matched"
-    $directory=Join-Path $output $base
+    $directory=Join-Path $outputRoot $base
     New-Item -ItemType Directory -Force -Path $directory | Out-Null
     $files=GithubJson "$gitApi/contents/${base}?ref=$matched"
     foreach($file in $files) {
@@ -93,9 +103,9 @@ foreach($component in $components) {
         Invoke-WebRequest -Uri $patchUrl -OutFile (Join-Path $directory ([Uri]$patchUrl).Segments[-1]) -TimeoutSec 120
     }
     $records+=[pscustomobject]@{package=$package;version=$version;recipeCommit=$matched;recipeSha256=$expected;sourceUrl=$sourceUrl;sourceSha256=$sourceHash}
-    $records | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $output 'runtime-source-manifest.json') -Encoding UTF8
+    $records | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $outputRoot 'runtime-source-manifest.json') -Encoding UTF8
 }
-$destination=Join-Path $repoRoot 'dist/NetLink-1.0.0-alpha.22-runtime-sources.tar.gz'
-& $env:SystemRoot/System32/tar.exe -czf $destination -C $output @($components | ForEach-Object {'mingw-w64-'+$_[1]}) runtime-source-manifest.json
+$destination=Join-Path $repoRoot 'dist/NetLink-1.0.0-alpha.23-runtime-sources.tar.gz'
+& $env:SystemRoot/System32/tar.exe -czf $destination -C $outputRoot @($components | ForEach-Object {'mingw-w64-'+$_[1]}) runtime-source-manifest.json
 if($LASTEXITCODE-ne0){throw 'Runtime-source archive creation failed'}
 Write-Output $destination

@@ -12,6 +12,12 @@ class ApplicationIdentityTests : public QObject {
     Q_OBJECT
     using App=NetLinkIdentity::Application;
 private Q_SLOTS:
+    void qtRuntimeMatchesTheBuild() {
+        QCOMPARE(QString::fromLatin1(qVersion()),QString::fromLatin1(QT_VERSION_STR));
+#ifdef Q_OS_WIN
+        QVERIFY(QVersionNumber::fromString(QString::fromLatin1(qVersion()))>=QVersionNumber(5,15,19));
+#endif
+    }
     void clientDiscoveryNeverRequiresAnAbsentMasterButAlwaysRequiresService() {
         QTemporaryDir temporary;QVERIFY(temporary.isValid());
         const QDir root(temporary.path());

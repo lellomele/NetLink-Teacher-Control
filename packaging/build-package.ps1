@@ -1,9 +1,9 @@
-param([string]$Build='build-school',[string]$Toolchain='C:/msys64/mingw64',[switch]$SkipInstaller)
+param([string]$Build='build-school',[string]$Toolchain='C:/msys64/mingw64',[string]$QtPrefix=$Toolchain,[switch]$SkipInstaller)
 $ErrorActionPreference='Stop'
 $repoRoot=Split-Path $PSScriptRoot
 $buildRoot=(Resolve-Path (Join-Path $repoRoot $Build)).Path
 $distRoot=Join-Path $repoRoot 'dist'
-$packageRoot=Join-Path $distRoot 'NetLink-1.0.0-alpha.22-win64'
+$packageRoot=Join-Path $distRoot 'NetLink-1.0.0-alpha.23-win64'
 if(Test-Path -LiteralPath $packageRoot){throw "Use a fresh package directory; existing files will not be overwritten: $packageRoot"}
 New-Item -ItemType Directory -Path $packageRoot | Out-Null
 foreach($dir in @('plugins','platforms','imageformats','crypto','translations','licenses')){New-Item -ItemType Directory -Path (Join-Path $packageRoot $dir) | Out-Null}
@@ -18,7 +18,9 @@ Get-ChildItem -LiteralPath (Join-Path $buildRoot 'plugins') -Recurse -File -Filt
     Copy-Item -LiteralPath $_.FullName -Destination $destination
 }
 # Deliberately do not distribute the opaque DeskDupEngine DLL or kernel driver installer.
-$qmakeTool=Join-Path $Toolchain 'bin/qmake-qt5.exe'
+$qmakeTool=Join-Path $QtPrefix 'bin/qmake-qt5.exe'
+$qtVersion=(& $qmakeTool -query QT_VERSION).Trim()
+if($LASTEXITCODE-ne0 -or $qtVersion-ne'5.15.19'){throw "Packaging requires validated Qt 5.15.19, got $qtVersion"}
 $qtPlugins=(& $qmakeTool -query QT_INSTALL_PLUGINS).Trim()
 if($LASTEXITCODE-ne0 -or !(Test-Path -LiteralPath $qtPlugins)){throw 'Cannot locate installed Qt plugins'}
 Copy-Item -LiteralPath (Join-Path $qtPlugins 'platforms/qwindows.dll') -Destination (Join-Path $packageRoot 'platforms')
@@ -33,7 +35,7 @@ Copy-Item -LiteralPath (Join-Path $repoRoot 'COPYING.GPL3') -Destination (Join-P
 Copy-Item -LiteralPath (Join-Path $repoRoot 'README.md') -Destination (Join-Path $packageRoot 'README.txt')
 Copy-Item -LiteralPath (Join-Path $repoRoot 'README.it.md') -Destination (Join-Path $packageRoot 'README.it.md')
 & (Join-Path $PSScriptRoot 'verify-hook.ps1') -HookPath (Join-Path $packageRoot 'vnchooks.dll') -Toolchain $Toolchain
-$translationTool=Join-Path $Toolchain 'bin/lrelease-qt5.exe'
+$translationTool=Join-Path $QtPrefix 'bin/lrelease-qt5.exe'
 Get-ChildItem -LiteralPath (Join-Path $repoRoot 'translations') -Filter '*.ts' | ForEach-Object {
     & $translationTool $_.FullName '-qm' (Join-Path $packageRoot ('translations/'+$_.BaseName+'.qm')) | Out-Null
     if($LASTEXITCODE-ne0){throw "Translation compilation failed: $($_.Name)"}
@@ -52,7 +54,11 @@ while($pending.Count){
         $name=$Matches[1];$destination=Join-Path $packageRoot $name
         if(Test-Path -LiteralPath $destination){continue}
         if($name-match'^(api-ms-|ext-ms-)' -or (Test-Path -LiteralPath (Join-Path $systemRoot $name))){continue}
-        $source=Join-Path $Toolchain "bin/$name"
+        $source=Join-Path $QtPrefix "bin/$name"
+        if(!(Test-Path -LiteralPath $source)){
+            if($name-match'^Qt5.*\.dll$'){throw "Qt module missing from validated prefix: $name"}
+            $source=Join-Path $Toolchain "bin/$name"
+        }
         if(!(Test-Path -LiteralPath $source)){throw "Missing dependency $name imported by $binary"}
         Copy-Item -LiteralPath $source -Destination $destination;$pending.Enqueue($destination)
     }}
@@ -61,6 +67,9 @@ Copy-Item -LiteralPath (Join-Path $repoRoot 'docs/DEPENDENCIES.md') -Destination
 foreach($source in @((Join-Path $Toolchain 'share/licenses'))){
     # Preserve installed package license texts, never runtime binaries or developer tools.
     if(Test-Path -LiteralPath $source){Copy-Item -LiteralPath $source -Destination (Join-Path $packageRoot 'licenses/toolchain') -Recurse}
+}
+if($QtPrefix-ne$Toolchain){
+    Copy-Item -LiteralPath (Join-Path $QtPrefix 'share/licenses/qt5-base') -Destination (Join-Path $packageRoot 'licenses/toolchain') -Recurse -Force
 }
 $manifest=Get-ChildItem -LiteralPath $packageRoot -Recurse -File | ForEach-Object {[pscustomobject]@{path=$_.FullName.Substring($packageRoot.Length+1).Replace('\','/');bytes=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}}
 $payloadHashes=$manifest | ForEach-Object {$_.sha256.ToLowerInvariant()+'  '+$_.path}

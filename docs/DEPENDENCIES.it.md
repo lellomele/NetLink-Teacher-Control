@@ -42,7 +42,7 @@ NON software aggiuntivo richiesto agli utilizzatori. Le DLL runtime sono incluse
 
 | Componente | Versione pacchetto |
 |---|---|
-| Qt 5 base | 5.15.18+kde+r109-6 |
+| Qt 5 base | 5.15.19+kde+r96-1 |
 | QCA | 2.3.10-2 |
 | OpenSSL | 3.6.2-2 |
 | OpenLDAP | 2.6.12-1 |
@@ -53,6 +53,8 @@ NON software aggiuntivo richiesto agli utilizzatori. Le DLL runtime sono incluse
 
 Nomi e SHA-256 delle DLL risolte ricorsivamente sono in `package-manifest.json`.
 Le licenze dei pacchetti accompagnano l'installer.
+La [valutazione di compatibilità Qt/KDE](QT-RUNTIME.it.md) riporta revisioni esatte
+e confronto delle raccolte di patch precedente e corrente.
 La release offre anche i sorgenti runtime di Qt, QCA, GLib, Graphite, libiconv,
 gettext, LZO e GCC, con ricette/patch MSYS2 esatte.
 Il manifesto fissa URL sorgenti, commit delle ricette e SHA-256.

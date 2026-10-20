@@ -30,6 +30,16 @@ the required runtime. Do not mix UCRT64 and MinGW64 libraries in one build.
 
 In PowerShell, add `C:\msys64\mingw64\bin` to PATH and configure:
 
+For the validated Qt/KDE runtime, first run `./packaging/prepare-qt51519.ps1`.
+It verifies the two pinned MSYS2 package SHA-256 hashes and extracts Qt base
+5.15.19+kde+r96-1 and tools 5.15.19-1 into a fresh `build-qt51519/mingw64` prefix,
+without installing or replacing system packages. Set PATH to its `bin` directory
+before the compiler directory, and pass
+`"-DCMAKE_PREFIX_PATH=$PWD/build-qt51519/mingw64;C:/msys64/mingw64"`
+instead of the single prefix shown below. Configure a fresh build directory.
+Windows configuration rejects Qt older than 5.15.19; packaging requires exactly
+the validated 5.15.19 runtime and never falls back to an old Qt DLL.
+
 ```
 cmake -S . -B build-school -G Ninja -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=x86_64 -DCMAKE_C_COMPILER=C:/msys64/mingw64/bin/gcc.exe -DCMAKE_CXX_COMPILER=C:/msys64/mingw64/bin/g++.exe -DCMAKE_PREFIX_PATH=C:/msys64/mingw64 -DWITH_QT6=OFF -DWITH_BUILTIN_LIBVNC=ON -DWITH_TESTS=ON -DWITH_PCH=OFF -DWITH_UNITY_BUILD=OFF -DWITH_LTO=OFF -DWITH_TRANSLATIONS=OFF -DWITH_INTERCEPTION=OFF -DCMAKE_BUILD_TYPE=Release -DMINGW_PREFIX=C:/msys64/mingw64 -DMINGW_PLATFORM=win64 -DMINGW_TARGET=x86_64-w64-mingw32
 cmake --build build-school -j 4
@@ -119,6 +129,10 @@ Package from a fresh `dist` payload directory:
 This compiles existing translations without modifying TS sources, resolves DLL
 imports recursively, preserves licenses and creates the NSIS installer. The legacy
 `windows-binaries` target is not used on Windows.
+When using the isolated Qt prefix, also pass
+`-QtPrefix "$PWD/build-qt51519/mingw64"` to `build-package.ps1`.
+`verify-package.ps1` checks the Qt DLL and platform/image plugin versions,
+in addition to hashes, so an accidental 5.15.18/5.15.19 mixture fails packaging.
 
 The installer runs its extracted Qt-free helper, not an old installed CLI, before
 replacing files. It checks pending removals, backs up settings, stops the owned
@@ -157,6 +171,16 @@ are pristine; CMake applies the three supplied patches. Legacy opaque binary
 files are excluded from Git source exports.
 
 `packaging/build-runtime-sources.ps1` collects the exact copyleft runtime sources
+and accepts `-QtBasePackage` for the isolated Qt package archive, plus `-Output`
+for a separate source staging directory. This avoids inferring the bundled Qt
+version from an unchanged global pacman installation. The
+`netlink-qt-runtime-tests` fixture verifies a PUBLIC throwaway RSA signature and
+wire frame generated with Qt 5.15.18, checks tamper rejection, PEM round trips,
+and current signing/OAEP. It never reads production keys or system configuration.
+The standalone generator is `tests/QtCompatibilityFixture.cpp`; the committed
+JSON contains no private key. See [Qt/KDE assessment](QT-RUNTIME.md).
+
+The script collects sources
 and package recipes. It requires GitHub CLI access and the original MSYS2 package
 archives in the build machine's cache. Recipes are matched against BUILDINFO
 SHA-256 hashes, without executing downloaded scripts. The runtime-source archive

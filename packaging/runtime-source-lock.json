@@ -1,11 +1,11 @@
 [
   {
     "package": "mingw-w64-x86_64-qt5-base",
-    "version": "5.15.18+kde+r109-6",
-    "recipeCommit": "82bcf47d0ae2621e1cd00fb82c8ee5db02b91955",
-    "recipeSha256": "bf981cd33353ba4ba4ab8bdef2c07a73075711e3f0c9c5a58ef2d73ee39c8bb0",
-    "sourceUrl": "https://invent.kde.org/qt/qt/qtbase/-/archive/bebdfd54917e25d1c100e6bd9f5dd53c2e645fd8/qtbase-bebdfd54917e25d1c100e6bd9f5dd53c2e645fd8.tar.gz",
-    "sourceSha256": "bdbd3a1eab033385cccf672da5bc9ab1e20e4edefb41d6674f2c3d9ee2388fc3"
+    "version": "5.15.19+kde+r96-1",
+    "recipeCommit": "a114954945ef1da8b3fbb12adcbac08f23628c1d",
+    "recipeSha256": "468c3c304e6947d7bb5c4d9cfb884d19fa0dc20c83b032b5da4f181044aaaf73",
+    "sourceUrl": "https://invent.kde.org/qt/qt/qtbase/-/archive/fbed962c3195ab3952fa54d40e012ad1a4fdc42b/qtbase-fbed962c3195ab3952fa54d40e012ad1a4fdc42b.tar.gz",
+    "sourceSha256": "431f87e77dfc8a750ae85d519552f9e737cb050906efc08bc51fdde8dbbee1da"
   },
   {
     "package": "mingw-w64-x86_64-qca-qt5",

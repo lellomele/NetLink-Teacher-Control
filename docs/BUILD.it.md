@@ -31,6 +31,16 @@ Non mescolare UCRT64 e MinGW64.
 
 In PowerShell aggiungere `C:\msys64\mingw64\bin` a PATH e configurare:
 
+Per il runtime Qt/KDE verificato eseguire prima `./packaging/prepare-qt51519.ps1`.
+Controlla gli SHA-256 dei due pacchetti MSYS2 fissati ed estrae Qt base
+5.15.19+kde+r96-1 e tools 5.15.19-1 nel nuovo prefisso `build-qt51519/mingw64`,
+senza installare o sostituire pacchetti globali. Anteporre la sua cartella `bin`
+a quella del compilatore in PATH e usare
+`"-DCMAKE_PREFIX_PATH=$PWD/build-qt51519/mingw64;C:/msys64/mingw64"`
+al posto del singolo prefisso indicato sotto. Usare una nuova cartella di build.
+La configurazione Windows rifiuta Qt precedente a 5.15.19; il pacchetto richiede
+esattamente il runtime 5.15.19 verificato e non ripiega su vecchie DLL Qt.
+
 ```
 cmake -S . -B build-school -G Ninja -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=x86_64 -DCMAKE_C_COMPILER=C:/msys64/mingw64/bin/gcc.exe -DCMAKE_CXX_COMPILER=C:/msys64/mingw64/bin/g++.exe -DCMAKE_PREFIX_PATH=C:/msys64/mingw64 -DWITH_QT6=OFF -DWITH_BUILTIN_LIBVNC=ON -DWITH_TESTS=ON -DWITH_PCH=OFF -DWITH_UNITY_BUILD=OFF -DWITH_LTO=OFF -DWITH_TRANSLATIONS=OFF -DWITH_INTERCEPTION=OFF -DCMAKE_BUILD_TYPE=Release -DMINGW_PREFIX=C:/msys64/mingw64 -DMINGW_PLATFORM=win64 -DMINGW_TARGET=x86_64-w64-mingw32
 cmake --build build-school -j 4
@@ -150,6 +160,11 @@ resta necessario il collaudo guidato Windows.
 
 ## Sorgenti e dipendenze
 
+Con il prefisso Qt isolato passare anche
+`-QtPrefix "$PWD/build-qt51519/mingw64"` a `packaging/build-package.ps1`.
+`verify-package.ps1` verifica le versioni delle DLL Qt e dei plugin Windows/JPEG,
+oltre agli hash, per impedire pacchetti misti 5.15.18/5.15.19.
+
 Le modifiche UltraVNC sono in `patches-ultravnc.diff`, applicate solo alla
 revisione fissata. La configurazione fallisce se i sorgenti non sono originali
 o esattamente corretti dalla patch. Dopo modifiche vendor rigenerare/ispezionare
@@ -165,5 +180,12 @@ CMake applica le tre patch. Binari legacy opachi sono esclusi dagli export Git.
 
 `packaging/build-runtime-sources.ps1` raccoglie sorgenti copyleft runtime e
 ricette esatte. Richiede GitHub CLI e archivi originali MSYS2 nella cache locale.
+Accetta `-QtBasePackage` per l'archivio Qt isolato e `-Output` per una cartella
+sorgenti separata: la versione distribuita non viene dedotta dal pacman globale
+rimasto invariato. `netlink-qt-runtime-tests` verifica firma RSA PUBBLICA e
+messaggi prodotti con Qt 5.15.18, rifiuto delle alterazioni, importazione PEM,
+firma corrente e OAEP, senza leggere chiavi o configurazione reali.
+Il generatore autonomo è `tests/QtCompatibilityFixture.cpp`; il JSON incluso
+non contiene chiavi private. Vedere la [valutazione Qt/KDE](QT-RUNTIME.it.md).
 Le ricette sono confrontate con SHA-256 BUILDINFO senza eseguire script scaricati.
 L'archivio runtime è un asset separato; questi strumenti di sviluppo non servono sui client.
