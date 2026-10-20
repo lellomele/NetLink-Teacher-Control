@@ -151,10 +151,12 @@ di permessi sono distinti. Nessun riavvio/arresto processi forzato o opzione Ign
 Il controllo non impedisce riaperture successive e non offre rollback transazionale.
 Il pacchetto usa una lista esplicita di otto EXE ignorando output obsoleti.
 L'installer offre i ruoli Master/Client conservati negli aggiornamenti. Client
-omette solo EXE/collegamento Master. Genera manifesti SHA-256 completo/client;
-installa solo quello scelto come payload.sha256. Il controllo completo verifica
-anche l'EXE Master esistente prima della rimozione in modalità Client. Le prove
-isolate coprono cambi di ruolo, persistenza, argomenti errati e collegamenti.
+omette EXE/collegamento Master. Service e Configurator sono obbligatori;
+Companion è facoltativo. Quattro manifesti SHA-256 coprono entrambi i ruoli
+con/senza Companion; solo quello scelto è installato come payload.sha256.
+Il controllo completo verifica gli EXE facoltativi prima della rimozione.
+Le prove isolate coprono cambi di ruolo/componenti, persistenza, argomenti errati
+e collegamenti.
 
 Solo i sette EXE legacy noti nella directory fissa del fork sono rimossi dopo
 l'avvio del nuovo servizio. La reinstallazione alpha.9 o successiva preferisce

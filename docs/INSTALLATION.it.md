@@ -26,14 +26,26 @@ Non collocare chiavi o documenti personali nella cartella del programma.
 
 ### Master / Client
 
-Un solo installer permette entrambi i ruoli. **Master** include Console docente,
-Configurator, Companion e servizio/runtime. **Client** installa gli stessi
-servizio/runtime necessari, Configurator e Companion, ma non `netlink-master.exe`
-né il suo collegamento Start. Le librerie/plugin condivisi restano necessari:
-è una scelta d'installazione, non un nuovo confine di autorizzazione.
+Un solo installer permette entrambi i ruoli e mostra un elenco di checkbox,
+in questo ordine:
+
+1. **NetLink Service:** obbligatorio, selezionato e non deselezionabile.
+2. **NetLink Configurator:** obbligatorio, selezionato e non deselezionabile.
+3. **NetLink Console docente:** facoltativa, selezionata per Master, non per Client.
+4. **NetLink Companion:** facoltativo, deselezionato alla prima installazione.
+
+Selezionare la Console docente imposta il ruolo Master; deselezionarla imposta
+Client, che non installa `netlink-master.exe` né il suo collegamento Start.
+Le librerie/plugin condivisi restano necessari: è una scelta d'installazione,
+non un nuovo confine di autorizzazione. Tutte le voci delle app in Start iniziano
+con **NetLink**.
 
 Una nuova installazione propone Client. Gli aggiornamenti conservano il ruolo
 scelto; le vecchie installazioni complete con eseguibile docente propongono Master.
+Gli aggiornamenti conservano anche la scelta Companion, riconoscendo le vecchie
+installazioni senza metadati dei componenti. Per aggiungerlo in seguito basta
+rieseguire l'installer e selezionarlo, senza disinstallare. Deselezionarlo rimuove
+eseguibile e collegamento, non rapporti diagnostici esportati, configurazione o chiavi.
 Per cambiare ruolo, rieseguire l'installer e selezionare l'altra opzione.
 Client rimuove anche la Console già presente e il suo collegamento. Chiudere prima
 la Console; file occupati richiedono riavvio prima di qualsiasi copia o rimozione.
@@ -43,7 +55,10 @@ soltanto sui Master autorizzati.
 
 Per installazione non interattiva usare `/S /Role=Client` oppure `/S /Role=Master`.
 Senza `/Role=` viene mantenuto il ruolo (Client se l'installazione è nuova).
-Altri valori sono rifiutati prima della manutenzione. `/Master=hostname` è un'opzione
+Aggiungere `/Companion=1` per installare Companion oppure `/Companion=0` per
+escluderlo/rimuoverlo. Senza tale opzione viene mantenuta la scelta installata
+(disattivata su una nuova installazione). Valori ruolo/Companion non validi sono
+rifiutati prima della manutenzione. `/Master=hostname` è un'opzione
 separata per la destinazione discovery diretto, non seleziona il ruolo.
 Disinstallazione e recupero sono uguali per entrambi i ruoli.
 

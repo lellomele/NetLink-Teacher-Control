@@ -150,10 +150,11 @@ The check cannot prevent a file from being reopened afterwards and is not a full
 transactional rollback. Current files are packaged from an explicit eight-EXE
 allowlist, ignoring stale build outputs.
 The installer offers Master/Client roles, persisted for upgrades. Client omits
-only the Master EXE/shortcut. Separate full/client SHA-256 manifests are generated;
+the Master EXE/shortcut. Service and Configurator are required; Companion is
+optional. Four SHA-256 manifests cover both roles with/without Companion;
 only the selected one is installed as payload.sha256. The full preflight plan
-also probes an existing Master EXE before Client removes it. Isolated round-trip
-tests cover role transitions, persistence, invalid arguments and shortcut targets.
+also probes existing optional EXEs before removing them. Isolated round-trip
+tests cover component/role transitions, persistence, invalid arguments and shortcuts.
 Only the seven known legacy EXEs in the fixed fork directory are retired after
 the new service starts. Reinstalling alpha.9 or later prefers its current CLI.
 The NSIS fixture tests that same selection/retirement code on inert files in a

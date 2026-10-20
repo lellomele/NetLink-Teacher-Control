@@ -40,8 +40,10 @@ ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
    Il JSON non contiene le chiavi private.
 3. Chiudere Console docente, Configurator e Companion. Installare il pacchetto
    completo come amministratore: scegliere **Master** sul docente oppure **Client**
-   sugli studenti. Client include Configurator, Companion e il servizio necessario,
-   senza Console docente. Non occorre disinstallare o rigenerare chiavi funzionanti.
+   sugli studenti. Service e Configurator sono obbligatori; la Console docente è
+   facoltativa e selezionata per Master. Companion è facoltativo, inizialmente
+   deselezionato e aggiungibile rieseguendo l'installer. Gli aggiornamenti conservano
+   le scelte installate. Non occorre disinstallare o rigenerare chiavi funzionanti.
 4. Se l'installer segnala file in uso o rimozioni pendenti, riavviare Windows e
    rieseguire il pacchetto. Non sostituire singole DLL e non saltare file.
 
@@ -68,7 +70,7 @@ Procedura completa: [installazione, disinstallazione e recupero](docs/INSTALLATI
   assegnazioni. Il profilo non modifica gli indirizzi di rete del Configurator.
 - In **Trova client** disattivare il filtro dei PC noti per visualizzare anche
   quelli già configurati. Verificare i destinatari prima di importarli.
-- Da **Start → NetLink → Companion** scegliere il ruolo e la prova desiderata:
+- Se installato, da **Start → NetLink → NetLink Companion** scegliere ruolo e prova:
   controllo remoto dal docente al client, discovery diretto dal client al docente.
 
 [Guida alle funzionalità e alla configurazione](docs/USAGE.it.md) ·

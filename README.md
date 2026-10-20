@@ -38,8 +38,10 @@ automatic client discovery and Companion diagnostics, without external plugins.
    The JSON does not contain private keys.
 3. Close Teacher Console, Configurator and Companion. Install the full package
    as administrator, selecting **Master** for the teacher PC or **Client** for
-   student PCs. Client includes Configurator, Companion and the required service,
-   without Teacher Console. No prior uninstall or key regeneration is needed.
+   student PCs. Service and Configurator are required; Teacher Console is optional
+   and selected for Master. Companion is optional, initially unchecked, and can
+   be added later by rerunning setup. Updates retain installed choices.
+   No prior uninstall or key regeneration is needed.
 4. If files are in use or removal is pending, restart Windows and run the
    package again. Do not replace individual DLLs or skip files.
 
@@ -66,7 +68,7 @@ Full procedure: [installation, uninstall and recovery](docs/INSTALLATION.md).
   A profile does not change Configurator network addresses.
 - In **Find clients**, turn off the known-computer filter to see configured PCs
   too. Verify destinations before importing them.
-- Open **Start → NetLink → Companion**, choose the role and test:
+- If installed, open **Start → NetLink → NetLink Companion**, choose the role and test:
   teacher-to-client remote control or client-to-teacher direct discovery.
 
 [Feature and configuration guide](docs/USAGE.md) · [Test checklist](docs/PILOT.md)

@@ -33,8 +33,16 @@ foreach($name in @('Qt5Core.dll','Qt5Gui.dll','Qt5Widgets.dll','Qt5Network.dll',
 foreach($qtBinary in @($files | Where-Object Name -match '^Qt5.*\.dll$')) {
     if($qtBinary.VersionInfo.ProductVersion-ne'5.15.19.0'){throw "Mixed or unexpected Qt runtime version: $($qtBinary.Name)"}
 }
-$clientHashes=@(Get-Content -LiteralPath (Join-Path $packageRoot 'payload-client.sha256'))
 if(@($fullHashes | Where-Object {$_ -match '  netlink-master\.exe$'}).Count-ne1){throw 'Master missing/duplicated in full manifest'}
-$expectedClient=@($fullHashes | Where-Object {$_ -notmatch '  netlink-master\.exe$'})
-if(($clientHashes -join "`n")-cne($expectedClient -join "`n")){throw 'Client manifest must omit only netlink-master.exe'}
+if(@($fullHashes | Where-Object {$_ -match '  netlink-companion\.exe$'}).Count-ne1){throw 'Companion missing/duplicated in full manifest'}
+$componentManifests=@{
+    'payload-client.sha256'='  netlink-master\.exe$'
+    'payload-master-no-companion.sha256'='  netlink-companion\.exe$'
+    'payload-client-no-companion.sha256'='  netlink-(master|companion)\.exe$'
+}
+foreach($name in $componentManifests.Keys) {
+    $actual=@(Get-Content -LiteralPath (Join-Path $packageRoot $name))
+    $expectedHashes=@($fullHashes | Where-Object {$_ -notmatch $componentManifests[$name]})
+    if(($actual -join "`n")-cne($expectedHashes -join "`n")){throw "Incorrect component manifest: $name"}
+}
 Write-Output "Verified $($files.Count) files, SHA-256 manifest, application versions and runtime exclusions."

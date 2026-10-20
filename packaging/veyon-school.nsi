@@ -4,10 +4,12 @@ Unicode true
 !include "x64.nsh"
 !include "FileFunc.nsh"
 !include "nsDialogs.nsh"
+!include "Sections.nsh"
 !include "${REPOROOT}\packaging\NetLinkUpgrade.nsh"
 Var PurgeSettings
 Var MaintenanceMutex
 Var InstallationRole
+Var InstallCompanion
 Var RoleDialog
 Var MasterRadio
 Var ClientRadio
@@ -36,6 +38,9 @@ AllowSkipFiles off
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "${REPOROOT}\COPYING.GPL3"
 Page custom RolePageCreate RolePageLeave
+!define MUI_COMPONENTSPAGE_TEXT_TOP "Seleziona le applicazioni da installare. Service e Configurator sono obbligatori. Per aggiungere Companion in seguito basta rieseguire questo installer: configurazione e chiavi sono conservate."
+!define MUI_COMPONENTSPAGE_TEXT_COMPLIST "Applicazioni NetLink:"
+!insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -59,6 +64,22 @@ Function .onInit
    Abort
  ${EndIf}
  SetRegView 64
+ ; Retain installed optional components. Metadata is written only on success;
+ ; older installations can be recognized by their existing executable.
+ ReadRegDWORD $InstallCompanion ${APPREGROOT} "${APPREGKEY}" "InstallCompanion"
+ ${If} ${Errors}
+   StrCpy $InstallCompanion 0
+   !ifdef NETLINK_INSTALLER_FIXTURE
+     StrCpy $R2 "${FIXTURE_ROOT}\NetLinkFixtureApp"
+   !else
+     StrCpy $R2 "$PROGRAMFILES64\Veyon School"
+   !endif
+   ${If} ${FileExists} "$R2\netlink-companion.exe"
+     StrCpy $InstallCompanion 1
+   ${EndIf}
+ ${ElseIf} $InstallCompanion != 1
+   StrCpy $InstallCompanion 0
+ ${EndIf}
  ; Retain the installed role. Older full installations are Masters; a fresh
  ; installation defaults to Client so the teacher UI is not deployed by mistake.
  ReadRegStr $InstallationRole ${APPREGROOT} "${APPREGKEY}" "InstallationRole"
@@ -90,6 +111,21 @@ Function .onInit
      Quit
    ${EndIf}
  ${EndIf}
+ ClearErrors
+ ${GetOptions} $R0 "/Companion=" $R1
+ ${IfNot} ${Errors}
+   ${If} $R1 == "1"
+     StrCpy $InstallCompanion 1
+   ${ElseIf} $R1 == "0"
+     StrCpy $InstallCompanion 0
+   ${Else}
+     SetErrorLevel 2
+     IfSilent +2
+     MessageBox MB_OK|MB_ICONSTOP "Opzione Companion non valida. Usare /Companion=1 oppure /Companion=0. Nessun file o impostazione è stato modificato."
+     Quit
+   ${EndIf}
+ ${EndIf}
+ Call ApplyComponentSelection
  ; Fixed protected destination: student accounts must not be able to replace SYSTEM executables.
  !ifdef NETLINK_INSTALLER_FIXTURE
  StrCpy $INSTDIR "${FIXTURE_ROOT}\NetLinkFixtureApp"
@@ -124,7 +160,7 @@ Function RolePageCreate
  ${If} $RoleDialog == error
    Abort
  ${EndIf}
- ${NSD_CreateLabel} 0 0 100% 24u "Entrambe le opzioni includono Configurator, Companion e il servizio NetLink. Configurazione e chiavi esistenti vengono conservate."
+ ${NSD_CreateLabel} 0 0 100% 24u "Service e Configurator sono sempre inclusi. Nella pagina successiva puoi scegliere le applicazioni facoltative. Configurazione e chiavi sono conservate."
  Pop $0
  ${NSD_CreateRadioButton} 0 34u 100% 14u "Master"
  Pop $MasterRadio
@@ -148,6 +184,7 @@ Function RolePageLeave
  ${Else}
    StrCpy $InstallationRole "Client"
  ${EndIf}
+ Call ApplyComponentSelection
 FunctionEnd
 Function un.onInit
  System::Call 'kernel32::CreateMutexW(p 0, i 0, w "${LOCKNAME}") p .r0 ?e'
@@ -205,7 +242,55 @@ FunctionEnd
    Quit
  ${EndIf}
 !macroend
-Section "NetLink"
+; Native component rows, in the agreed order. The common install section below
+; performs all copying so verification always sees the complete selected payload.
+Section "NetLink Service" SEC_SERVICE
+ SectionIn RO
+SectionEnd
+Section "NetLink Configurator" SEC_CONFIGURATOR
+ SectionIn RO
+SectionEnd
+Section /o "NetLink Console docente" SEC_MASTER
+SectionEnd
+Section /o "NetLink Companion" SEC_COMPANION
+SectionEnd
+
+!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
+ !insertmacro MUI_DESCRIPTION_TEXT ${SEC_SERVICE} "Servizio e runtime necessari per il controllo remoto, InternetGuard, Appello e discovery. Sempre installati."
+ !insertmacro MUI_DESCRIPTION_TEXT ${SEC_CONFIGURATOR} "Configurazione locale, chiavi di autenticazione e autorizzazioni. Sempre installato."
+ !insertmacro MUI_DESCRIPTION_TEXT ${SEC_MASTER} "Console docente per visualizzare e controllare i PC. Selezionata per Master, esclusa per Client."
+ !insertmacro MUI_DESCRIPTION_TEXT ${SEC_COMPANION} "Diagnostica locale e collegamento protetto temporaneo. Facoltativo; aggiungibile rieseguendo l'installer senza disinstallare."
+!insertmacro MUI_FUNCTION_DESCRIPTION_END
+
+Function ApplyComponentSelection
+ ${If} $InstallationRole == "Master"
+   !insertmacro SelectSection ${SEC_MASTER}
+ ${Else}
+   !insertmacro UnselectSection ${SEC_MASTER}
+ ${EndIf}
+ ${If} $InstallCompanion == 1
+   !insertmacro SelectSection ${SEC_COMPANION}
+ ${Else}
+   !insertmacro UnselectSection ${SEC_COMPANION}
+ ${EndIf}
+FunctionEnd
+Function ReadComponentSelection
+ SectionGetFlags ${SEC_MASTER} $0
+ IntOp $0 $0 & ${SF_SELECTED}
+ ${If} $0 != 0
+   StrCpy $InstallationRole "Master"
+ ${Else}
+   StrCpy $InstallationRole "Client"
+ ${EndIf}
+ SectionGetFlags ${SEC_COMPANION} $0
+ IntOp $InstallCompanion $0 & ${SF_SELECTED}
+FunctionEnd
+Function .onSelChange
+ Call ReadComponentSelection
+FunctionEnd
+
+Section "-NetLink installation"
+ Call ReadComponentSelection
  SetShellVarContext all
  ; Never execute a leftover Qt CLI before restoring its runtime. This helper
  ; is statically linked and uses only Windows APIs, from the installer temp dir.
@@ -229,14 +314,32 @@ Section "NetLink"
      Abort "Impossibile rimuovere la Console docente. Chiudi NetLink, riavvia e ripeti l'installer scegliendo Client. Configurazione e chiavi sono conservate."
    ${EndIf}
  ${EndIf}
+ ${If} $InstallCompanion != 1
+   ClearErrors
+   Delete "$INSTDIR\netlink-companion.exe"
+   ${If} ${Errors}
+     Abort "Impossibile rimuovere Companion. Chiudi NetLink, riavvia e ripeti l'installer. Configurazione e chiavi sono conservate."
+   ${EndIf}
+ ${EndIf}
  SetOutPath "$INSTDIR"
  ClearErrors
- File /r /x netlink-master.exe /x payload.sha256 /x payload-client.sha256 "${PAYLOAD}\*"
+ File /r /x netlink-master.exe /x netlink-companion.exe /x payload.sha256 /x payload-client.sha256 /x payload-master-no-companion.sha256 /x payload-client-no-companion.sha256 "${PAYLOAD}\*"
+ ${If} $InstallCompanion == 1
+   File "${PAYLOAD}\netlink-companion.exe"
+ ${EndIf}
  ${If} $InstallationRole == "Master"
    File "${PAYLOAD}\netlink-master.exe"
-   File /oname=payload.sha256 "${PAYLOAD}\payload.sha256"
+   ${If} $InstallCompanion == 1
+     File /oname=payload.sha256 "${PAYLOAD}\payload.sha256"
+   ${Else}
+     File /oname=payload.sha256 "${PAYLOAD}\payload-master-no-companion.sha256"
+   ${EndIf}
  ${Else}
-   File /oname=payload.sha256 "${PAYLOAD}\payload-client.sha256"
+   ${If} $InstallCompanion == 1
+     File /oname=payload.sha256 "${PAYLOAD}\payload-client.sha256"
+   ${Else}
+     File /oname=payload.sha256 "${PAYLOAD}\payload-client-no-companion.sha256"
+   ${EndIf}
  ${EndIf}
  ${If} ${Errors}
    Abort "Copia dei file incompleta. Chiudere le applicazioni, riavviare Windows e ripetere l'installer completo; non sostituire singole DLL."
@@ -296,13 +399,21 @@ Section "NetLink"
  !endif
  ClearErrors
  CreateDirectory "$StartMenuDir"
+ ; Retire unprefixed labels, including optional applications no longer selected.
+ Delete "$StartMenuDir\Console docente.lnk"
+ Delete "$StartMenuDir\Configurator.lnk"
+ Delete "$StartMenuDir\Companion.lnk"
  ${If} $InstallationRole == "Master"
-   CreateShortcut "$StartMenuDir\Console docente.lnk" "$INSTDIR\netlink-master.exe"
+   CreateShortcut "$StartMenuDir\NetLink Console docente.lnk" "$INSTDIR\netlink-master.exe"
  ${Else}
-   Delete "$StartMenuDir\Console docente.lnk"
+   Delete "$StartMenuDir\NetLink Console docente.lnk"
  ${EndIf}
- CreateShortcut "$StartMenuDir\Configurator.lnk" "$INSTDIR\netlink-configurator.exe"
- CreateShortcut "$StartMenuDir\Companion.lnk" "$INSTDIR\netlink-companion.exe"
+ CreateShortcut "$StartMenuDir\NetLink Configurator.lnk" "$INSTDIR\netlink-configurator.exe"
+ ${If} $InstallCompanion == 1
+   CreateShortcut "$StartMenuDir\NetLink Companion.lnk" "$INSTDIR\netlink-companion.exe"
+ ${Else}
+   Delete "$StartMenuDir\NetLink Companion.lnk"
+ ${EndIf}
  ${If} ${Errors}
    Abort "Aggiornamento collegamenti Start non riuscito. Ripetere l'installer completo."
  ${EndIf}
@@ -314,6 +425,7 @@ Section "NetLink"
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayName" "NetLink 1.0.0 alpha.23"
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayVersion" "1.0.0-alpha.23"
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "InstallationRole" "$InstallationRole"
+ WriteRegDWORD ${APPREGROOT} "${APPREGKEY}" "InstallCompanion" $InstallCompanion
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayIcon" "$INSTDIR\netlink-configurator.exe"
 SectionEnd
@@ -337,6 +449,9 @@ Section "Uninstall"
  Delete "$SMPROGRAMS\NetLink\Console docente.lnk"
  Delete "$SMPROGRAMS\NetLink\Configurator.lnk"
  Delete "$SMPROGRAMS\NetLink\Companion.lnk"
+ Delete "$SMPROGRAMS\NetLink\NetLink Console docente.lnk"
+ Delete "$SMPROGRAMS\NetLink\NetLink Configurator.lnk"
+ Delete "$SMPROGRAMS\NetLink\NetLink Companion.lnk"
  RMDir "$SMPROGRAMS\NetLink"
  RMDir "$SMPROGRAMS\Veyon School"
  ReadRegStr $1 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "OriginalServiceImage"

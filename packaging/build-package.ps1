@@ -74,11 +74,18 @@ if($QtPrefix-ne$Toolchain){
 $manifest=Get-ChildItem -LiteralPath $packageRoot -Recurse -File | ForEach-Object {[pscustomobject]@{path=$_.FullName.Substring($packageRoot.Length+1).Replace('\','/');bytes=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}}
 $payloadHashes=$manifest | ForEach-Object {$_.sha256.ToLowerInvariant()+'  '+$_.path}
 [IO.File]::WriteAllLines((Join-Path $packageRoot 'payload.sha256'),[string[]]$payloadHashes,[Text.UTF8Encoding]::new($false))
-# Both roles share the runtime; only Master installs the teacher executable.
-# The installed canonical manifest must match exactly the selected role.
-$clientHashes=$manifest | Where-Object path -ne 'netlink-master.exe' | ForEach-Object {$_.sha256.ToLowerInvariant()+'  '+$_.path}
-[IO.File]::WriteAllLines((Join-Path $packageRoot 'payload-client.sha256'),[string[]]$clientHashes,[Text.UTF8Encoding]::new($false))
-foreach($name in @('payload.sha256','payload-client.sha256')) {
+# The canonical installed manifest must match the role AND Companion selection.
+$componentManifests=@{
+    'payload-client.sha256'=@('netlink-master.exe')
+    'payload-master-no-companion.sha256'=@('netlink-companion.exe')
+    'payload-client-no-companion.sha256'=@('netlink-master.exe','netlink-companion.exe')
+}
+foreach($name in $componentManifests.Keys) {
+    $omitted=$componentManifests[$name]
+    $hashes=$manifest | Where-Object path -notin $omitted | ForEach-Object {$_.sha256.ToLowerInvariant()+'  '+$_.path}
+    [IO.File]::WriteAllLines((Join-Path $packageRoot $name),[string[]]$hashes,[Text.UTF8Encoding]::new($false))
+}
+foreach($name in (@('payload.sha256')+@($componentManifests.Keys))) {
     $manifest+= [pscustomobject]@{path=$name;bytes=(Get-Item -LiteralPath (Join-Path $packageRoot $name)).Length;sha256=(Get-FileHash -LiteralPath (Join-Path $packageRoot $name) -Algorithm SHA256).Hash}
 }
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $distRoot 'package-manifest.json') -Encoding UTF8

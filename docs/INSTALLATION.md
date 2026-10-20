@@ -26,14 +26,24 @@ Do not store keys or personal documents in the program directory.
 
 ### Master / Client
 
-One installer supports both roles. **Master** includes Teacher Console,
-Configurator, Companion and the service/runtime. **Client** installs the same
-required service/runtime, Configurator and Companion, but not
-`netlink-master.exe` or its Start shortcut. Shared libraries/plugins remain
-necessary; this is an installation choice, not a new authorization boundary.
+One installer supports both roles and a native checkbox list, in this order:
+
+1. **NetLink Service:** required, checked and not deselectable.
+2. **NetLink Configurator:** required, checked and not deselectable.
+3. **NetLink Teacher Console:** optional, selected for Master, not for Client.
+4. **NetLink Companion:** optional, unchecked on a fresh installation.
+
+Checking Teacher Console selects the Master role; unchecking it selects Client.
+Client does not install `netlink-master.exe` or its Start shortcut. Shared
+libraries/plugins remain necessary; this is an installation choice, not a new
+authorization boundary. Start application labels all begin with **NetLink**.
 
 Fresh installations default to Client. Updates retain the last installed role;
 older full installations with the teacher executable default to Master.
+Updates also retain the Companion selection, including detection of older
+installations without component metadata. To add Companion later, rerun setup
+and check it; no uninstall is needed. Unchecking it removes its executable and
+shortcut, not exported diagnostic reports, configuration or authentication keys.
 To switch roles, rerun the installer and select the other option. Choosing Client
 also removes a previously installed Console and its shortcut. Close Console first;
 busy files require a restart before any copying or removal. Configuration, key
@@ -42,7 +52,10 @@ does not remove any existing private key: keep private keys only on authorized M
 
 For unattended installation use `/S /Role=Client` or `/S /Role=Master`.
 Without `/Role=`, setup retains the role (Client on fresh installs).
-Other role values are rejected before maintenance. `/Master=hostname` is a
+Add `/Companion=1` to install Companion or `/Companion=0` to omit/remove it.
+Without that option, its installed selection is retained (off on a fresh install).
+Invalid role/Companion values are rejected before maintenance.
+`/Master=hostname` is a
 separate option for the direct discovery destination; it does not select the role.
 Uninstall and recovery remain the same for both roles.
 
