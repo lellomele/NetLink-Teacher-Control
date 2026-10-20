@@ -8,6 +8,8 @@ ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
 
 **Versione preliminare 1.0.0-alpha.24: usare consapevolmente.**
 
+**[Scarica l’installer Windows x64 — ultima release (alpha.24)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.24/NetLink-1.0.0-alpha.24-win64-setup.exe)**
+
 ## Funzionalità
 
 - **Console docente:** miniature dei PC, controllo remoto e comandi Veyon.
