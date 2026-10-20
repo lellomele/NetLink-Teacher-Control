@@ -26,8 +26,8 @@ Var StartMenuDir
  !define LOCKNAME "Global\NetLinkInstallerMaintenance"
  RequestExecutionLevel admin
 !endif
-Name "NetLink 1.0.0 alpha.21"
-OutFile "${OUTPUT}\NetLink-1.0.0-alpha.21-win64-setup.exe"
+Name "NetLink 1.0.0 alpha.22"
+OutFile "${OUTPUT}\NetLink-1.0.0-alpha.22-win64-setup.exe"
 InstallDir "$PROGRAMFILES64\Veyon School"
 SetCompressor /SOLID lzma
 AllowSkipFiles off
@@ -41,10 +41,10 @@ Page custom RolePageCreate RolePageLeave
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "Italian"
-VIProductVersion "1.0.0.21"
+VIProductVersion "1.0.0.22"
 VIAddVersionKey /LANG=1040 "ProductName" "NetLink"
 VIAddVersionKey /LANG=1040 "FileDescription" "NetLink installer (pre-release)"
-VIAddVersionKey /LANG=1040 "FileVersion" "1.0.0-alpha.21"
+VIAddVersionKey /LANG=1040 "FileVersion" "1.0.0-alpha.22"
 VIAddVersionKey /LANG=1040 "LegalCopyright" "Copyright (c) 2025-26 prof. Ing. Raffaele Mele; Veyon e contributori"
 Function .onInit
  System::Call 'kernel32::CreateMutexW(p 0, i 0, w "${LOCKNAME}") p .r0 ?e'
@@ -170,7 +170,7 @@ Function un.onInit
    StrCpy $PurgeSettings 1
  ${EndIf}
  IfSilent un_choice_done
- MessageBox MB_YESNOCANCEL|MB_DEFBUTTON2|MB_ICONQUESTION "Rimuovere anche le impostazioni di NetLink? $\r$\n$\r$\nSì: rimuove programma, cartella e impostazioni. Conserva le chiavi di autenticazione e i loro percorsi.$\r$\nNo: rimuove programma e cartella, ma conserva le impostazioni per reinstallare.$\r$\nAnnulla: interrompe.$\r$\n$\r$\nLe impostazioni condivise con Veyon originale non vengono eliminate. Una copia di recupero resta protetta in ProgramData\NetLink\Recovery." IDYES un_purge IDNO un_choice_done
+ MessageBox MB_YESNOCANCEL|MB_DEFBUTTON2|MB_ICONQUESTION "Vuoi cancellare anche le impostazioni di NetLink?$\r$\n$\r$\nSÌ = disinstalla NetLink e cancella le sue impostazioni. Alla reinstallazione dovrai riconfigurarlo o importare il tuo backup.$\r$\n$\r$\nNO = disinstalla NetLink ma conserva le impostazioni, così puoi reinstallarlo senza riconfigurarlo. Consigliato per una reinstallazione.$\r$\n$\r$\nIn ENTRAMBI i casi il programma e la sua cartella vengono rimossi; le chiavi di autenticazione e i loro percorsi sono conservati.$\r$\nLe impostazioni condivise con Veyon originale, se presente, non vengono cancellate.$\r$\n$\r$\nANNULLA = non disinstallare." IDYES un_purge IDNO un_choice_done
  Abort
  un_purge:
  StrCpy $PurgeSettings 1
@@ -311,8 +311,8 @@ Section "NetLink"
  Delete "$SMPROGRAMS\Veyon School\Configurator.lnk"
  RMDir "$SMPROGRAMS\Veyon School"
  !endif
- WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayName" "NetLink 1.0.0 alpha.21"
- WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayVersion" "1.0.0-alpha.21"
+ WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayName" "NetLink 1.0.0 alpha.22"
+ WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayVersion" "1.0.0-alpha.22"
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "InstallationRole" "$InstallationRole"
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayIcon" "$INSTDIR\netlink-configurator.exe"

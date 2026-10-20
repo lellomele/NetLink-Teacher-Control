@@ -76,6 +76,13 @@ new SVG/icon library. The application branding sources/icons remain unchanged.
 GUI DPI scaling is enabled only in Master/Configurator/Companion entry points,
 not the server or screen-capture/input workers.
 
+The shared theme uses list-style combo popups rather than menu-style rows.
+`netlink-combo-popup-scale-1`, `-1_5` and `-2` open the actual Qt popup windows
+in light/dark themes, with normal/enlarged application fonts. Tests check all
+short-list rows, editable targets, keyboard accept/cancel, scrolling and screen
+edges. Set `NETLINK_COMBO_SCREENSHOTS` for host/popup PNG captures. Tests use
+isolated appearance files and do not initialize authentication or networking.
+
 `netlink-ui-scale-1`, `netlink-ui-scale-1_5` and `netlink-ui-scale-2` test the real
 directory page with an isolated JSON model, vector rendering, accessible native
 tool buttons, view preservation, group removal confirmation and non-quitting tray

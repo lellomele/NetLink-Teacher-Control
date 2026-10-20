@@ -87,6 +87,17 @@ Conservare messaggio e backup, correggere la causa e rieseguire il pacchetto.
 Chiudere le applicazioni e usare la disinstallazione di Windows. Scegliere
 se mantenere le impostazioni per reinstallare oppure eliminarle.
 
+La domanda è **“Vuoi cancellare anche le impostazioni di NetLink?”**:
+
+- **Sì:** disinstalla ed elimina le impostazioni della suite; alla reinstallazione
+  occorre riconfigurare o importare un backup.
+- **No:** disinstalla ma conserva le impostazioni per reinstallare (consigliato).
+- **Annulla:** non disinstalla.
+
+Sì e No rimuovono entrambi la cartella del programma e conservano le chiavi di
+autenticazione esterne e i loro percorsi. Restano le impostazioni condivise con
+Veyon originale eventualmente rilevato.
+
 In entrambi i casi viene rimossa l'intera cartella `C:\Program Files\Veyon School`,
 inclusi file aggiunti manualmente. I file in uso sono rimossi al riavvio:
 se richiesto, riavviare prima di reinstallare.

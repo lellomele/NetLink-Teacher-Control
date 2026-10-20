@@ -6,7 +6,7 @@ Suite NetLink per la gestione delle aule Windows, basata su **Veyon 4.7.5**.
 Integra controllo remoto, InternetGuard WFP, Appello, profili classe–aula,
 ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
 
-**Versione preliminare 1.0.0-alpha.21: usare consapevolmente.**
+**Versione preliminare 1.0.0-alpha.22: usare consapevolmente.**
 
 ## Funzionalità
 

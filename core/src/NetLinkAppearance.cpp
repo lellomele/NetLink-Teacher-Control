@@ -180,6 +180,12 @@ void NetLinkAppearance::apply()
             "QToolButton[netlinkCompactButton=\"true\"]:checked,QToolButton[netlinkCompactButton=\"true\"]:focus{background:palette(midlight);border:2px solid palette(highlight);padding:4px;}"
             "QToolTip{padding:8px;border:1px solid palette(mid);background:palette(tool-tip-base);color:palette(tool-tip-text);}"
             "QPushButton,QComboBox,QLineEdit{padding:6px;border:1px solid palette(mid);border-radius:5px;}"
+            // Keep popup geometry and item rendering in list mode. The menu-style
+            // delegate uses different row metrics and can clip themed options.
+            "QComboBox{combobox-popup:0;padding-right:24px;min-height:1.3em;}"
+            "QComboBox QAbstractItemView{background:palette(base);color:palette(text);border:1px solid palette(mid);"
+            "selection-background-color:palette(highlight);selection-color:palette(highlighted-text);outline:0;}"
+            "QComboBox QAbstractItemView::item{min-height:1.4em;padding:5px 8px;}"
             "QPushButton{background:palette(button);color:palette(button-text);}"
             "QPushButton:hover{background:palette(midlight);}"
             "QPushButton:default,QPushButton:checked{background:palette(highlight);color:palette(highlighted-text);}"

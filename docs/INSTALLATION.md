@@ -86,6 +86,16 @@ Keep the message and backup, correct the cause and run the package again.
 Close applications and use Windows uninstall. Choose whether to keep settings
 for reinstallation or remove them.
 
+The question is **“Do you also want to delete NetLink settings?”**:
+
+- **Yes:** uninstall and delete suite-owned settings; reconfigure or import a
+  backup after reinstalling.
+- **No:** uninstall but retain settings for reinstallation (recommended).
+- **Cancel:** do not uninstall.
+
+Both Yes and No remove the program directory and preserve external authentication
+keys and their configured paths. Detected shared original-Veyon settings are retained.
+
 Both choices remove the entire `C:\Program Files\Veyon School` directory,
 including manually added files. Busy files are removed at restart:
 restart before reinstalling when requested.

@@ -6,7 +6,7 @@ NetLink is a Windows classroom-management suite based on **Veyon 4.7.5**.
 It integrates remote control, WFP InternetGuard, student names, class–room profiles,
 automatic client discovery and Companion diagnostics, without external plugins.
 
-**Pre-release 1.0.0-alpha.21: use with awareness of its limitations.**
+**Pre-release 1.0.0-alpha.22: use with awareness of its limitations.**
 
 ## Features
 

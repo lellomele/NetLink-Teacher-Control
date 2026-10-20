@@ -80,6 +80,13 @@ in `core/src/NetLinkUi.cpp`, senza font esterni o nuove librerie SVG/icone.
 Le risorse del marchio restano invariate. Lo scaling DPI è abilitato soltanto
 negli ingressi Master/Configurator/Companion, non in server o worker acquisizione/input.
 
+Il tema condiviso usa popup a elenco, non righe in stile menu.
+`netlink-combo-popup-scale-1`, `-1_5` e `-2` aprono i veri popup Qt con temi
+chiaro/scuro e caratteri applicativi normali/ingranditi. Verificano righe delle
+liste brevi, destinatari modificabili, conferma/annullamento da tastiera,
+scorrimento e bordi schermo. `NETLINK_COMBO_SCREENSHOTS` abilita PNG di finestra
+e popup. Usano preferenze isolate, senza inizializzare autenticazione o rete.
+
 `netlink-ui-scale-1`, `netlink-ui-scale-1_5` e `netlink-ui-scale-2` provano
 la pagina directory reale con modello JSON isolato, rendering vettoriale,
 pulsanti nativi accessibili, conservazione vista, conferma rimozione gruppo e
