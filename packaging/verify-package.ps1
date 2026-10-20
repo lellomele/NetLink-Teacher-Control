@@ -26,9 +26,12 @@ foreach($name in @('netlink-master.exe','netlink-configurator.exe','netlink-serv
     if($file.VersionInfo.FileVersion -ne '4.7.5-netlink.1.0.0-alpha.23' -or $file.VersionInfo.OriginalFilename -ne $name){throw "Wrong application version/identity: $name"}
 }
 $fullHashes=@(Get-Content -LiteralPath (Join-Path $packageRoot 'payload.sha256'))
-foreach($name in @('Qt5Core.dll','Qt5Gui.dll','Qt5Widgets.dll','Qt5Network.dll','Qt5Concurrent.dll','platforms/qwindows.dll','imageformats/qjpeg.dll')) {
+foreach($name in @('Qt5Core.dll','Qt5Gui.dll','Qt5Widgets.dll','Qt5Network.dll','platforms/qwindows.dll','imageformats/qjpeg.dll')) {
     $qtBinary=Get-Item -LiteralPath (Join-Path $packageRoot $name)
     if($qtBinary.VersionInfo.ProductVersion-ne'5.15.19.0'){throw "Mixed or unexpected Qt runtime version: $name"}
+}
+foreach($qtBinary in @($files | Where-Object Name -match '^Qt5.*\.dll$')) {
+    if($qtBinary.VersionInfo.ProductVersion-ne'5.15.19.0'){throw "Mixed or unexpected Qt runtime version: $($qtBinary.Name)"}
 }
 $clientHashes=@(Get-Content -LiteralPath (Join-Path $packageRoot 'payload-client.sha256'))
 if(@($fullHashes | Where-Object {$_ -match '  netlink-master\.exe$'}).Count-ne1){throw 'Master missing/duplicated in full manifest'}

@@ -25,7 +25,7 @@ private Q_SLOTS:
         QVERIFY(QCA::isSupported("rsa"));
     }
     void verifiesPreviousRuntimeRsaChallengeAndRejectsChanges() {
-        const auto key=QCA::PublicKey::fromPEM(fixture.value("publicKey").toString());
+        auto key=QCA::PublicKey::fromPEM(fixture.value("publicKey").toString());
         QVERIFY(!key.isNull());
         auto challenge=QByteArray::fromBase64(fixture.value("challenge").toString().toLatin1());
         const auto signature=QByteArray::fromBase64(fixture.value("signature").toString().toLatin1());

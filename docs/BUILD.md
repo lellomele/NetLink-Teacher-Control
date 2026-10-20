@@ -46,7 +46,11 @@ cmake --build build-school -j 4
 ```
 
 Run `ctest --test-dir build-school --output-on-failure` with `build-school/core` and the toolchain
-binary directory in PATH. Tests must pass before packaging. For a release build,
+binary directory in PATH (and the isolated Qt `bin` before the global one).
+For build-tree crypto tests set `QCA_PLUGIN_PATH` to
+`C:\msys64\mingw64\share\qt5\plugins`; packaged applications locate their bundled
+provider through `qt.conf` and do not need this environment variable.
+Tests must pass before packaging. For a release build,
 configure a fresh `build-release` with the same options except `WITH_TESTS=OFF`;
 this removes developer plugin search paths and runtime test hooks.
 

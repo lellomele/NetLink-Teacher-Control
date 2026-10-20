@@ -47,6 +47,10 @@ cmake --build build-school -j 4
 ```
 
 Eseguire `ctest --test-dir build-school --output-on-failure` con
+`QCA_PLUGIN_PATH=C:\msys64\mingw64\share\qt5\plugins` per le prove crittografiche
+nell'albero di build e il `bin` Qt isolato prima di quello globale in PATH.
+Le applicazioni distribuite trovano il provider incluso tramite `qt.conf` e
+non richiedono questa variabile d'ambiente. Mantenere inoltre
 `build-school/core` e la directory bin della toolchain in PATH.
 I test devono passare prima del pacchetto. Per la release creare una nuova
 `build-release` con le stesse opzioni ma `WITH_TESTS=OFF`: esclude percorsi
