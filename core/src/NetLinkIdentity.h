@@ -3,9 +3,11 @@
 #pragma once
 #include <QCoreApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QString>
+#include <QStringList>
 
-// File naming only: no VeyonCore initialization, registry or service access.
+// File naming/presence only: no VeyonCore initialization, registry or service access.
 namespace NetLinkIdentity {
 enum class Application { Master, Configurator, Service, Server, Worker, Cli, WCli, Companion };
 inline QString component(Application application) {
@@ -32,6 +34,15 @@ inline QString executableName(Application application) {
 inline QString executablePath(Application application) {
     const auto name=executableName(application);if(name.isEmpty()) return {};
     return QDir::toNativeSeparators(QDir(QCoreApplication::applicationDirPath()).filePath(name));
+}
+// WFP cannot derive an App-ID from an absent file. The service is mandatory
+// (keep its path so a damaged installation fails closed); Master is optional.
+inline QStringList discoveryExecutablePaths(const QString& directory) {
+    const QDir root(directory);
+    QStringList paths{QDir::toNativeSeparators(root.filePath(executableName(Application::Service)))};
+    const auto master=QDir::toNativeSeparators(root.filePath(executableName(Application::Master)));
+    if(QFileInfo(master).isFile()) paths.append(master);
+    return paths;
 }
 // Security checks accept only the current full installed path, never a legacy
 // alias, basename match or arbitrary NetLink-looking executable.

@@ -12,6 +12,18 @@ class ApplicationIdentityTests : public QObject {
     Q_OBJECT
     using App=NetLinkIdentity::Application;
 private Q_SLOTS:
+    void clientDiscoveryNeverRequiresAnAbsentMasterButAlwaysRequiresService() {
+        QTemporaryDir temporary;QVERIFY(temporary.isValid());
+        const QDir root(temporary.path());
+        const auto service=QDir::toNativeSeparators(root.filePath(NetLinkIdentity::executableName(App::Service)));
+        const auto master=QDir::toNativeSeparators(root.filePath(NetLinkIdentity::executableName(App::Master)));
+        QCOMPARE(NetLinkIdentity::discoveryExecutablePaths(root.path()),QStringList{service});
+        QFile masterFile(master);QVERIFY(masterFile.open(QIODevice::WriteOnly));
+        masterFile.write("INERT FIXTURE");masterFile.close();
+        QCOMPARE(NetLinkIdentity::discoveryExecutablePaths(root.path()),QStringList({service,master}));
+        QVERIFY(masterFile.remove());
+        QCOMPARE(NetLinkIdentity::discoveryExecutablePaths(root.path()),QStringList{service});
+    }
     void everyApplicationHasTheExpectedName() {
         const QList<App> apps{App::Master,App::Configurator,App::Service,App::Server,App::Worker,App::Cli,App::WCli,App::Companion};
         const QStringList parts{"master","configurator","service","server","worker","cli","wcli","companion"};

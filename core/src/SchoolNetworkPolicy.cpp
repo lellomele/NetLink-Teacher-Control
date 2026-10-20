@@ -32,14 +32,15 @@ bool configureDiscoveryFirewall(bool enabled) {
     INetFwPolicy2* policy=nullptr;INetFwRules* rules=nullptr;
     HRESULT error=CoCreateInstance(CLSID_NetFwPolicy2,nullptr,CLSCTX_INPROC_SERVER,IID_INetFwPolicy2,reinterpret_cast<void**>(&policy));
     if(SUCCEEDED(error)) error=policy->get_Rules(&rules);
+    const auto applications=NetLinkIdentity::discoveryExecutablePaths(QCoreApplication::applicationDirPath());
     for(int index=0;index<3 && SUCCEEDED(error);++index) {
         const QString name=QString("Veyon School discovery %1").arg(index);
         auto ruleName=SysAllocString(reinterpret_cast<const OLECHAR*>(name.utf16()));
         rules->Remove(ruleName); // exact names owned by this installer only
-        if(enabled) {
+        if(enabled && (index==0 || applications.size()>1)) {
             INetFwRule* rule=nullptr;
             error=CoCreateInstance(CLSID_NetFwRule,nullptr,CLSCTX_INPROC_SERVER,IID_INetFwRule,reinterpret_cast<void**>(&rule));
-            const QString app=NetLinkIdentity::executablePath(index==0?NetLinkIdentity::Application::Service:NetLinkIdentity::Application::Master);
+            const QString app=applications.at(index==0?0:1);
             auto appName=SysAllocString(reinterpret_cast<const OLECHAR*>(app.utf16()));auto port=SysAllocString(L"3702");
             if(SUCCEEDED(error)) error=rule->put_Name(ruleName);
             if(SUCCEEDED(error)) error=rule->put_ApplicationName(appName);
@@ -400,6 +401,7 @@ QJsonObject PolicyDaemon::apply(const QJsonObject& command) {
     const GUID layers[] = {FWPM_LAYER_ALE_AUTH_CONNECT_V4, FWPM_LAYER_ALE_AUTH_CONNECT_V6,
         FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V4, FWPM_LAYER_ALE_AUTH_RECV_ACCEPT_V6};
     const auto systemHost = QDir::fromNativeSeparators(qEnvironmentVariable("SystemRoot")) + "/System32/svchost.exe";
+    const auto discoveryApps=NetLinkIdentity::discoveryExecutablePaths(QCoreApplication::applicationDirPath());
     for (int index = 0; index < 4 && !error; ++index) {
         const bool ipv4 = index % 2 == 0;
         error = addFilter(m_engine, layers[index], true, ipv4 ? "127.0.0.0/8" : "::1", -1, -1, {}, next);
@@ -411,9 +413,9 @@ QJsonObject PolicyDaemon::apply(const QJsonObject& command) {
             if (error) break;
         }
         // Discovery is restricted to the installed, protected service/master binaries.
-        for (auto app : {NetLinkIdentity::Application::Service, NetLinkIdentity::Application::Master}) {
+        for (const auto& app : discoveryApps) {
             if (!error) error = addFilter(m_engine, layers[index], true, {}, 17, 3702,
-                NetLinkIdentity::executablePath(app), next);
+                app, next);
         }
         for (const auto& dns : infra.dns) {
             if ((QHostAddress(dns).protocol() == QAbstractSocket::IPv4Protocol) != ipv4) continue;
