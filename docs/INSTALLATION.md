@@ -24,6 +24,10 @@ Do not store keys or personal documents in the program directory.
    DLLs cannot be skipped.
 4. Verify version, service, tray icon, configuration, authentication and thumbnails.
 
+The final success page offers **Launch NetLink Configurator**, checked by default.
+Clear it to finish without opening Configurator. Silent installations do not
+launch it; a required restart takes precedence over this option.
+
 ### Master / Client
 
 One installer supports both roles and a native checkbox list, in this order:

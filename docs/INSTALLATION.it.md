@@ -24,6 +24,10 @@ Non collocare chiavi o documenti personali nella cartella del programma.
    rieseguire il pacchetto completo. Nessuna DLL può essere ignorata.
 4. Verificare versione, servizio, icona, configurazione, autenticazione e miniatura.
 
+La pagina finale offre **Avvia NetLink Configurator**, selezionato per impostazione
+predefinita. Deselezionarlo per terminare senza aprirlo. Le installazioni automatiche
+non lo avviano; un eventuale riavvio necessario ha la precedenza su questa opzione.
+
 ### Master / Client
 
 Un solo installer permette entrambi i ruoli e mostra un elenco di checkbox,
