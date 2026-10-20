@@ -16,11 +16,16 @@ $keyHash=(Get-FileHash -LiteralPath (Join-Path $root 'keys/netlink_test')).Hash
 $keyAcl=(Get-Acl -LiteralPath (Join-Path $root 'keys/netlink_test')).Sddl
 Copy-Item -LiteralPath $Helper -Destination (Join-Path $payload 'netlink-maintenance.exe')
 Copy-Item -LiteralPath $Cli -Destination (Join-Path $payload 'netlink-wcli.exe')
+foreach($component in @('master','configurator','companion')) {
+    Copy-Item -LiteralPath $Cli -Destination (Join-Path $payload "netlink-$component.exe")
+}
 [IO.File]::WriteAllText((Join-Path $payload 'platforms/qwindows.dll'),'INERT PLATFORM FIXTURE')
 [IO.File]::WriteAllText((Join-Path $payload 'vnchooks.dll'),'NEW HOOK FIXTURE - MUST NOT OVERWRITE A LOADED IMAGE')
 Copy-Item -LiteralPath (Join-Path $env:SystemRoot 'System32/version.dll') -Destination (Join-Path $app 'vnchooks.dll')
 $hashes=@(Get-ChildItem -LiteralPath $payload -Recurse -File | ForEach-Object {(Get-FileHash -LiteralPath $_.FullName).Hash.ToLowerInvariant()+'  '+$_.FullName.Substring($payload.Length+1).Replace('\','/')})
 [IO.File]::WriteAllLines((Join-Path $payload 'payload.sha256'),[string[]]$hashes,[Text.UTF8Encoding]::new($false))
+$clientHashes=@($hashes | Where-Object {$_ -notmatch '  netlink-master\.exe$'})
+[IO.File]::WriteAllLines((Join-Path $payload 'payload-client.sha256'),[string[]]$clientHashes,[Text.UTF8Encoding]::new($false))
 $registry='Software\NetLinkInstallerTests\'+(Split-Path $root -Leaf)
 $settings=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($registry+'\Configuration\Authentication')
 $settings.SetValue('PrivateKeyBaseDir',(Join-Path $root 'keys'))
@@ -42,10 +47,42 @@ function WaitRemoval {
     }while([DateTime]::UtcNow-lt$deadline)
     throw 'Uninstaller left application folder/files or its registry entry'
 }
+function CheckRole([string]$role) {
+    $isMaster=$role-eq'Master'
+    foreach($relative in @('netlink-master.exe','StartMenu/Console docente.lnk')) {
+        if((Test-Path -LiteralPath (Join-Path $app $relative))-ne$isMaster){throw "Wrong $role payload/shortcut: $relative"}
+    }
+    foreach($relative in @('netlink-configurator.exe','netlink-companion.exe','StartMenu/Configurator.lnk','StartMenu/Companion.lnk')) {
+        if(!(Test-Path -LiteralPath (Join-Path $app $relative))){throw "Missing $role component: $relative"}
+    }
+    $shell=New-Object -ComObject WScript.Shell
+    try {
+        $links=@{'Configurator'='netlink-configurator.exe';'Companion'='netlink-companion.exe'}
+        if($isMaster){$links['Console docente']='netlink-master.exe'}
+        foreach($label in $links.Keys) {
+            $shortcut=$shell.CreateShortcut((Join-Path $app ('StartMenu/'+$label+'.lnk')))
+            try {
+                if($shortcut.TargetPath-ne(Join-Path $app $links[$label])){throw "Wrong shortcut target: $label"}
+            } finally {[void][Runtime.InteropServices.Marshal]::ReleaseComObject($shortcut)}
+        }
+    } finally {[void][Runtime.InteropServices.Marshal]::ReleaseComObject($shell)}
+    if(Test-Path -LiteralPath (Join-Path $app 'payload-client.sha256')){throw 'Packaging-only Client manifest was installed'}
+    $entry=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($registry+'\Uninstall')
+    try {
+        if(!$entry -or $entry.GetValue('InstallationRole')-ne$role){throw 'Installed role not persisted'}
+        if($entry.GetValue('DisplayIcon')-ne(Join-Path $app 'netlink-configurator.exe')){throw 'Uninstall icon refers to optional Master'}
+    } finally {if($entry){$entry.Dispose()}}
+    $expectedManifest=if($isMaster){'payload.sha256'}else{'payload-client.sha256'}
+    if((Get-FileHash -LiteralPath (Join-Path $app 'payload.sha256')).Hash-ne(Get-FileHash -LiteralPath (Join-Path $payload $expectedManifest)).Hash){throw 'Role integrity manifest mismatch'}
+    RunInstaller $Helper ('verify "'+$app+'"')
+    $settings=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($registry+'\Configuration\Authentication')
+    try {if($settings.GetValue('OtherSetting')-ne'PRESERVE ON UPGRADE - REMOVE ON PURGE'){throw 'Role change lost configuration'}} finally {$settings.Dispose()}
+    if((Get-FileHash -LiteralPath (Join-Path $root 'keys/netlink_test')).Hash-ne$keyHash -or (Get-Acl -LiteralPath (Join-Path $root 'keys/netlink_test')).Sddl-ne$keyAcl){throw 'Role change modified key or ACL'}
+}
 try {
     & (Join-Path $Toolchain 'bin/makensis.exe') '/INPUTCHARSET' 'UTF8' "/DNETLINK_INSTALLER_FIXTURE" "/DFIXTURE_ID=$id" "/DFIXTURE_ROOT=$root" "/DFIXTURE_REGKEY=$registry" "/DREPOROOT=$repoRoot" "/DOUTPUT=$root" "/DPAYLOAD=$payload" (Join-Path $repoRoot 'packaging/veyon-school.nsi') | Out-Null
     if($LASTEXITCODE-ne0){throw 'Full installer fixture compilation failed'}
-    $installer=Join-Path $root 'NetLink-1.0.0-alpha.20-win64-setup.exe'
+    $installer=Join-Path $root 'NetLink-1.0.0-alpha.21-win64-setup.exe'
     $oldHashes=@{};Get-ChildItem -LiteralPath $app -File | ForEach-Object {$oldHashes[$_.Name]=(Get-FileHash -LiteralPath $_.FullName).Hash}
     $loaded=Start-Process -FilePath $Helper -ArgumentList ('hold-image "'+$app+'"') -WindowStyle Hidden -PassThru
     try {
@@ -69,6 +106,29 @@ try {
         $loaded.Dispose()
     }
     RunInstaller $installer '/S'
+    CheckRole 'Client'
+    RunInstaller $installer '/S /Role=Master'
+    CheckRole 'Master'
+    # A full installation predating role metadata must not lose its Console.
+    $entry=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($registry+'\Uninstall',$true)
+    try {$entry.DeleteValue('InstallationRole')} finally {$entry.Dispose()}
+    RunInstaller $installer '/S'
+    CheckRole 'Master'
+    # Upgrades without a role argument must retain the explicitly chosen role.
+    RunInstaller $installer '/S'
+    CheckRole 'Master'
+    $heldMaster=[IO.File]::Open((Join-Path $app 'netlink-master.exe'),[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+    try {RunInstaller $installer '/S /Role=Client' 3010} finally {$heldMaster.Dispose()}
+    CheckRole 'Master'
+    RunInstaller $installer '/S /Role=Client'
+    CheckRole 'Client'
+    RunInstaller $installer '/S'
+    CheckRole 'Client'
+    $beforeActions=@(Get-Content -LiteralPath (Join-Path $root 'maintenance-actions.txt')).Count
+    RunInstaller $installer '/S /Role=Unknown' 2
+    RunInstaller $installer '/S /Role=' 2
+    if(@(Get-Content -LiteralPath (Join-Path $root 'maintenance-actions.txt')).Count-ne$beforeActions){throw 'Invalid role started maintenance'}
+    CheckRole 'Client'
     if(!(Test-Path -LiteralPath (Join-Path $app 'platforms/qwindows.dll'))){throw 'Incomplete installation was not repaired'}
     $settings=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($registry+'\Configuration\Authentication')
     if($settings.GetValue('OtherSetting')-ne'PRESERVE ON UPGRADE - REMOVE ON PURGE'){throw 'Upgrade lost configuration'}
@@ -92,8 +152,8 @@ try {
     $settings.Dispose()
     if((Get-FileHash -LiteralPath (Join-Path $root 'keys/netlink_test')).Hash-ne$keyHash -or (Get-Acl -LiteralPath (Join-Path $root 'keys/netlink_test')).Sddl-ne$keyAcl){throw 'Key contents/ACL changed'}
     $calls=@(Get-Content -LiteralPath (Join-Path $root 'cli-actions.txt'))
-    if($calls.Count-ne8 -or @($calls | Where-Object {$_-match'config export|service stop|service unregister'}).Count){throw 'Old/uninstall CLI was unexpectedly executed'}
-    Write-Output 'PASS: real mapped DLL blocked the production NSIS flow before any payload copy/CLI/service removal; retry after unload succeeded, repaired interrupted installation, preserved configuration, purged files/folder and isolated settings, reinstalled/uninstalled; key hash and ACL unchanged. Service/firewall commands deliberately simulated.'
+    if($calls.Count-ne28 -or @($calls | Where-Object {$_-match'config export|service stop|service unregister'}).Count){throw 'Old/uninstall CLI was unexpectedly executed'}
+    Write-Output 'PASS: mapped DLL and in-use Master EXE block copying/removal; fresh Client, Client/Master transitions, role persistence, invalid roles, manifests, Start shortcuts, interrupted installation, purge/reinstall/uninstall verified; settings and key hash/ACL preserved. Service/firewall deliberately simulated.'
 } finally {
     # Exact test-only HKCU subtree. Never enumerate or delete product settings.
     [Microsoft.Win32.Registry]::CurrentUser.DeleteSubKeyTree($registry,$false)

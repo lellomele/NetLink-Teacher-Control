@@ -128,6 +128,11 @@ Un file occupato termina con 3010 e richiesta esplicita di riavvio; i problemi
 di permessi sono distinti. Nessun riavvio/arresto processi forzato o opzione Ignora.
 Il controllo non impedisce riaperture successive e non offre rollback transazionale.
 Il pacchetto usa una lista esplicita di otto EXE ignorando output obsoleti.
+L'installer offre i ruoli Master/Client conservati negli aggiornamenti. Client
+omette solo EXE/collegamento Master. Genera manifesti SHA-256 completo/client;
+installa solo quello scelto come payload.sha256. Il controllo completo verifica
+anche l'EXE Master esistente prima della rimozione in modalità Client. Le prove
+isolate coprono cambi di ruolo, persistenza, argomenti errati e collegamenti.
 
 Solo i sette EXE legacy noti nella directory fissa del fork sono rimossi dopo
 l'avvio del nuovo servizio. La reinstallazione alpha.9 o successiva preferisce

@@ -1,4 +1,4 @@
-param([string]$Package='dist/NetLink-1.0.0-alpha.20-win64',[string]$Manifest='dist/package-manifest.json')
+param([string]$Package='dist/NetLink-1.0.0-alpha.21-win64',[string]$Manifest='dist/package-manifest.json')
 $ErrorActionPreference='Stop'
 $repoRoot=Split-Path $PSScriptRoot
 $packageRoot=(Resolve-Path -LiteralPath (Join-Path $repoRoot $Package)).Path
@@ -23,6 +23,11 @@ foreach($file in $files) {
 }
 foreach($name in @('netlink-master.exe','netlink-configurator.exe','netlink-service.exe','netlink-server.exe','netlink-worker.exe','netlink-cli.exe','netlink-wcli.exe','netlink-companion.exe','netlink-maintenance.exe')) {
     $file=Get-Item -LiteralPath (Join-Path $packageRoot $name)
-    if($file.VersionInfo.FileVersion -ne '4.7.5-netlink.1.0.0-alpha.20' -or $file.VersionInfo.OriginalFilename -ne $name){throw "Wrong application version/identity: $name"}
+    if($file.VersionInfo.FileVersion -ne '4.7.5-netlink.1.0.0-alpha.21' -or $file.VersionInfo.OriginalFilename -ne $name){throw "Wrong application version/identity: $name"}
 }
+$fullHashes=@(Get-Content -LiteralPath (Join-Path $packageRoot 'payload.sha256'))
+$clientHashes=@(Get-Content -LiteralPath (Join-Path $packageRoot 'payload-client.sha256'))
+if(@($fullHashes | Where-Object {$_ -match '  netlink-master\.exe$'}).Count-ne1){throw 'Master missing/duplicated in full manifest'}
+$expectedClient=@($fullHashes | Where-Object {$_ -notmatch '  netlink-master\.exe$'})
+if(($clientHashes -join "`n")-cne($expectedClient -join "`n")){throw 'Client manifest must omit only netlink-master.exe'}
 Write-Output "Verified $($files.Count) files, SHA-256 manifest, application versions and runtime exclusions."

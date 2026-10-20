@@ -3,7 +3,7 @@ $ErrorActionPreference='Stop'
 $repoRoot=Split-Path $PSScriptRoot
 $buildRoot=(Resolve-Path (Join-Path $repoRoot $Build)).Path
 $distRoot=Join-Path $repoRoot 'dist'
-$packageRoot=Join-Path $distRoot 'NetLink-1.0.0-alpha.20-win64'
+$packageRoot=Join-Path $distRoot 'NetLink-1.0.0-alpha.21-win64'
 if(Test-Path -LiteralPath $packageRoot){throw "Use a fresh package directory; existing files will not be overwritten: $packageRoot"}
 New-Item -ItemType Directory -Path $packageRoot | Out-Null
 foreach($dir in @('plugins','platforms','imageformats','crypto','translations','licenses')){New-Item -ItemType Directory -Path (Join-Path $packageRoot $dir) | Out-Null}
@@ -31,6 +31,7 @@ Copy-Item -LiteralPath (Join-Path $repoRoot 'COPYING.GPL3') -Destination (Join-P
 Copy-Item -LiteralPath (Join-Path $repoRoot 'COPYING') -Destination (Join-Path $packageRoot 'licenses/Veyon-GPL-2.0.txt')
 Copy-Item -LiteralPath (Join-Path $repoRoot 'COPYING.GPL3') -Destination (Join-Path $packageRoot 'licenses/GPL-3.0.txt')
 Copy-Item -LiteralPath (Join-Path $repoRoot 'README.md') -Destination (Join-Path $packageRoot 'README.txt')
+Copy-Item -LiteralPath (Join-Path $repoRoot 'README.it.md') -Destination (Join-Path $packageRoot 'README.it.md')
 & (Join-Path $PSScriptRoot 'verify-hook.ps1') -HookPath (Join-Path $packageRoot 'vnchooks.dll') -Toolchain $Toolchain
 $translationTool=Join-Path $Toolchain 'bin/lrelease-qt5.exe'
 Get-ChildItem -LiteralPath (Join-Path $repoRoot 'translations') -Filter '*.ts' | ForEach-Object {
@@ -64,7 +65,13 @@ foreach($source in @((Join-Path $Toolchain 'share/licenses'))){
 $manifest=Get-ChildItem -LiteralPath $packageRoot -Recurse -File | ForEach-Object {[pscustomobject]@{path=$_.FullName.Substring($packageRoot.Length+1).Replace('\','/');bytes=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}}
 $payloadHashes=$manifest | ForEach-Object {$_.sha256.ToLowerInvariant()+'  '+$_.path}
 [IO.File]::WriteAllLines((Join-Path $packageRoot 'payload.sha256'),[string[]]$payloadHashes,[Text.UTF8Encoding]::new($false))
-$manifest+= [pscustomobject]@{path='payload.sha256';bytes=(Get-Item -LiteralPath (Join-Path $packageRoot 'payload.sha256')).Length;sha256=(Get-FileHash -LiteralPath (Join-Path $packageRoot 'payload.sha256') -Algorithm SHA256).Hash}
+# Both roles share the runtime; only Master installs the teacher executable.
+# The installed canonical manifest must match exactly the selected role.
+$clientHashes=$manifest | Where-Object path -ne 'netlink-master.exe' | ForEach-Object {$_.sha256.ToLowerInvariant()+'  '+$_.path}
+[IO.File]::WriteAllLines((Join-Path $packageRoot 'payload-client.sha256'),[string[]]$clientHashes,[Text.UTF8Encoding]::new($false))
+foreach($name in @('payload.sha256','payload-client.sha256')) {
+    $manifest+= [pscustomobject]@{path=$name;bytes=(Get-Item -LiteralPath (Join-Path $packageRoot $name)).Length;sha256=(Get-FileHash -LiteralPath (Join-Path $packageRoot $name) -Algorithm SHA256).Hash}
+}
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $distRoot 'package-manifest.json') -Encoding UTF8
 # Build-generated manifest is not source code. Use a reproducible installer payload.
 if(!$SkipInstaller){

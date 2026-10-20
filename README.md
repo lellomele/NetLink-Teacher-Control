@@ -6,7 +6,7 @@ NetLink is a Windows classroom-management suite based on **Veyon 4.7.5**.
 It integrates remote control, WFP InternetGuard, student names, class–room profiles,
 automatic client discovery and Companion diagnostics, without external plugins.
 
-**Pre-release 1.0.0-alpha.20: use with awareness of its limitations.**
+**Pre-release 1.0.0-alpha.21: use with awareness of its limitations.**
 
 ## Features
 
@@ -37,8 +37,9 @@ automatic client discovery and Companion diagnostics, without external plugins.
 2. Save a Configurator JSON export and back up authentication keys separately.
    The JSON does not contain private keys.
 3. Close Teacher Console, Configurator and Companion. Install the full package
-   as administrator on the teacher and client PCs, without uninstalling first
-   or regenerating working keys.
+   as administrator, selecting **Master** for the teacher PC or **Client** for
+   student PCs. Client includes Configurator, Companion and the required service,
+   without Teacher Console. No prior uninstall or key regeneration is needed.
 4. If files are in use or removal is pending, restart Windows and run the
    package again. Do not replace individual DLLs or skip files.
 

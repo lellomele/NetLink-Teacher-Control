@@ -18,10 +18,34 @@ Non collocare chiavi o documenti personali nella cartella del programma.
 1. Chiudere Console docente, Configurator e Companion.
 2. Eseguire l'installer come amministratore sul docente e sui client.
    Non occorre disinstallare prima né rigenerare chiavi già funzionanti.
+   Scegliere **Master** sul docente oppure **Client** sulle postazioni studenti.
 3. Il programma verifica i file prima della copia. Se sono occupati o vi sono
    rimozioni pendenti, chiudere l'installer, scegliere Riavvia in Windows e
    rieseguire il pacchetto completo. Nessuna DLL può essere ignorata.
 4. Verificare versione, servizio, icona, configurazione, autenticazione e miniatura.
+
+### Master / Client
+
+Un solo installer permette entrambi i ruoli. **Master** include Console docente,
+Configurator, Companion e servizio/runtime. **Client** installa gli stessi
+servizio/runtime necessari, Configurator e Companion, ma non `netlink-master.exe`
+né il suo collegamento Start. Le librerie/plugin condivisi restano necessari:
+è una scelta d'installazione, non un nuovo confine di autorizzazione.
+
+Una nuova installazione propone Client. Gli aggiornamenti conservano il ruolo
+scelto; le vecchie installazioni complete con eseguibile docente propongono Master.
+Per cambiare ruolo, rieseguire l'installer e selezionare l'altra opzione.
+Client rimuove anche la Console già presente e il suo collegamento. Chiudere prima
+la Console; file occupati richiedono riavvio prima di qualsiasi copia o rimozione.
+La scelta non modifica configurazione, file delle chiavi o permessi.
+Client non cancella un'eventuale chiave privata esistente: conservare le private
+soltanto sui Master autorizzati.
+
+Per installazione non interattiva usare `/S /Role=Client` oppure `/S /Role=Master`.
+Senza `/Role=` viene mantenuto il ruolo (Client se l'installazione è nuova).
+Altri valori sono rifiutati prima della manutenzione. `/Master=hostname` è un'opzione
+separata per la destinazione discovery diretto, non seleziona il ruolo.
+Disinstallazione e recupero sono uguali per entrambi i ruoli.
 
 Gli eseguibili sono `netlink-master.exe`, `netlink-configurator.exe`,
 `netlink-service.exe`, `netlink-server.exe`, `netlink-worker.exe`,

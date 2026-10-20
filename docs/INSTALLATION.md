@@ -18,10 +18,33 @@ Do not store keys or personal documents in the program directory.
 1. Close Teacher Console, Configurator and Companion.
 2. Run the installer as administrator on teacher and client PCs.
    No prior uninstall or regeneration of working keys is required.
+   Choose **Master** on the teacher PC or **Client** on student PCs.
 3. Files are checked before copying. If files are busy or removal is pending,
    close setup, choose Restart in Windows and run the complete package again.
    DLLs cannot be skipped.
 4. Verify version, service, tray icon, configuration, authentication and thumbnails.
+
+### Master / Client
+
+One installer supports both roles. **Master** includes Teacher Console,
+Configurator, Companion and the service/runtime. **Client** installs the same
+required service/runtime, Configurator and Companion, but not
+`netlink-master.exe` or its Start shortcut. Shared libraries/plugins remain
+necessary; this is an installation choice, not a new authorization boundary.
+
+Fresh installations default to Client. Updates retain the last installed role;
+older full installations with the teacher executable default to Master.
+To switch roles, rerun the installer and select the other option. Choosing Client
+also removes a previously installed Console and its shortcut. Close Console first;
+busy files require a restart before any copying or removal. Configuration, key
+files and their permissions are not changed by the role selection. Selecting Client
+does not remove any existing private key: keep private keys only on authorized Masters.
+
+For unattended installation use `/S /Role=Client` or `/S /Role=Master`.
+Without `/Role=`, setup retains the role (Client on fresh installs).
+Other role values are rejected before maintenance. `/Master=hostname` is a
+separate option for the direct discovery destination; it does not select the role.
+Uninstall and recovery remain the same for both roles.
 
 Executables are `netlink-master.exe`, `netlink-configurator.exe`,
 `netlink-service.exe`, `netlink-server.exe`, `netlink-worker.exe`,

@@ -3,9 +3,15 @@ Unicode true
 !include "LogicLib.nsh"
 !include "x64.nsh"
 !include "FileFunc.nsh"
+!include "nsDialogs.nsh"
 !include "${REPOROOT}\packaging\NetLinkUpgrade.nsh"
 Var PurgeSettings
 Var MaintenanceMutex
+Var InstallationRole
+Var RoleDialog
+Var MasterRadio
+Var ClientRadio
+Var StartMenuDir
 !ifdef NETLINK_INSTALLER_FIXTURE
  !define APPREGROOT HKCU
  !define APPREGKEY "${FIXTURE_REGKEY}\Uninstall"
@@ -20,8 +26,8 @@ Var MaintenanceMutex
  !define LOCKNAME "Global\NetLinkInstallerMaintenance"
  RequestExecutionLevel admin
 !endif
-Name "NetLink 1.0.0 alpha.20"
-OutFile "${OUTPUT}\NetLink-1.0.0-alpha.20-win64-setup.exe"
+Name "NetLink 1.0.0 alpha.21"
+OutFile "${OUTPUT}\NetLink-1.0.0-alpha.21-win64-setup.exe"
 InstallDir "$PROGRAMFILES64\Veyon School"
 SetCompressor /SOLID lzma
 AllowSkipFiles off
@@ -29,15 +35,16 @@ AllowSkipFiles off
 !define MUI_UNICON "${REPOROOT}\branding\netlink.ico"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "${REPOROOT}\COPYING.GPL3"
+Page custom RolePageCreate RolePageLeave
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "Italian"
-VIProductVersion "1.0.0.20"
+VIProductVersion "1.0.0.21"
 VIAddVersionKey /LANG=1040 "ProductName" "NetLink"
 VIAddVersionKey /LANG=1040 "FileDescription" "NetLink installer (pre-release)"
-VIAddVersionKey /LANG=1040 "FileVersion" "1.0.0-alpha.20"
+VIAddVersionKey /LANG=1040 "FileVersion" "1.0.0-alpha.21"
 VIAddVersionKey /LANG=1040 "LegalCopyright" "Copyright (c) 2025-26 prof. Ing. Raffaele Mele; Veyon e contributori"
 Function .onInit
  System::Call 'kernel32::CreateMutexW(p 0, i 0, w "${LOCKNAME}") p .r0 ?e'
@@ -52,6 +59,37 @@ Function .onInit
    Abort
  ${EndIf}
  SetRegView 64
+ ; Retain the installed role. Older full installations are Masters; a fresh
+ ; installation defaults to Client so the teacher UI is not deployed by mistake.
+ ReadRegStr $InstallationRole ${APPREGROOT} "${APPREGKEY}" "InstallationRole"
+ ${If} $InstallationRole != "Master"
+ ${AndIf} $InstallationRole != "Client"
+   StrCpy $InstallationRole "Client"
+   !ifdef NETLINK_INSTALLER_FIXTURE
+     StrCpy $R2 "${FIXTURE_ROOT}\NetLinkFixtureApp"
+   !else
+     StrCpy $R2 "$PROGRAMFILES64\Veyon School"
+   !endif
+   ${If} ${FileExists} "$R2\netlink-master.exe"
+   ${OrIf} ${FileExists} "$R2\veyon-master.exe"
+     StrCpy $InstallationRole "Master"
+   ${EndIf}
+ ${EndIf}
+ ${GetParameters} $R0
+ ClearErrors
+ ${GetOptions} $R0 "/Role=" $R1
+ ${IfNot} ${Errors}
+   ${If} $R1 == "Master"
+     StrCpy $InstallationRole "Master"
+   ${ElseIf} $R1 == "Client"
+     StrCpy $InstallationRole "Client"
+   ${Else}
+     SetErrorLevel 2
+     IfSilent +2
+     MessageBox MB_OK|MB_ICONSTOP "Ruolo non valido. Usare /Role=Master oppure /Role=Client. Nessun file o impostazione è stato modificato."
+     Quit
+   ${EndIf}
+ ${EndIf}
  ; Fixed protected destination: student accounts must not be able to replace SYSTEM executables.
  !ifdef NETLINK_INSTALLER_FIXTURE
  StrCpy $INSTDIR "${FIXTURE_ROOT}\NetLinkFixtureApp"
@@ -78,6 +116,38 @@ Function .onInit
    ${EndIf}
  ${EndIf}
  !endif
+FunctionEnd
+Function RolePageCreate
+ !insertmacro MUI_HEADER_TEXT "Tipo di installazione" "Scegli il ruolo di questo PC: Master oppure Client."
+ nsDialogs::Create 1018
+ Pop $RoleDialog
+ ${If} $RoleDialog == error
+   Abort
+ ${EndIf}
+ ${NSD_CreateLabel} 0 0 100% 24u "Entrambe le opzioni includono Configurator, Companion e il servizio NetLink. Configurazione e chiavi esistenti vengono conservate."
+ Pop $0
+ ${NSD_CreateRadioButton} 0 34u 100% 14u "Master"
+ Pop $MasterRadio
+ ${NSD_CreateLabel} 12u 52u 94% 24u "Include anche la Console docente, per visualizzare e controllare i client."
+ Pop $0
+ ${NSD_CreateRadioButton} 0 86u 100% 14u "Client"
+ Pop $ClientRadio
+ ${NSD_CreateLabel} 12u 104u 94% 36u "Non installa la Console docente. Se già presente, la rimuove insieme al suo collegamento. Il PC resta controllabile dal Master."
+ Pop $0
+ ${If} $InstallationRole == "Master"
+   ${NSD_Check} $MasterRadio
+ ${Else}
+   ${NSD_Check} $ClientRadio
+ ${EndIf}
+ nsDialogs::Show
+FunctionEnd
+Function RolePageLeave
+ ${NSD_GetState} $MasterRadio $0
+ ${If} $0 == ${BST_CHECKED}
+   StrCpy $InstallationRole "Master"
+ ${Else}
+   StrCpy $InstallationRole "Client"
+ ${EndIf}
 FunctionEnd
 Function un.onInit
  System::Call 'kernel32::CreateMutexW(p 0, i 0, w "${LOCKNAME}") p .r0 ?e'
@@ -148,9 +218,26 @@ Section "NetLink"
  !insertmacro RunMaintenance "quiesce" "Impossibile arrestare il servizio per verificare i file; chiudere le applicazioni e riavviare"
  !insertmacro CheckInstallerReady "check-files" ' "$PLUGINSDIR\replacement.sha256"'
  !insertmacro RunMaintenance "stop" "Impossibile arrestare/rimuovere il servizio precedente; chiudere le applicazioni e riavviare"
+ ; The full replacement plan also probes the Master EXE before removing it.
+ ; Do not defer this removal to reboot: a Client install must not report success
+ ; while leaving an executable teacher console behind.
+ ${If} $InstallationRole == "Client"
+   ClearErrors
+   Delete "$INSTDIR\netlink-master.exe"
+   Delete "$INSTDIR\veyon-master.exe"
+   ${If} ${Errors}
+     Abort "Impossibile rimuovere la Console docente. Chiudi NetLink, riavvia e ripeti l'installer scegliendo Client. Configurazione e chiavi sono conservate."
+   ${EndIf}
+ ${EndIf}
  SetOutPath "$INSTDIR"
  ClearErrors
- File /r "${PAYLOAD}\*"
+ File /r /x netlink-master.exe /x payload.sha256 /x payload-client.sha256 "${PAYLOAD}\*"
+ ${If} $InstallationRole == "Master"
+   File "${PAYLOAD}\netlink-master.exe"
+   File /oname=payload.sha256 "${PAYLOAD}\payload.sha256"
+ ${Else}
+   File /oname=payload.sha256 "${PAYLOAD}\payload-client.sha256"
+ ${EndIf}
  ${If} ${Errors}
    Abort "Copia dei file incompleta. Chiudere le applicazioni, riavviare Windows e ripetere l'installer completo; non sostituire singole DLL."
  ${EndIf}
@@ -202,19 +289,33 @@ Section "NetLink"
  ; an in-use legacy EXE is removed on reboot, never by killing a user process.
  !insertmacro NetLinkRetireLegacyExecutables
  ; Preserve installation path/service identity for existing settings and keys.
+ !ifdef NETLINK_INSTALLER_FIXTURE
+ StrCpy $StartMenuDir "$INSTDIR\StartMenu"
+ !else
+ StrCpy $StartMenuDir "$SMPROGRAMS\NetLink"
+ !endif
+ ClearErrors
+ CreateDirectory "$StartMenuDir"
+ ${If} $InstallationRole == "Master"
+   CreateShortcut "$StartMenuDir\Console docente.lnk" "$INSTDIR\netlink-master.exe"
+ ${Else}
+   Delete "$StartMenuDir\Console docente.lnk"
+ ${EndIf}
+ CreateShortcut "$StartMenuDir\Configurator.lnk" "$INSTDIR\netlink-configurator.exe"
+ CreateShortcut "$StartMenuDir\Companion.lnk" "$INSTDIR\netlink-companion.exe"
+ ${If} ${Errors}
+   Abort "Aggiornamento collegamenti Start non riuscito. Ripetere l'installer completo."
+ ${EndIf}
  !ifndef NETLINK_INSTALLER_FIXTURE
- CreateDirectory "$SMPROGRAMS\NetLink"
- CreateShortcut "$SMPROGRAMS\NetLink\Console docente.lnk" "$INSTDIR\netlink-master.exe"
- CreateShortcut "$SMPROGRAMS\NetLink\Configurator.lnk" "$INSTDIR\netlink-configurator.exe"
- CreateShortcut "$SMPROGRAMS\NetLink\Companion.lnk" "$INSTDIR\netlink-companion.exe"
  Delete "$SMPROGRAMS\Veyon School\Master.lnk"
  Delete "$SMPROGRAMS\Veyon School\Configurator.lnk"
  RMDir "$SMPROGRAMS\Veyon School"
  !endif
- WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayName" "NetLink 1.0.0 alpha.20"
- WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayVersion" "1.0.0-alpha.20"
+ WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayName" "NetLink 1.0.0 alpha.21"
+ WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayVersion" "1.0.0-alpha.21"
+ WriteRegStr ${APPREGROOT} "${APPREGKEY}" "InstallationRole" "$InstallationRole"
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
- WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayIcon" "$INSTDIR\netlink-master.exe"
+ WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayIcon" "$INSTDIR\netlink-configurator.exe"
 SectionEnd
 Section "Uninstall"
  SetRegView 64

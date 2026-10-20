@@ -20,6 +20,10 @@ Do not share private keys, passwords or full reports without anonymization.
    TCP success is insufficient. Record initial time and CPU/memory load.
 5. Use actual addresses or resolvable hostnames: DHCP can change IP addresses.
    Do not put documentation examples into the configuration.
+6. Install **Master** on the teacher and **Client** on students. Check that Client
+   has Configurator/Companion/service, no teacher EXE/shortcut, and remains remotely
+   controllable. Test updates retaining the role and switching both ways, with
+   configuration/keys unchanged. Repeat uninstall/reinstall for each role.
 
 ## Console, appearance and remote control
 

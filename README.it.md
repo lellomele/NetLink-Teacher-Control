@@ -6,7 +6,7 @@ Suite NetLink per la gestione delle aule Windows, basata su **Veyon 4.7.5**.
 Integra controllo remoto, InternetGuard WFP, Appello, profili classe–aula,
 ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
 
-**Versione preliminare 1.0.0-alpha.20: usare consapevolmente.**
+**Versione preliminare 1.0.0-alpha.21: usare consapevolmente.**
 
 ## Funzionalità
 
@@ -39,8 +39,9 @@ ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
 2. Conservare un'esportazione JSON del Configurator e, separatamente, le chiavi.
    Il JSON non contiene le chiavi private.
 3. Chiudere Console docente, Configurator e Companion. Installare il pacchetto
-   completo come amministratore sul docente e sui client, senza disinstallare
-   preventivamente o rigenerare le chiavi già funzionanti.
+   completo come amministratore: scegliere **Master** sul docente oppure **Client**
+   sugli studenti. Client include Configurator, Companion e il servizio necessario,
+   senza Console docente. Non occorre disinstallare o rigenerare chiavi funzionanti.
 4. Se l'installer segnala file in uso o rimozioni pendenti, riavviare Windows e
    rieseguire il pacchetto. Non sostituire singole DLL e non saltare file.
 

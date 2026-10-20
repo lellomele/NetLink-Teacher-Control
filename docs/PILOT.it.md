@@ -20,6 +20,11 @@ Non condividere chiavi private, password o rapporti completi non anonimizzati.
    Un TCP positivo non basta. Annotare carico CPU/memoria e orario iniziale.
 5. Usare gli indirizzi effettivi delle postazioni o hostname risolvibili:
    DHCP può cambiare gli IP. Non inserire nella configurazione esempi documentali.
+6. Installare **Master** sul docente e **Client** sugli studenti. Verificare sul Client
+   Configurator/Companion/servizio, assenza di EXE/collegamento docente e controllo
+   remoto funzionante. Provare aggiornamenti con ruolo conservato e cambio in entrambe
+   le direzioni, senza variazioni di configurazione/chiavi. Ripetere rimozione e
+   reinstallazione per ciascun ruolo.
 
 ## Console, aspetto e controllo remoto
 
