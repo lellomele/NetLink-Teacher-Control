@@ -1,4 +1,5 @@
-param([string]$Output='build-qt51519',[string]$MsysRoot='C:/msys64')
+param([string]$Output='build-qt51519',[string]$MsysRoot='C:/msys64',
+    [string]$PackageCache=(Join-Path $MsysRoot 'var/cache/pacman/pkg'))
 $ErrorActionPreference='Stop'
 $repoRoot=Split-Path $PSScriptRoot
 $outputRoot=[IO.Path]::GetFullPath((Join-Path $repoRoot $Output))
@@ -16,7 +17,23 @@ if($LASTEXITCODE-ne0){throw 'Cannot resolve the MSYS extraction directory'}
 foreach($package in $packages) {
     $archive=Join-Path $cache $package.name
     if(!(Test-Path -LiteralPath $archive)) {
-        Invoke-WebRequest -Uri ('https://mirror.msys2.org/mingw/mingw64/'+[Uri]::EscapeDataString($package.name)) -OutFile $archive -TimeoutSec 120
+        $cached=Join-Path $PackageCache $package.name
+        if((Test-Path -LiteralPath $cached) -and (Get-FileHash -LiteralPath $cached -Algorithm SHA256).Hash.ToLowerInvariant()-eq$package.sha256) {
+            Copy-Item -LiteralPath $cached -Destination $archive
+        } else {
+            foreach($mirror in @('https://repo.msys2.org/mingw/mingw64','https://mirror.msys2.org/mingw/mingw64')) {
+                $partial=Join-Path $cache ([Guid]::NewGuid().ToString('N')+'.download')
+                try {
+                    Invoke-WebRequest -Uri ($mirror+'/'+$package.name) -OutFile $partial -TimeoutSec 120
+                    if((Get-FileHash -LiteralPath $partial -Algorithm SHA256).Hash.ToLowerInvariant()-ne$package.sha256){throw 'Downloaded package checksum mismatch'}
+                    Move-Item -LiteralPath $partial -Destination $archive
+                    break
+                } catch {
+                    Write-Warning "Could not obtain verified $($package.name) from $mirror; trying the next official endpoint."
+                }
+            }
+            if(!(Test-Path -LiteralPath $archive)){throw "No official endpoint supplied the pinned Qt package: $($package.name)"}
+        }
     }
     if((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()-ne$package.sha256){throw "Qt package integrity mismatch: $($package.name)"}
     $entries=& $tar --force-local -tf $archive

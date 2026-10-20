@@ -32,8 +32,9 @@ Non mescolare UCRT64 e MinGW64.
 In PowerShell aggiungere `C:\msys64\mingw64\bin` a PATH e configurare:
 
 Per il runtime Qt/KDE verificato eseguire prima `./packaging/prepare-qt51519.ps1`.
-Controlla gli SHA-256 dei due pacchetti MSYS2 fissati ed estrae Qt base
-5.15.19+kde+r96-1 e tools 5.15.19-1 nel nuovo prefisso `build-qt51519/mingw64`,
+Controlla gli SHA-256 dei due pacchetti MSYS2 fissati, riutilizzando la cache
+pacman se disponibile oppure recuperandoli dagli endpoint HTTPS ufficiali.
+Estrae Qt base 5.15.19+kde+r96-1 e tools 5.15.19-1 nel nuovo prefisso `build-qt51519/mingw64`,
 senza installare o sostituire pacchetti globali. Anteporre la sua cartella `bin`
 a quella del compilatore in PATH e usare
 `"-DCMAKE_PREFIX_PATH=$PWD/build-qt51519/mingw64;C:/msys64/mingw64"`
