@@ -23,6 +23,8 @@
  */
 
 #include <QApplication>
+#include <QImage>
+#include <QLabel>
 
 #include <openssl/crypto.h>
 
@@ -41,6 +43,16 @@ int main( int argc, char **argv )
 
 	QCoreApplication* app = nullptr;
 
+	// Informational commands must work without any window-system plugin or GPU.
+	const auto informationalCommand = argc == 2 ? QString::fromLocal8Bit(argv[1]) : QString{};
+	if( informationalCommand == QLatin1String("about") ||
+		informationalCommand == QLatin1String("-v") ||
+		informationalCommand == QLatin1String("--version") )
+	{
+		app = new QCoreApplication( argc, argv );
+	}
+	else
+	{
 #ifdef Q_OS_LINUX
 	// do not create graphical application if DISPLAY is not available
 	if( qEnvironmentVariableIsSet( "DISPLAY" ) == false )
@@ -54,11 +66,35 @@ int main( int argc, char **argv )
 #else
 	app = new QApplication( argc, argv );
 #endif
+	}
 
 	const auto arguments = QCoreApplication::arguments();
 
 	if( arguments.count() == 2 )
 	{
+		if( arguments.last() == QLatin1String("graphics-check") )
+		{
+			if( qobject_cast<QApplication*>(app) == nullptr )
+			{
+				CommandLineIO::print(QStringLiteral("NetLink raster graphics startup: graphical session required"));
+				delete app;
+				return 1;
+			}
+			// Deliberately do not initialize VeyonCore/plugins or read/apply
+			// machine configuration: this is a harmless pre-install raster test.
+			QLabel label(QStringLiteral("NetLink raster startup check"));
+			label.resize(320,80);
+			label.ensurePolished();
+			QImage image(label.size(),QImage::Format_ARGB32_Premultiplied);
+			image.fill(Qt::transparent);
+			label.render(&image);
+			const bool successful = !image.isNull() &&
+				!QCoreApplication::testAttribute(Qt::AA_ShareOpenGLContexts);
+			CommandLineIO::print(successful ?
+				QStringLiteral("NetLink raster graphics startup: OK; OpenGL sharing: disabled; Qt %1").arg(QLatin1String(qVersion())) :
+				QStringLiteral("NetLink raster graphics startup: FAILED"));
+			return successful ? 0 : 1;
+		}
 		if( arguments.last() == QLatin1String("-v") || arguments.last() == QLatin1String("--version") )
 		{
 			CommandLineIO::print( VeyonCore::versionString() );

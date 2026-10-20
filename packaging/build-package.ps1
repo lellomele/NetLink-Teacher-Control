@@ -1,9 +1,17 @@
-param([string]$Build='build-school',[string]$Toolchain='C:/msys64/mingw64',[string]$QtPrefix=$Toolchain,[switch]$SkipInstaller)
+param([string]$Build='build-school',[string]$Toolchain='C:/msys64/mingw64',[string]$QtPrefix=$Toolchain,[switch]$SkipInstaller,[string]$BuildSuffix='')
 $ErrorActionPreference='Stop'
+if($BuildSuffix -and $BuildSuffix-notmatch'^-[a-zA-Z0-9][a-zA-Z0-9.-]*$'){throw 'Invalid diagnostic build suffix'}
 $repoRoot=Split-Path $PSScriptRoot
 $buildRoot=(Resolve-Path (Join-Path $repoRoot $Build)).Path
 $distRoot=Join-Path $repoRoot 'dist'
-$packageRoot=Join-Path $distRoot 'NetLink-1.0.0-alpha.24-win64'
+$packageRoot=Join-Path $distRoot "NetLink-1.0.0-alpha.25$BuildSuffix-win64"
+foreach($component in @('master','configurator','service','server','worker','cli','wcli','companion')) {
+    $directory=if($component-eq'wcli'){'cli'}else{$component}
+    $binary=Get-Item -LiteralPath (Join-Path $buildRoot "$directory/netlink-$component.exe")
+    if($binary.VersionInfo.FileVersion-ne"4.7.5-netlink.1.0.0-alpha.25$BuildSuffix") {
+        throw "Build/package version mismatch before copying: $($binary.Name)"
+    }
+}
 if(Test-Path -LiteralPath $packageRoot){throw "Use a fresh package directory; existing files will not be overwritten: $packageRoot"}
 New-Item -ItemType Directory -Path $packageRoot | Out-Null
 foreach($dir in @('plugins','platforms','imageformats','crypto','translations','licenses')){New-Item -ItemType Directory -Path (Join-Path $packageRoot $dir) | Out-Null}
@@ -91,7 +99,7 @@ foreach($name in (@('payload.sha256')+@($componentManifests.Keys))) {
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $distRoot 'package-manifest.json') -Encoding UTF8
 # Build-generated manifest is not source code. Use a reproducible installer payload.
 if(!$SkipInstaller){
-    & (Join-Path $Toolchain 'bin/makensis.exe') '/INPUTCHARSET' 'UTF8' "/DPAYLOAD=$packageRoot" "/DOUTPUT=$distRoot" "/DREPOROOT=$repoRoot" (Join-Path $PSScriptRoot 'veyon-school.nsi')
+    & (Join-Path $Toolchain 'bin/makensis.exe') '/INPUTCHARSET' 'UTF8' "/DNETLINK_BUILD_SUFFIX=$BuildSuffix" "/DPAYLOAD=$packageRoot" "/DOUTPUT=$distRoot" "/DREPOROOT=$repoRoot" (Join-Path $PSScriptRoot 'veyon-school.nsi')
     if($LASTEXITCODE-ne0){throw 'Installer compilation failed'}
 }
 Write-Output $packageRoot

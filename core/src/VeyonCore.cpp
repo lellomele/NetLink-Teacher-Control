@@ -211,7 +211,10 @@ void VeyonCore::setupApplicationParameters()
 	QCoreApplication::setOrganizationDomain( QStringLiteral( "veyon.io" ) );
 	QCoreApplication::setApplicationName( QStringLiteral( "Veyon" ) );
 
-	QCoreApplication::setAttribute( Qt::AA_ShareOpenGLContexts );
+	// The suite uses raster QWidget rendering, not QOpenGLWidget/QQuickWidget.
+	// A global share context would eagerly load graphics drivers even for the
+	// installer's service/config CLI commands, failing on some legacy GPUs.
+	QCoreApplication::setAttribute( Qt::AA_ShareOpenGLContexts, false );
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 	QApplication::setAttribute( Qt::AA_UseHighDpiPixmaps );
