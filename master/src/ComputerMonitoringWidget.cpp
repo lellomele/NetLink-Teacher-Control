@@ -34,6 +34,7 @@
 #include "VeyonMaster.h"
 #include "FeatureManager.h"
 #include "VeyonConfiguration.h"
+#include "ThumbnailActivation.h"
 
 
 ComputerMonitoringWidget::ComputerMonitoringWidget( QWidget *parent ) :
@@ -287,11 +288,14 @@ void ComputerMonitoringWidget::addSubFeaturesToMenu( const Feature& parentFeatur
 
 void ComputerMonitoringWidget::runDoubleClickFeature( const QModelIndex& index )
 {
-	const Feature& feature = VeyonCore::featureManager().feature( VeyonCore::config().computerDoubleClickFeature() );
+	const Feature& feature = VeyonCore::featureManager().feature( ThumbnailActivation::feature(
+		VeyonCore::config().computerDoubleClickFeature(),doubleClickModifiers()) );
+	// A shortcut must not re-enable a feature hidden by the administrator.
+	if(doubleClickModifiers().testFlag(Qt::ControlModifier) && !master()->features().contains(feature)) return;
 
 	if( index.isValid() && feature.isValid() )
 	{
-		selectionModel()->select( index, QItemSelectionModel::SelectCurrent );
+		ThumbnailActivation::selectTarget(selectionModel(),index,doubleClickModifiers());
 		runFeature( feature );
 	}
 }

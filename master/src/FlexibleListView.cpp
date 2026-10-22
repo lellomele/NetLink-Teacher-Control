@@ -25,6 +25,8 @@
 #include <QHelpEvent>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QMouseEvent>
+#include <QScopedValueRollback>
 #include <QUuid>
 
 #include "FlexibleListView.h"
@@ -36,6 +38,16 @@ FlexibleListView::FlexibleListView( QWidget* parent ) :
 	m_uidRole( Qt::UserRole )
 {
 	connect( this, &QListView::indexesMoved, this, &FlexibleListView::updatePositions );
+}
+
+
+void FlexibleListView::mouseDoubleClickEvent(QMouseEvent* event)
+{
+	// Keep the event's modifiers available while Qt emits doubleClicked. A
+	// global keyboard query later can miss Ctrl or observe a different event.
+	QScopedValueRollback<Qt::KeyboardModifiers> modifiers(m_doubleClickModifiers,
+		event->button()==Qt::LeftButton?event->modifiers():Qt::NoModifier);
+	QListView::mouseDoubleClickEvent(event);
 }
 
 

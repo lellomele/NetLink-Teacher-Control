@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QGridLayout>
 #include <QGroupBox>
+#include <QHostAddress>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QLabel>
@@ -40,6 +41,7 @@
 #include "BuiltinDirectoryConfiguration.h"
 #include "BuiltinDirectoryConfigurationPage.h"
 #include "NetworkObject.h"
+#include "ServiceNetworkAddresses.h"
 
 // Actual directory page with an isolated model: no VeyonCore initialization,
 // key generation, service launch, WFP or network connections in this suite.
@@ -319,6 +321,37 @@ private Q_SLOTS:
         QVERIFY(!standard->isHidden());QVERIFY(!advanced->isHidden());
         NetLinkUi::setPropertyVisibility(advanced,false);QVERIFY(advanced->isHidden());
         standard->hide();NetLinkUi::setPropertyVisibility(standard,true);QVERIFY(standard->isHidden());
+    }
+    void serviceAddressPrefersTheUsedIPv4WithoutLosingIPv6() {
+        using ServiceNetworkAddresses::preferred;
+        const QStringList all{"fe80::1%ethernet_2","172.24.176.1","192.0.2.25","2001:db8::25","198.51.100.10"};
+        QCOMPARE(preferred(all,{"192.0.2.25"},"198.51.100.10",{"172.24.176.1"}),QString("192.0.2.25"));
+        // IPv6 connection: the same interface's IPv4 wins over another route.
+        QCOMPARE(preferred(all,{"2001:db8::25"},"198.51.100.10",{}, {"192.0.2.25"}),QString("192.0.2.25"));
+        QCOMPARE(preferred(all,{},"192.0.2.25",{"172.24.176.1"}),QString("192.0.2.25"));
+        QCOMPARE(preferred(all,{},"203.0.113.99",{"192.0.2.25"}),QString("192.0.2.25"));
+        // A stale/non-listening address must never be invented by the selector.
+        QCOMPARE(preferred({"127.0.0.1"},{"192.0.2.25"},"192.0.2.25",{"192.0.2.25"}),QString("127.0.0.1"));
+        QCOMPARE(preferred({"::1"}),QString("::1"));
+        QCOMPARE(preferred({"0.0.0.0","::","not-an-IP","224.0.0.1","255.255.255.255","::ffff:0.0.0.0","::ffff:224.0.0.1"}),QString());
+        QCOMPARE(preferred({"fe80::1%7","2001:db8::25"},{"2001:db8::25"}),QString("2001:db8::25"));
+        QCOMPARE(preferred({"::ffff:192.0.2.25","2001:db8::25"}),QString("192.0.2.25"));
+        QCOMPARE(preferred({"169.254.1.2","192.0.2.25"},{"169.254.1.2"},"169.254.1.2"),QString("192.0.2.25"));
+        QCOMPARE(preferred({"169.254.1.2","fe80::1%7"}),QString("169.254.1.2"));
+        // Native lookup reads the route table only; networks without IPv4 are OK.
+        const auto routed=ServiceNetworkAddresses::routedIPv4();
+        QVERIFY(routed.isEmpty() || QHostAddress(routed).protocol()==QAbstractSocket::IPv4Protocol);
+    }
+    void serviceSnapshotShowsOneAddressAndKeepsOthersInDetails() {
+        NetLinkUi::ServiceSnapshot s;s.host="CLASSROOM-PC";s.port=11100;s.backendPort=11200;s.bindAddress="0.0.0.0";
+        s.localAddresses=QStringList{"fe80::1%ethernet_2","172.24.176.1","192.0.2.25","2001:db8::25"};
+        s.preferredAddress="192.0.2.25";s.listening=true;
+        const auto status=NetLinkUi::serviceSnapshot(s),summary=status.section("\n\n",0,0),details=status.section("\n\n",1);
+        QVERIFY(summary.contains("TCP 192.0.2.25:11100"));QVERIFY(!summary.contains(" +"));QVERIFY(summary.size()<=127);
+        QVERIFY(!summary.contains("fe80::"));QVERIFY(!summary.contains("172.24."));
+        for(const auto& address:s.localAddresses) QVERIFY(details.contains(address));
+        s.preferredAddress="203.0.113.100";s.localAddresses=QStringList{"192.0.2.30"};
+        QVERIFY(NetLinkUi::serviceSnapshot(s).section("\n\n",0,0).contains("192.0.2.30:11100"));
     }
     void serviceSnapshotSeparatesAuthenticationBackendAndVideo() {
         struct Restore {QLocale value;~Restore(){QLocale::setDefault(value);}} restore{QLocale()};QLocale::setDefault(QLocale("en_US"));

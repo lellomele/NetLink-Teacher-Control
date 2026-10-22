@@ -6,6 +6,7 @@
 #include "AboutDialog.h"
 #include "Feature.h"
 #include "NetLinkAppearance.h"
+#include "ServiceNetworkAddresses.h"
 #include "Configuration/UiMapping.h"
 #include <QApplication>
 #include <QGroupBox>
@@ -228,11 +229,11 @@ QString NetLinkUi::traySummary(const QString& host,int port,bool listening,bool 
 QString NetLinkUi::serviceSnapshot(const ServiceSnapshot& s) {
     const auto video=s.frameAgeMs>=0?text("frame sent"):s.authorized>0?text("waiting for frame"):text("idle");
     const auto backend=s.backendReady?text("VNC ready"):!s.backendChecked?text("not checked"):s.backendAvailable?text("TCP available"):text("not reachable");
-    auto address=s.localAddresses.isEmpty()?s.bindAddress:s.localAddresses.first();
+    auto address=ServiceNetworkAddresses::preferred(s.localAddresses,{s.preferredAddress});
+    if(address.isEmpty()) address=s.bindAddress;
     if(address.contains(QLatin1Char(':'))) address=QLatin1Char('[')+address+QLatin1Char(']');
-    const auto aliases=s.localAddresses.size()>1?QStringLiteral(" +%1").arg(s.localAddresses.size()-1):QString{};
-    const auto lines=QStringLiteral("\nTCP %1:%2%3%4\nVNC %5:%6%7\nVideo: %8")
-        .arg(address,QString::number(s.port),aliases,s.listening?QString{}:QStringLiteral(" !"),s.external?text("external"):text("built-in"),QString::number(s.backendPort),s.backendChecked && !s.backendAvailable && !s.backendReady?QStringLiteral(" !"):QString{},video);
+    const auto lines=QStringLiteral("\nTCP %1:%2%3\nVNC %4:%5%6\nVideo: %7")
+        .arg(address,QString::number(s.port),s.listening?QString{}:QStringLiteral(" !"),s.external?text("external"):text("built-in"),QString::number(s.backendPort),s.backendChecked && !s.backendAvailable && !s.backendReady?QStringLiteral(" !"):QString{},video);
     QString safeHost;
     for(const auto c:s.host) if(c.category()!=QChar::Other_Control && c.category()!=QChar::Other_Format) safeHost+=c;
     const auto hostBudget=qMax(0,127-8-lines.size());

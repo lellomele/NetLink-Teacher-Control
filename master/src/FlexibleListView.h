@@ -25,6 +25,7 @@
 #pragma once
 
 #include <QListView>
+#include <QUuid>
 
 class FlexibleListView : public QListView
 {
@@ -47,6 +48,8 @@ public:
 	void doItemsLayout() override;
 
 protected:
+	Qt::KeyboardModifiers doubleClickModifiers() const {return m_doubleClickModifiers;}
+	void mouseDoubleClickEvent(QMouseEvent* event) override;
 	bool viewportEvent( QEvent* event ) override;
 	void dataChanged( const QModelIndex& topLeft, const QModelIndex& bottomRight,
 					  const QVector<int>& roles ) override;
@@ -63,4 +66,5 @@ private:
 	QHash<QUuid, QPointF> m_positions;
 
 	QPoint m_toolTipPos;
+	Qt::KeyboardModifiers m_doubleClickModifiers{Qt::NoModifier};
 };

@@ -28,6 +28,7 @@
 #include <QNetworkInterface>
 #include <QTcpSocket>
 #include "NetLinkUi.h"
+#include "ServiceNetworkAddresses.h"
 
 #include "AccessControlProvider.h"
 #include "BuiltinFeatures.h"
@@ -315,6 +316,7 @@ void ComputerControlServer::updateTrayIconToolTip()
 	snapshot.authorized=m_trayAuthorizedClients.size();snapshot.pending=current.size()-snapshot.authorized;
 	snapshot.discovery=VeyonCore::config().schoolDiscoveryEnabled();
 	bool backendConnecting=false,backendConnected=false;
+	QStringList authenticatedAddresses,physicalIPv4,connectedInterfaceIPv4;
 	const auto addressText=[](const QHostAddress& address) {bool v4=false;const auto value=address.toIPv4Address(&v4);return v4?QHostAddress(value).toString():address.toString();};
 	for(auto connection:m_vncProxyServer.clients()) {
 		snapshot.backendReady|=connection->backendReady();
@@ -324,16 +326,27 @@ void ComputerControlServer::updateTrayIconToolTip()
 		if(age>=0 && (snapshot.frameAgeMs<0 || age<snapshot.frameAgeMs)) snapshot.frameAgeMs=age;
 		const auto local=connection->proxyClientSocket()->localAddress();
 		if(!local.isNull() && !local.isLoopback() && !snapshot.localAddresses.contains(addressText(local))) snapshot.localAddresses.append(addressText(local));
+		if(auto client=qobject_cast<ComputerControlClient*>(connection))
+			if(m_trayAuthorizedClients.contains(client->serverClient()) && !local.isNull()) authenticatedAddresses.append(addressText(local));
 	}
 	for(const auto& interface:QNetworkInterface::allInterfaces()) {
 		if(!interface.flags().testFlag(QNetworkInterface::IsUp) || !interface.flags().testFlag(QNetworkInterface::IsRunning)) continue;
+		bool connectedInterface=false;
+		for(const auto& entry:interface.addressEntries())
+			if(authenticatedAddresses.contains(addressText(entry.ip()))) connectedInterface=true;
 		for(const auto& entry:interface.addressEntries()) {
 			const auto ip=entry.ip();
 			if(ip.isNull() || (!m_vncProxyServer.listensLocallyOnly() && ip.isLoopback())) continue;
 			if(m_vncProxyServer.listensLocallyOnly() && !ip.isLoopback()) continue;
-			if(snapshot.localAddresses.size()<16 && !snapshot.localAddresses.contains(addressText(ip))) snapshot.localAddresses.append(addressText(ip));
+			if(snapshot.localAddresses.size()<128 && !snapshot.localAddresses.contains(addressText(ip))) snapshot.localAddresses.append(addressText(ip));
+			if(ip.protocol()==QAbstractSocket::IPv4Protocol) {
+				if(connectedInterface) connectedInterfaceIPv4.append(addressText(ip));
+				if(interface.type()==QNetworkInterface::Ethernet || interface.type()==QNetworkInterface::Wifi) physicalIPv4.append(addressText(ip));
+			}
 		}
 	}
+	snapshot.preferredAddress=ServiceNetworkAddresses::preferred(snapshot.localAddresses,authenticatedAddresses,
+		ServiceNetworkAddresses::routedIPv4(),physicalIPv4,connectedInterfaceIPv4);
 	snapshot.backendChecked=m_backendChecked || backendConnected;snapshot.backendAvailable=m_backendAvailable || backendConnected;
 	// Loopback-only, bounded and asynchronous: this checks TCP, not VNC auth.
 	if(!backendConnecting && m_vncServer.isRunning() && (!m_backendProbeClock.isValid() || m_backendProbeClock.elapsed()>=15000)) {

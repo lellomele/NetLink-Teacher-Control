@@ -8,6 +8,12 @@ La Console riutilizza le postazioni del Configurator. La connessione reale e
 la miniatura aggiornata verificano uno scambio autenticato; un test TCP positivo
 non basta. Per le nuove funzioni devono essere presenti client NetLink compatibili.
 
+Il doppio clic su una miniatura esegue l'azione configurata (visualizzazione
+remota per impostazione predefinita). **Ctrl+doppio clic** avvia il controllo
+remoto soltanto di quella postazione, anche se erano selezionate altre miniature.
+Restano validi i permessi e le funzioni disabilitate: la scorciatoia non concede
+ulteriori autorizzazioni.
+
 Il menu remoto è una barra compatta che lascia visibile il desktop. Ogni nuova
 sessione parte dal bordo superiore. La puntina resta visibile e si attenua dopo
 un breve periodo di inattività; passando il mouse torna nitida.
@@ -139,6 +145,12 @@ conservati in un riepilogo volatile di massimo 200 righe. Nessun testo digitato
 viene raccolto; dopo una riconnessione ripetere Unlock/Lock.
 
 L'icona del servizio mostra un riepilogo locale e il menu apre i dettagli.
+Il tooltip breve mostra un solo indirizzo, preferendo l'IPv4 usato da una
+connessione NetLink autenticata. In assenza usa la scelta di instradamento di
+Windows, poi gli indirizzi Ethernet/Wi-Fi attivi. Se non esiste IPv4 resta IPv6.
+Gli altri indirizzi locali rimangono nei dettagli: non sono client collegati e
+la loro presenza non dimostra raggiungibilità da remoto. La scelta non invia
+sonde di rete.
 L'icona del Worker riporta il listener del Server locale: non è il Worker ad aprire
 una porta di controllo remoto separata. I dettagli elencano indirizzo di ascolto,
 IP delle interfacce, plugin VNC, porta interna e fotogrammi inoltrati per connessione.

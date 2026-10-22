@@ -37,7 +37,7 @@ VEYON_CORE_EXPORT void setPropertyVisibility(QWidget* widget, bool advanced);
 VEYON_CORE_EXPORT QString traySummary(const QString& host, int port, bool listening,
     bool localOnly, bool keyAuthentication, bool discovery, int authenticated, int pending);
 struct ServiceSnapshot {
-    QString host, bindAddress, plugin;
+    QString host, bindAddress, plugin, preferredAddress;
     QStringList localAddresses;
     int port=0, backendPort=0, authorized=0, pending=0;
     bool listening=false, external=false, discovery=false;

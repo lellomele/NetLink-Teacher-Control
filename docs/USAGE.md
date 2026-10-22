@@ -8,6 +8,11 @@ The Console reuses Configurator workstations. A real connection and updating
 thumbnail establish authenticated exchange; a successful TCP test is insufficient.
 New features require compatible NetLink clients.
 
+Double-click a thumbnail for the configured action (remote view by default).
+**Ctrl+double-click** starts remote control of that workstation only, even if
+other thumbnails were selected. Existing permissions and disabled-feature rules
+still apply; this shortcut does not grant additional access.
+
 The compact remote menu leaves the desktop visible. Each session starts on the
 top edge. Its pin stays visible and fades after inactivity; hover restores it.
 Left-click pins/unpins the toolbar. Right-click on the pin or toolbar rotates
@@ -131,6 +136,12 @@ summary of at most 200 lines. No typed text is collected.
 After reconnecting, repeat Unlock/Lock.
 
 The service tray icon gives a local summary and opens details.
+Its short tooltip shows one address, preferring the IPv4 used by an authenticated
+NetLink connection. Otherwise it uses the Windows routing choice, then active
+Ethernet/Wi-Fi addresses. IPv6 remains visible when no IPv4 is available.
+All other local addresses stay in the details; they are not connected clients
+and listing them is not proof of remote reachability. No network probe is sent
+to choose the address.
 The Worker icon displays the local Server listener, not a separate remote-control
 listener owned by the Worker. Details list the bind and interface addresses,
 selected VNC backend/internal port and forwarded-frame observations per connection.
