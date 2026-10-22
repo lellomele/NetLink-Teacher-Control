@@ -6,9 +6,9 @@ Suite NetLink per la gestione delle aule Windows, basata su **Veyon 4.7.5**.
 Integra controllo remoto, InternetGuard WFP, Appello, profili classe–aula,
 ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
 
-**Versione preliminare 1.0.0-alpha.28: usare consapevolmente.**
+**Versione preliminare 1.0.0-alpha.29: usare consapevolmente.**
 
-**[Scarica l’installer Windows x64 — ultima release (alpha.28)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.28/NetLink-1.0.0-alpha.28-win64-setup.exe)**
+**[Scarica l’installer Windows x64 — ultima release (alpha.29)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.29/NetLink-1.0.0-alpha.29-win64-setup.exe)**
 
 ## Funzionalità
 
@@ -36,6 +36,10 @@ ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
   per analizzare PC/rete e distinguere le prove di controllo remoto e discovery.
   Il tooltip preferisce l'IPv4 della rete attiva; nei dettagli restano gli altri
   indirizzi di ascolto, backend VNC e informazioni sui fotogrammi inoltrati.
+  Le miniature connesse mostrano plugin VNC, porta interna e osservazioni sul
+  video della singola connessione, attraverso il canale autenticato esistente.
+  La funzione richiede docente e client aggiornati; risposte vecchie, mancanti
+  o scadute sono indicate come non disponibili. Non servono altre porte.
   Un canale temporaneo abbinato esplicitamente consente lo scambio di rapporti.
 
 ## Installazione e aggiornamento

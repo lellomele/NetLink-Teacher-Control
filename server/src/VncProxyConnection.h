@@ -26,6 +26,7 @@
 
 #include "VeyonCore.h"
 #include <QElapsedTimer>
+#include "ServiceDiagnostics.h"
 
 class QBuffer;
 class QTcpSocket;
@@ -47,6 +48,7 @@ public:
 	void start();
 	bool backendReady();
 	qint64 videoFrameAge() const { return m_lastVideoFrame.isValid()?m_lastVideoFrame.elapsed():-1; }
+	ServiceDiagnostics::Snapshot serviceDiagnostics(const QString& plugin,bool external,int port,bool checked,bool available);
 
 	QTcpSocket* proxyClientSocket() const
 	{

@@ -42,6 +42,7 @@
 #include "BuiltinDirectoryConfigurationPage.h"
 #include "NetworkObject.h"
 #include "ServiceNetworkAddresses.h"
+#include "ServiceDiagnostics.h"
 
 // Actual directory page with an isolated model: no VeyonCore initialization,
 // key generation, service launch, WFP or network connections in this suite.
@@ -321,6 +322,17 @@ private Q_SLOTS:
         QVERIFY(!standard->isHidden());QVERIFY(!advanced->isHidden());
         NetLinkUi::setPropertyVisibility(advanced,false);QVERIFY(advanced->isHidden());
         standard->hide();NetLinkUi::setPropertyVisibility(standard,true);QVERIFY(standard->isHidden());
+    }
+    void thumbnailServiceDiagnosticsAreTranslatedAndReadable() {
+        ServiceDiagnostics::Snapshot s;s.plugin="BuiltinUltraVncServer";s.internalPort=11200;
+        s.backend=ServiceDiagnostics::Backend::Ready;s.frameAgeMs=2100;
+        const auto html=ServiceDiagnostics::tooltip(s);
+        QVERIFY(html.contains("Porta interna VNC: 11200"));QVERIFY(html.contains("2 s fa"));
+        QLabel label;label.setTextFormat(Qt::RichText);label.setWordWrap(true);
+        label.setMargin(12);label.setFixedWidth(620);label.setText(html);label.adjustSize();label.show();
+        QVERIFY(label.sizeHint().height()<420);this->snapshot(label,"netlink-thumbnail-service-diagnostics");
+        s.backend=ServiceDiagnostics::Backend::Unreachable;s.external=true;s.frameAgeMs=-1;
+        const auto warning=ServiceDiagnostics::tooltip(s);QVERIFY(warning.contains("non disponibile"));QVERIFY(warning.contains("Nessun fotogramma"));
     }
     void serviceAddressPrefersTheUsedIPv4WithoutLosingIPv6() {
         using ServiceNetworkAddresses::preferred;

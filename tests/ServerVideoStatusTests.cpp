@@ -53,6 +53,13 @@ private Q_SLOTS:
         QTRY_VERIFY(received->bytesAvailable()>=frame.size()+5);QVERIFY(received->readAll().endsWith(frame));
         QTest::qWait(20);QVERIFY(proxy.videoFrameAge()>=10);
         TestVideoProxy fresh(new QTcpSocket);QCOMPARE(fresh.videoFrameAge(),qint64(-1));
+        // Each reply is scoped to its own proxy: activity on another Master's
+        // connection must not make an idle/no-frame connection look healthy.
+        const auto active=proxy.serviceDiagnostics("BuiltinUltraVncServer",false,11200,true,true);
+        const auto idle=fresh.serviceDiagnostics("ExternalVncServer",true,5900,true,false);
+        QVERIFY(active.frameAgeMs>=0);QCOMPARE(active.backend,ServiceDiagnostics::Backend::Ready);
+        QCOMPARE(idle.frameAgeMs,qint64(-1));QCOMPARE(idle.backend,ServiceDiagnostics::Backend::Unreachable);
+        QCOMPARE(idle.internalPort,5900);QVERIFY(idle.external);
     }
 };
 QTEST_GUILESS_MAIN(ServerVideoStatusTests)

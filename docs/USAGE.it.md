@@ -8,6 +8,21 @@ La Console riutilizza le postazioni del Configurator. La connessione reale e
 la miniatura aggiornata verificano uno scambio autenticato; un test TCP positivo
 non basta. Per le nuove funzioni devono essere presenti client NetLink compatibili.
 
+Passando il mouse su una miniatura connessa, **Diagnostica del servizio client**
+mostra plugin VNC, porta interna del backend, stato della negoziazione VNC e
+tempo dall'ultimo fotogramma inoltrato su quella specifica connessione.
+Non si contano i fotogrammi di altre sessioni. Console e client devono entrambi
+supportare l'estensione (alpha.29 o successiva). Si usa il collegamento NetLink
+già autenticato, senza aprire nuove porte. I rapporti si aggiornano circa ogni
+15 secondi; mancata risposta, dati non validi e disconnessione invalidano il
+riepilogo, con tentativi più distanziati per i client precedenti.
+Un client precedente, offline o non ancora connesso è indicato con diagnostica
+non disponibile, non come guasto VNC. Se la negoziazione iniziale non può
+completarsi restano necessari i dettagli locali del servizio: la diagnostica
+non aggira tale negoziazione. I fotogrammi inoltrati non provano la visualizzazione
+sul Master; un desktop immutato può non inviarne di nuovi. Non si eseguono
+sonde video né modifiche della configurazione.
+
 Il doppio clic su una miniatura esegue l'azione configurata (visualizzazione
 remota per impostazione predefinita). **Ctrl+doppio clic** avvia il controllo
 remoto soltanto di quella postazione, anche se erano selezionate altre miniature.

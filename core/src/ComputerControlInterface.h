@@ -29,6 +29,8 @@
 #include "Lockable.h"
 #include "VeyonCore.h"
 #include "VeyonConnection.h"
+#include "ServiceDiagnostics.h"
+#include <QElapsedTimer>
 
 class VEYON_CORE_EXPORT ComputerControlInterface : public QObject, public Lockable
 {
@@ -128,6 +130,7 @@ public:
 	void setExpectedStudentName(const QString& name);
 	void clearStudentDeclaration();
 	void invalidatePolicyConfirmation();
+	QString serviceDiagnosticsToolTip() const {return m_serviceDiagnostics.tooltip(m_serviceDiagnosticsClock.elapsed());}
 	QString attendanceName() const { return m_studentName.isEmpty() ? m_expectedStudentName : m_studentName; }
 	QString attendanceStatus() const;
 	QString attendanceLabel() const;
@@ -181,6 +184,7 @@ private:
 	void updateActiveFeatures();
 	void updateUser();
 	void updateScreens();
+	void updateServiceDiagnostics();
 
 	void handleFeatureMessage( const FeatureMessage& message );
 
@@ -215,8 +219,12 @@ private:
 	QTimer m_serverVersionQueryTimer{this};
 
 	QTimer m_statePollingTimer{this};
+	ServiceDiagnostics::ClientStatus m_serviceDiagnostics;
+	QElapsedTimer m_serviceDiagnosticsClock;
+	QTimer m_serviceDiagnosticsTimer{this};
 	friend class ConnectionReliabilityTests;
 	friend class ClassProfileTests;
+	friend class ServiceDiagnosticsTests;
 
 Q_SIGNALS:
 	void framebufferSizeChanged();
@@ -225,6 +233,7 @@ Q_SIGNALS:
 	void screensChanged();
 	void stateChanged();
 	void activeFeaturesChanged();
+	void serviceDiagnosticsChanged();
 
 };
 

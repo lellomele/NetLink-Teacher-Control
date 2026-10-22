@@ -316,6 +316,10 @@ void ComputerControlListModel::startComputerControlInterface( ComputerControlInt
 
 	connect( controlInterface, &ComputerControlInterface::userChanged,
 			 this, [=]() { updateUser( interfaceIndex( controlInterface ) ); } );
+	connect(controlInterface,&ComputerControlInterface::serviceDiagnosticsChanged,this,[=]() {
+		const auto index=interfaceIndex(controlInterface);
+		if(index.isValid()) Q_EMIT dataChanged(index,index,{Qt::ToolTipRole});
+	});
 }
 
 
@@ -411,7 +415,8 @@ QString ComputerControlListModel::computerToolTipRole( const ComputerControlInte
 	const QString features( tr( "Active features: %1" ).arg( activeFeatures( controlInterface ) ).toHtmlEscaped() );
 	const QString school = NetLinkUi::text("<br>Attendance: %1<br>InternetGuard: %2")
 		.arg(controlInterface->attendanceLabel().toHtmlEscaped(),controlInterface->networkPolicyStatus().toHtmlEscaped()) +
-		NetLinkUi::text("<br>Assigned name: %1").arg(controlInterface->expectedStudentName().toHtmlEscaped());
+		NetLinkUi::text("<br>Assigned name: %1").arg(controlInterface->expectedStudentName().toHtmlEscaped()) +
+		controlInterface->serviceDiagnosticsToolTip();
 
 	if( user.isEmpty() )
 	{

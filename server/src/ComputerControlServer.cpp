@@ -55,6 +55,7 @@ ComputerControlServer::ComputerControlServer( QObject* parent ) :
 					  this,
 					  this )
 {
+	m_serviceDiagnosticsClock.start();
 	updateTrayIconToolTip();
 
 	// make app terminate once the VNC server thread has finished
@@ -147,6 +148,21 @@ bool ComputerControlServer::handleFeatureMessage(ComputerControlClient* client)
 		return false;
 	}
 
+	if(featureMessage.featureUid()==ServiceDiagnostics::uid()) {
+		// This branch is AFTER authentication and access-control checks above.
+		// Read current in-memory state only, never connect/probe/modify anything.
+		if(!ServiceDiagnostics::validQuery(featureMessage) ||
+			VeyonCore::config().disabledFeatures().contains(ServiceDiagnostics::uid().toString())) return true;
+		const auto now=m_serviceDiagnosticsClock.elapsed();
+		const auto previous=socket->property("netlinkDiagnosticsAt");
+		if(previous.isValid() && now-previous.toLongLong()<1000) return true;
+		socket->setProperty("netlinkDiagnosticsAt",now);
+		const auto snapshot=client->serviceDiagnostics(m_vncServer.pluginName(),m_vncServer.externalBackend(),
+			m_vncServer.serverPort(),m_backendChecked,m_backendAvailable);
+		sendFeatureMessageReply(MessageContext{socket,client},FeatureMessage(ServiceDiagnostics::uid(),ServiceDiagnostics::Reply)
+			.addArgument(0,featureMessage.argument(0)).addArgument(1,ServiceDiagnostics::encode(snapshot)));
+		return true;
+	}
 	VeyonCore::featureManager().handleFeatureMessage( *this, MessageContext{socket, client}, featureMessage );
 
 	return true;

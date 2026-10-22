@@ -4,11 +4,11 @@ if($BuildSuffix -and $BuildSuffix-notmatch'^-[a-zA-Z0-9][a-zA-Z0-9.-]*$'){throw 
 $repoRoot=Split-Path $PSScriptRoot
 $buildRoot=(Resolve-Path (Join-Path $repoRoot $Build)).Path
 $distRoot=Join-Path $repoRoot 'dist'
-$packageRoot=Join-Path $distRoot "NetLink-1.0.0-alpha.28$BuildSuffix-win64"
+$packageRoot=Join-Path $distRoot "NetLink-1.0.0-alpha.29$BuildSuffix-win64"
 foreach($component in @('master','configurator','service','server','worker','cli','wcli','companion')) {
     $directory=if($component-eq'wcli'){'cli'}else{$component}
     $binary=Get-Item -LiteralPath (Join-Path $buildRoot "$directory/netlink-$component.exe")
-    if($binary.VersionInfo.FileVersion-ne"4.7.5-netlink.1.0.0-alpha.28$BuildSuffix") {
+    if($binary.VersionInfo.FileVersion-ne"4.7.5-netlink.1.0.0-alpha.29$BuildSuffix") {
         throw "Build/package version mismatch before copying: $($binary.Name)"
     }
 }

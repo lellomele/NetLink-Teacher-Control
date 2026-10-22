@@ -8,6 +8,19 @@ The Console reuses Configurator workstations. A real connection and updating
 thumbnail establish authenticated exchange; a successful TCP test is insufficient.
 New features require compatible NetLink clients.
 
+Hover a connected thumbnail for **Client service diagnostics**: the VNC plugin,
+internal backend port, VNC handshake status and time since a video frame was
+forwarded on that exact connection. Other sessions' frames are not counted.
+Both the Console and client must support this extension (alpha.29 or newer).
+It reuses the authenticated NetLink connection and opens no new ports.
+Reports refresh approximately every 15 seconds; missing replies, invalid data
+and disconnects invalidate the display, with slower retries for older clients.
+An old, offline or not-yet-connected client is shown as diagnostics unavailable,
+not as a VNC failure. A connection that cannot complete its initial handshake
+still requires local service details: diagnostics do not bypass that handshake.
+Forwarded frames do not prove display on the Master; a static desktop can
+legitimately send no new frames. No video probe or configuration change is made.
+
 Double-click a thumbnail for the configured action (remote view by default).
 **Ctrl+double-click** starts remote control of that workstation only, even if
 other thumbnails were selected. Existing permissions and disabled-feature rules

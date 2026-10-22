@@ -107,6 +107,7 @@ private:
 	VncServer m_vncServer;
 	VncProxyServer m_vncProxyServer;
 	QElapsedTimer m_backendProbeClock;
+	QElapsedTimer m_serviceDiagnosticsClock;
 	bool m_backendChecked=false;
 	bool m_backendAvailable=false;
 

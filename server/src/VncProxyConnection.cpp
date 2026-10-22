@@ -253,6 +253,17 @@ bool VncProxyConnection::receiveServerMessage()
 	return false;
 }
 
+ServiceDiagnostics::Snapshot VncProxyConnection::serviceDiagnostics(const QString& plugin,bool external,int port,bool checked,bool available)
+{
+	ServiceDiagnostics::Snapshot result;result.plugin=plugin;result.external=external;result.internalPort=port;
+	result.backend=backendReady()?ServiceDiagnostics::Backend::Ready:
+		m_vncServerSocket->state()!=QAbstractSocket::UnconnectedState?ServiceDiagnostics::Backend::Connecting:
+		!checked?ServiceDiagnostics::Backend::Unchecked:
+		available?ServiceDiagnostics::Backend::TcpAvailable:ServiceDiagnostics::Backend::Unreachable;
+	result.frameAgeMs=videoFrameAge();return result;
+}
+
+
 bool VncProxyConnection::backendReady()
 {
 	return m_vncServerSocket->state()==QAbstractSocket::ConnectedState && clientProtocol().state()==VncClientProtocol::Running;

@@ -38,6 +38,9 @@ ComputerControlInterface::ComputerControlInterface( const Computer& computer, in
 	m_computer( computer ),
 	m_port( port )
 {
+	m_serviceDiagnosticsClock.start();
+	m_serviceDiagnosticsTimer.setInterval(2000);
+	connect(&m_serviceDiagnosticsTimer,&QTimer::timeout,this,&ComputerControlInterface::updateServiceDiagnostics);
 	m_pingTimer.setInterval(ConnectionWatchdogPingDelay);
 	m_pingTimer.setSingleShot(true);
 	connect(&m_pingTimer, &QTimer::timeout, this, &ComputerControlInterface::ping);
@@ -156,11 +159,13 @@ void ComputerControlInterface::stop()
 	m_connectionWatchdogTimer.stop();
 	m_serverVersionQueryTimer.stop();
 	m_statePollingTimer.stop();
+	m_serviceDiagnosticsTimer.stop();m_serviceDiagnostics.reset();
 
 	m_state = State::Disconnected;
 	clearStudentDeclaration();
 	invalidatePolicyConfirmation();
 	m_serverVersion = VeyonCore::ApplicationVersion::Unknown;
+	Q_EMIT serviceDiagnosticsChanged();
 }
 
 void ComputerControlInterface::invalidatePolicyConfirmation()
@@ -463,7 +468,25 @@ void ComputerControlInterface::updateState()
 	unlock();
 	// A declaration belongs to this connection, never to a later Windows session.
 	// Keep only the expected seat assignment across disconnect/reconnect.
-	if (m_state != State::Connected) {clearStudentDeclaration();invalidatePolicyConfirmation();}
+	if (m_state != State::Connected) {
+		clearStudentDeclaration();invalidatePolicyConfirmation();
+		m_serviceDiagnosticsTimer.stop();m_serviceDiagnostics.reset();Q_EMIT serviceDiagnosticsChanged();
+	} else {
+		// A queued state notification can observe Connected again after a fast
+		// transport reconnect. Always replace its diagnostic request nonce,
+		// even when the intermediate Connecting state was not observed here.
+		m_serviceDiagnostics.reset(true);Q_EMIT serviceDiagnosticsChanged();
+		updateServiceDiagnostics();m_serviceDiagnosticsTimer.start();
+	}
+}
+
+void ComputerControlInterface::updateServiceDiagnostics()
+{
+	if(m_state!=State::Connected) return;
+	const auto now=m_serviceDiagnosticsClock.elapsed();
+	if(m_serviceDiagnostics.expire(now)) Q_EMIT serviceDiagnosticsChanged();
+	const auto id=m_serviceDiagnostics.request(now);
+	if(!id.isEmpty()) sendFeatureMessage(FeatureMessage(ServiceDiagnostics::uid(),ServiceDiagnostics::Query).addArgument(0,id).addArgument(1,1));
 }
 
 
@@ -544,6 +567,10 @@ void ComputerControlInterface::updateScreens()
 void ComputerControlInterface::handleFeatureMessage( const FeatureMessage& message )
 {
 	lock();
+	if(message.featureUid()==ServiceDiagnostics::uid()) {
+		if(m_state==State::Connected && m_serviceDiagnostics.receive(message,m_serviceDiagnosticsClock.elapsed())) Q_EMIT serviceDiagnosticsChanged();
+		unlock();return;
+	}
 	VeyonCore::featureManager().handleFeatureMessage( weakPointer(), message );
 	unlock();
 }

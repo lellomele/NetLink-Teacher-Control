@@ -6,9 +6,9 @@ NetLink is a Windows classroom-management suite based on **Veyon 4.7.5**.
 It integrates remote control, WFP InternetGuard, student names, class–room profiles,
 automatic client discovery and Companion diagnostics, without external plugins.
 
-**Pre-release 1.0.0-alpha.28: use with awareness of its limitations.**
+**Pre-release 1.0.0-alpha.29: use with awareness of its limitations.**
 
-**[Download Windows x64 installer — latest release (alpha.28)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.28/NetLink-1.0.0-alpha.28-win64-setup.exe)**
+**[Download Windows x64 installer — latest release (alpha.29)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.29/NetLink-1.0.0-alpha.29-win64-setup.exe)**
 
 ## Features
 
@@ -34,6 +34,10 @@ automatic client discovery and Companion diagnostics, without external plugins.
   analysis with distinct remote-control and discovery tests.
   The tray tooltip prefers the active network's IPv4; details retain the other
   listening addresses, VNC backend and forwarded-video information.
+  Connected thumbnails show the client's VNC plugin, internal port and
+  per-connection video observations over the existing authenticated channel.
+  Both teacher and client need this feature; old, missing or expired replies
+  are clearly marked unavailable. No additional ports are needed.
   An explicitly paired temporary channel transfers diagnostic reports.
 
 ## Installation and updates
