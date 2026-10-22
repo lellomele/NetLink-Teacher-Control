@@ -242,10 +242,18 @@ bool VncProxyConnection::receiveServerMessage()
 {
 	if( clientProtocol().receiveMessage() )
 	{
-		m_proxyClientSocket->write( clientProtocol().lastMessage() );
+		const auto written=m_proxyClientSocket->write( clientProtocol().lastMessage() );
+		if(written==clientProtocol().lastMessage().size() &&
+			clientProtocol().lastMessageType()==rfbFramebufferUpdate && !clientProtocol().lastUpdatedRect().isEmpty())
+			m_lastVideoFrame.start();
 
 		return true;
 	}
 
 	return false;
+}
+
+bool VncProxyConnection::backendReady()
+{
+	return m_vncServerSocket->state()==QAbstractSocket::ConnectedState && clientProtocol().state()==VncClientProtocol::Running;
 }

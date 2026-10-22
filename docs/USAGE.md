@@ -34,7 +34,10 @@ A test requiring a private key does not validate a client's public key alone.
 
 ## WFP InternetGuard
 
-1. Select clients, open InternetGuard and choose **Block Internet**.
+1. Select clients in the Console and open InternetGuard. All listed rows start selected.
+   Use Ctrl-click/Shift-click to change the selection; **Block Internet**, **Unblock**
+   and **Check status** affect highlighted rows only. No selection disables commands.
+   Opening the panel again refreshes it from the Console's current selection.
 2. Read each client's confirmation, error or missing response.
 3. Use **Unblock** to release filters. Closing the panel does not unblock.
 4. **Check status** queries the service; it does not test browsing.
@@ -50,6 +53,8 @@ services can provide external access. Another connection's policy cannot be
 replaced; a reconnect may have to await its previous lease expiry.
 If Windows does not confirm WFP-session closure, state stays unknown and
 cleanup is retried; a false successful unblock is not reported.
+Disconnect invalidates previous confirmations. Closing the Console stops renewals
+and sends release commands; an unconfirmed response is not proof of release.
 
 Limits: 256 clients per operation, 255 destinations and 128 extra resources.
 Do not use scoped link-local IPv6 (`%number`) as InternetGuard destinations;
@@ -101,6 +106,8 @@ Disable the filter to see known PCs too.
 
 Verify the destination before import. Configuration write rights and Master
 restart are required to display a new PC. Import does not alter keys/access rules.
+These rights belong to the Console process: an administrator Configurator does
+not elevate it. A changed, expired or conflicting announcement must be selected again.
 A link-local address retains the teacher's receiving-interface index, applies
 only on that link and may need updating after an adapter change.
 
@@ -124,6 +131,11 @@ summary of at most 200 lines. No typed text is collected.
 After reconnecting, repeat Unlock/Lock.
 
 The service tray icon gives a local summary and opens details.
+The Worker icon displays the local Server listener, not a separate remote-control
+listener owned by the Worker. Details list the bind and interface addresses,
+selected VNC backend/internal port and forwarded-frame observations per connection.
+The internal TCP check is asynchronous and loopback-only; it does not test VNC
+authentication. An authorized control connection without a frame is not working video.
 Also check Windows hidden icons. “Listening” does not establish reachability,
 authentication, discovery or successful Internet blocking.
 

@@ -38,6 +38,15 @@ class ConnectionReliabilityTests : public QObject
     };
 
 private Q_SLOTS:
+    void disconnectionInvalidatesCachedInternetGuardConfirmation() {
+        ComputerControlInterface client(Computer({},QStringLiteral("Test PC"),QStringLiteral("192.0.2.25"),{},{}));
+        client.setNetworkPolicyStatus(QStringLiteral("unblocked"));client.setProperty("schoolPolicyVerifiedState",QStringLiteral("allowed"));
+        client.setProperty("schoolPolicyRequest",QStringLiteral("previous-session"));client.setProperty("schoolPolicyDeadline",12345);
+        client.stop();QCOMPARE(client.property("schoolPolicyVerifiedState").toString(),QStringLiteral("unknown"));
+        QVERIFY(client.property("schoolPolicyRequest").toString().isEmpty());QCOMPARE(client.property("schoolPolicyDeadline").toInt(),0);
+        QVERIFY(client.networkPolicyStatus()!=QStringLiteral("unblocked"));
+        client.setNetworkPolicyStatus(QStringLiteral("unblocked"));client.updateState();QVERIFY(client.networkPolicyStatus()!=QStringLiteral("unblocked"));
+    }
     void ipv6DestinationsPreserveScopeAndDoNotConfuseHostWithPort() {
         struct Case {QString input,host;int port;};
         const QList<Case> cases{

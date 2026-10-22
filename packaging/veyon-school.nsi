@@ -17,6 +17,23 @@ Var RoleDialog
 Var MasterRadio
 Var ClientRadio
 Var StartMenuDir
+; Fixture-only trace preserves ExecWait's exit code and error flag verbatim.
+!macro TraceFixtureCli ACTION
+ !ifdef NETLINK_INSTALLER_FIXTURE
+  StrCpy $R8 0
+  IfErrors 0 +2
+  StrCpy $R8 1
+  FileOpen $R9 "${FIXTURE_ROOT}\installer-cli-trace.txt" a
+  FileSeek $R9 0 END
+  FileWrite $R9 "${ACTION}: exit=$0 launchError=$R8$\r$\n"
+  FileClose $R9
+  ${If} $R8 == 1
+   SetErrors
+  ${Else}
+   ClearErrors
+  ${EndIf}
+ !endif
+!macroend
 !ifdef NETLINK_INSTALLER_FIXTURE
  !define APPREGROOT HKCU
  !define APPREGKEY "${FIXTURE_REGKEY}\Uninstall"
@@ -31,8 +48,8 @@ Var StartMenuDir
  !define LOCKNAME "Global\NetLinkInstallerMaintenance"
  RequestExecutionLevel admin
 !endif
-Name "NetLink 1.0.0 alpha.26${NETLINK_BUILD_SUFFIX}"
-OutFile "${OUTPUT}\NetLink-1.0.0-alpha.26${NETLINK_BUILD_SUFFIX}-win64-setup.exe"
+Name "NetLink 1.0.0 alpha.27${NETLINK_BUILD_SUFFIX}"
+OutFile "${OUTPUT}\NetLink-1.0.0-alpha.27${NETLINK_BUILD_SUFFIX}-win64-setup.exe"
 InstallDir "$PROGRAMFILES64\Veyon School"
 SetCompressor /SOLID lzma
 AllowSkipFiles off
@@ -53,10 +70,10 @@ Page custom RolePageCreate RolePageLeave
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "Italian"
-VIProductVersion "1.0.0.26"
+VIProductVersion "1.0.0.27"
 VIAddVersionKey /LANG=1040 "ProductName" "NetLink"
 VIAddVersionKey /LANG=1040 "FileDescription" "NetLink installer (pre-release)"
-VIAddVersionKey /LANG=1040 "FileVersion" "1.0.0-alpha.26${NETLINK_BUILD_SUFFIX}"
+VIAddVersionKey /LANG=1040 "FileVersion" "1.0.0-alpha.27${NETLINK_BUILD_SUFFIX}"
 VIAddVersionKey /LANG=1040 "LegalCopyright" "Copyright (c) 2025-26 prof. Ing. Raffaele Mele; Veyon e contributori"
 Function .onInit
  System::Call 'kernel32::CreateMutexW(p 0, i 0, w "${LOCKNAME}") p .r0 ?e'
@@ -358,6 +375,7 @@ Section "-NetLink installation"
  !insertmacro RunMaintenance "verify" "File del programma mancanti o alterati; ripetere l'installer completo"
  ClearErrors
  ExecWait '"$INSTDIR\netlink-wcli.exe" service register' $0
+ !insertmacro TraceFixtureCli "service register"
  ${If} ${Errors}
  ${OrIf} $0 != 0
    MessageBox MB_ICONSTOP "Registrazione servizio non riuscita. Installazione incompleta." /SD IDOK
@@ -365,6 +383,7 @@ Section "-NetLink installation"
  ${EndIf}
  ClearErrors
  ExecWait '"$INSTDIR\netlink-wcli.exe" config set Windows/UseInterceptionDriver false' $0
+ !insertmacro TraceFixtureCli "config interception"
  ${If} ${Errors}
  ${OrIf} $0 != 0
    MessageBox MB_ICONSTOP "Configurazione/firewall non riusciti. Verifica nel Configurator." /SD IDOK
@@ -372,6 +391,7 @@ Section "-NetLink installation"
  ${EndIf}
  ClearErrors
  ExecWait '"$INSTDIR\netlink-wcli.exe" config set UltraVNC/DeskDupEngine false' $0
+ !insertmacro TraceFixtureCli "config capture"
  ${If} ${Errors}
  ${OrIf} $0 != 0
    MessageBox MB_ICONSTOP "Configurazione acquisizione schermo non riuscita." /SD IDOK
@@ -390,6 +410,7 @@ Section "-NetLink installation"
  ${EndIf}
  ClearErrors
  ExecWait '"$INSTDIR\netlink-wcli.exe" service start' $0
+ !insertmacro TraceFixtureCli "service start"
  ${If} ${Errors}
  ${OrIf} $0 != 0
    MessageBox MB_ICONSTOP "Avvio servizio non riuscito. Verifica nel Configurator." /SD IDOK
@@ -429,8 +450,8 @@ Section "-NetLink installation"
  Delete "$SMPROGRAMS\Veyon School\Configurator.lnk"
  RMDir "$SMPROGRAMS\Veyon School"
  !endif
- WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayName" "NetLink 1.0.0 alpha.26${NETLINK_BUILD_SUFFIX}"
- WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayVersion" "1.0.0-alpha.26${NETLINK_BUILD_SUFFIX}"
+ WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayName" "NetLink 1.0.0 alpha.27${NETLINK_BUILD_SUFFIX}"
+ WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayVersion" "1.0.0-alpha.27${NETLINK_BUILD_SUFFIX}"
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "InstallationRole" "$InstallationRole"
  WriteRegDWORD ${APPREGROOT} "${APPREGKEY}" "InstallCompanion" $InstallCompanion
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'

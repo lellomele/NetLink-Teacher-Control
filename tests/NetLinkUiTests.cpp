@@ -11,6 +11,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMainWindow>
 #include <QMenu>
 #include <QMenuBar>
@@ -28,6 +29,7 @@
 #include <memory>
 #include "NetLinkUi.h"
 #include "NetLinkAppearance.h"
+#include "Configuration/UiMapping.h"
 #include "TranslationLoader.h"
 #include "LockWidget.h"
 #include "Feature.h"
@@ -302,6 +304,41 @@ private Q_SLOTS:
         }
         const auto text=NetLinkUi::traySummary("TEACHER-PC",11100,true,false,true,true,1,0);
         QVERIFY(text.contains("in ascolto"));QVERIFY(text.contains("Accessi 1"));QVERIFY(text.contains("WSD config."));
+    }
+    void hiddenBrandingStaysHiddenAtAdvancedStartupAndAfterModeChanges() {
+        QWidget page;auto field=new QLineEdit("Veyon",&page);
+        Configuration::UiMapping::setFlags(field,Configuration::Property::Flag::Hidden);
+        page.show();NetLinkUi::setPropertyVisibility(field,true);QVERIFY(field->isHidden());
+        for(int i=0;i<20;++i) {NetLinkUi::setPropertyVisibility(field,false);NetLinkUi::setPropertyVisibility(field,true);QVERIFY(field->isHidden());}
+        QCOMPARE(field->text(),QString("Veyon"));
+        auto standard=new QLineEdit(&page),advanced=new QLineEdit(&page);
+        Configuration::UiMapping::setFlags(standard,Configuration::Property::Flag::Standard);
+        Configuration::UiMapping::setFlags(advanced,Configuration::Property::Flag::Advanced);
+        standard->show();
+        NetLinkUi::setPropertyVisibility(standard,true);NetLinkUi::setPropertyVisibility(advanced,true);
+        QVERIFY(!standard->isHidden());QVERIFY(!advanced->isHidden());
+        NetLinkUi::setPropertyVisibility(advanced,false);QVERIFY(advanced->isHidden());
+        standard->hide();NetLinkUi::setPropertyVisibility(standard,true);QVERIFY(standard->isHidden());
+    }
+    void serviceSnapshotSeparatesAuthenticationBackendAndVideo() {
+        struct Restore {QLocale value;~Restore(){QLocale::setDefault(value);}} restore{QLocale()};QLocale::setDefault(QLocale("en_US"));
+        NetLinkUi::ServiceSnapshot s;s.host="CLASSROOM-PC";s.port=11100;s.backendPort=5900;s.bindAddress="0.0.0.0";
+        s.localAddresses=QStringList{"192.0.2.25","2001:db8::25"};s.listening=true;s.external=true;s.plugin="ExternalVncServer";
+        s.backendChecked=true;s.authorized=1;
+        auto snapshot=NetLinkUi::serviceSnapshot(s);
+        QVERIFY(snapshot.section("\n\n",0,0).size()<=127);QVERIFY(snapshot.contains("192.0.2.25"));QVERIFY(snapshot.contains("2001:db8::25"));
+        QVERIFY(snapshot.contains("5900"));QVERIFY(snapshot.contains("External VNC is selected"));QVERIFY(snapshot.contains("no video frame"));QVERIFY(!snapshot.contains("Companion"));
+        s.backendAvailable=true;s.backendReady=true;s.frameAgeMs=12345;s.external=false;s.plugin="BuiltinUltraVncServer";
+        snapshot=NetLinkUi::serviceSnapshot(s);QVERIFY(snapshot.contains("frame sent"));QVERIFY(snapshot.contains("12 seconds"));QVERIFY(!snapshot.contains("WARNING:"));
+        s.localAddresses=QStringList{"2001:db8:abcd:abcd:abcd:abcd:abcd:abcd%123"};
+        const auto ipv6=NetLinkUi::serviceSnapshot(s).section("\n\n",0,0);
+        QVERIFY(ipv6.contains("TCP [2001:db8:abcd:abcd:abcd:abcd:abcd:abcd%123]:11100"));QVERIFY(ipv6.contains("Video: frame sent"));QVERIFY(ipv6.size()<=127);
+        s.listening=false;s.authorized=0;s.frameAgeMs=-1;
+        QVERIFY(NetLinkUi::serviceSnapshot(s).contains("listener is not active"));
+        QPointer<QMessageBox> box=NetLinkUi::showTrayDetails(snapshot,"test","12:00:00");
+        QVERIFY(!box->informativeText().contains("Companion"));QVERIFY(!box->detailedText().contains("Companion"));
+        box->setDetailedText(snapshot.section("\n\n",1));this->snapshot(*box,"netlink-service-diagnostics");
+        box->close();QTRY_VERIFY(box.isNull());
     }
     void groupConfirmationKeepsTheOriginalTarget() {
         Configuration::JsonStore store(Configuration::Store::System,m_directory.filePath("selection.json"));

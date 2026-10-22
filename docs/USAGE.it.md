@@ -37,7 +37,11 @@ Una prova che richiede una privata non valida la sola pubblica di un client.
 
 ## InternetGuard WFP
 
-1. Selezionare i client, aprire InternetGuard e scegliere **Blocca Internet**.
+1. Selezionare i client nella Console e aprire InternetGuard: tutte le righe sono
+   inizialmente selezionate. Ctrl-clic/Maiusc-clic modificano la selezione;
+   **Blocca Internet**, **Sblocca** e **Verifica stato** agiscono solo sulle righe
+   evidenziate. Senza selezione i comandi sono disabilitati. Riaprendo il pannello
+   si aggiorna l'elenco dalla selezione attuale della Console.
 2. Leggere il feedback per ciascun client: conferma, errore o nessuna risposta.
 3. Per rilasciare i filtri usare **Sblocca**. Chiudere il pannello non sblocca.
 4. **Verifica stato** interroga il servizio, ma non esegue una prova di navigazione.
@@ -53,6 +57,8 @@ o servizi di inoltro possono consentire accessi esterni. Una policy di un'altra
 connessione docente non è sostituibile; una riconnessione può dover attendere
 la scadenza precedente. Se Windows non conferma la chiusura della sessione WFP,
 lo stato resta sconosciuto e il servizio ritenta; non viene dichiarato un falso sblocco.
+La disconnessione invalida le vecchie conferme. Chiudendo la Console si fermano
+i rinnovi e si inviano gli sblocchi: una risposta non confermata non prova lo sblocco.
 
 Limiti: 256 client per operazione, 255 destinazioni totali e 128 risorse extra.
 Non usare come destinazioni InternetGuard IPv6 link-local con indicazione
@@ -108,6 +114,8 @@ Disattivare il filtro per vedere anche i PC già noti.
 Verificare il destinatario prima dell'importazione. Servono diritti di scrittura
 sulla configurazione e riavvio del Master per visualizzare il nuovo PC.
 L'importazione non modifica chiavi o autorizzazioni.
+I permessi devono appartenere al processo Console: un Configurator amministratore
+non la eleva. Un annuncio cambiato, scaduto o in conflitto va selezionato nuovamente.
 Un link-local conserva il numero della scheda del docente: vale su quel
 collegamento e può richiedere aggiornamento se la scheda cambia.
 
@@ -131,6 +139,11 @@ conservati in un riepilogo volatile di massimo 200 righe. Nessun testo digitato
 viene raccolto; dopo una riconnessione ripetere Unlock/Lock.
 
 L'icona del servizio mostra un riepilogo locale e il menu apre i dettagli.
+L'icona del Worker riporta il listener del Server locale: non è il Worker ad aprire
+una porta di controllo remoto separata. I dettagli elencano indirizzo di ascolto,
+IP delle interfacce, plugin VNC, porta interna e fotogrammi inoltrati per connessione.
+Il controllo TCP interno è asincrono e solo locale: non verifica l'autenticazione VNC.
+Una connessione autorizzata senza fotogrammi non dimostra che il video funzioni.
 Controllare anche le icone nascoste di Windows. “In ascolto” non certifica
 raggiungibilità, autenticazione, discovery o blocco Internet.
 

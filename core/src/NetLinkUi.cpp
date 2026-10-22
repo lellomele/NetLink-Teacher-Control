@@ -6,6 +6,7 @@
 #include "AboutDialog.h"
 #include "Feature.h"
 #include "NetLinkAppearance.h"
+#include "Configuration/UiMapping.h"
 #include <QApplication>
 #include <QGroupBox>
 #include <QIconEngine>
@@ -208,6 +209,12 @@ void NetLinkUi::setEasyPage(QWidget* page,bool easy) {
     }
     for(auto widget:page->findChildren<QWidget*>()) if(widget->property("netlinkEasyHidden").toBool()) widget->setVisible(!easy);
 }
+void NetLinkUi::setPropertyVisibility(QWidget* widget,bool advanced) {
+    const auto flags=Configuration::UiMapping::flags(widget);
+    if(flags & Configuration::Property::Flag::Hidden) widget->hide();
+    else if(flags & Configuration::Property::Flag::Advanced) widget->setVisible(advanced);
+    else if(!advanced && (flags & Configuration::Property::Flag::Standard)) widget->show();
+}
 QString NetLinkUi::traySummary(const QString& host,int port,bool listening,bool localOnly,
     bool keyAuthentication,bool discovery,int authenticated,int pending) {
     QString safeHost;
@@ -217,6 +224,32 @@ QString NetLinkUi::traySummary(const QString& host,int port,bool listening,bool 
     return QString(NetLinkUi::text("NetLink Service — %1\nTCP %2: %3\n%4 • WSD %5\nAuthorized %6 • other TCP %7"))
         .arg(safeHost,QString::number(port),!listening?NetLinkUi::text("not listening"):localOnly?NetLinkUi::text("local only"):NetLinkUi::text("listening"),
              keyAuthentication?NetLinkUi::text("Key"):"Account",discovery?NetLinkUi::text("configured"):NetLinkUi::text("off"),QString::number(qBound(0,authenticated,9999)),QString::number(qBound(0,pending,9999))).left(127);
+}
+QString NetLinkUi::serviceSnapshot(const ServiceSnapshot& s) {
+    const auto video=s.frameAgeMs>=0?text("frame sent"):s.authorized>0?text("waiting for frame"):text("idle");
+    const auto backend=s.backendReady?text("VNC ready"):!s.backendChecked?text("not checked"):s.backendAvailable?text("TCP available"):text("not reachable");
+    auto address=s.localAddresses.isEmpty()?s.bindAddress:s.localAddresses.first();
+    if(address.contains(QLatin1Char(':'))) address=QLatin1Char('[')+address+QLatin1Char(']');
+    const auto aliases=s.localAddresses.size()>1?QStringLiteral(" +%1").arg(s.localAddresses.size()-1):QString{};
+    const auto lines=QStringLiteral("\nTCP %1:%2%3%4\nVNC %5:%6%7\nVideo: %8")
+        .arg(address,QString::number(s.port),aliases,s.listening?QString{}:QStringLiteral(" !"),s.external?text("external"):text("built-in"),QString::number(s.backendPort),s.backendChecked && !s.backendAvailable && !s.backendReady?QStringLiteral(" !"):QString{},video);
+    QString safeHost;
+    for(const auto c:s.host) if(c.category()!=QChar::Other_Control && c.category()!=QChar::Other_Format) safeHost+=c;
+    const auto hostBudget=qMax(0,127-8-lines.size());
+    const auto summary=(QStringLiteral("NetLink ")+safeHost.simplified().left(qMin(20,hostBudget))+lines).left(127);
+    QStringList details;
+    details<<text("Listening bind: %1:%2").arg(s.bindAddress,QString::number(s.port))
+        <<text("Local addresses: %1").arg(s.localAddresses.join(QStringLiteral(", ")))
+        <<text("VNC plugin: %1; internal port: %2; %3").arg(s.plugin.left(100),QString::number(s.backendPort),backend)
+        <<text("Video: %1").arg(video)
+        <<text("Authorized %1; other TCP %2; WS-Discovery %3").arg(s.authorized).arg(s.pending).arg(s.discovery?text("configured"):text("off"));
+    if(s.frameAgeMs>=0) details<<text("Last video frame forwarded %1 seconds ago. This does not verify display on the Master.").arg(s.frameAgeMs/1000);
+    if(!s.listening) details<<text("WARNING: the control listener is not active. Check the configured port, service and port conflicts.");
+    if(s.backendChecked && !s.backendAvailable && !s.backendReady)
+        details<<(s.external?text("WARNING: External VNC is selected but its local port is unavailable. If no separate VNC server is intended, select the built-in VNC plugin in Configurator."):text("WARNING: the local VNC backend is unavailable. Authentication alone does not provide video. Check the VNC plugin, internal port and server log."));
+    if(s.authorized>0 && s.frameAgeMs<0) details<<text("WARNING: an authorized connection exists but no video frame has been forwarded on the current connections. Check the internal VNC backend; a TCP test alone is not a video test.");
+    details<<text("Wildcard bind means all eligible interfaces. Local addresses do not prove remote reachability. Backend TCP availability is not a VNC authentication test. An unchanged desktop need not send new frames.");
+    return summary+QStringLiteral("\n\n")+details.join(QLatin1Char('\n'));
 }
 QMessageBox* NetLinkUi::showTrayDetails(const QString& snapshot,const QString& version,const QString& updated) {
     QMessageBox* box=nullptr;
@@ -228,7 +261,7 @@ QMessageBox* NetLinkUi::showTrayDetails(const QString& snapshot,const QString& v
         box->setWindowIcon(QIcon(":/core/veyon.png"));box->setTextInteractionFlags(Qt::TextSelectableByMouse);
     }
     box->setText(snapshot.section("\n\n",0,0).left(512)+NetLinkUi::text("\n\nVersion: ")+displayVersion(version).left(100)+NetLinkUi::text("\nLast received: ")+updated.left(32));
-    box->setInformativeText(NetLinkUi::text("Local server snapshot, not a network test. Use Companion to diagnose connection problems."));
-    box->setDetailedText(snapshot.section("\n\n",1).left(1536)+NetLinkUi::text("\n\nAuthorized = connections with successful authentication and access control. Other TCP = connections not yet authorized.\nWSD = WS-Discovery configuration, not successful discovery. Listening does not prove reachability from another computer.\nThis does not verify Internet blocking. Use Companion for network, firewall and key diagnostics."));
+    box->setInformativeText(NetLinkUi::text("Local service snapshot. Open details for listening addresses, VNC backend and video warnings."));
+    box->setDetailedText(snapshot.section("\n\n",1).left(3072));
     box->show();box->raise();box->activateWindow();return box;
 }

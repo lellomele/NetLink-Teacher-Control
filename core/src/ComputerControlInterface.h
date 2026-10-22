@@ -127,6 +127,7 @@ public:
 	QString expectedStudentName() const { return m_expectedStudentName; }
 	void setExpectedStudentName(const QString& name);
 	void clearStudentDeclaration();
+	void invalidatePolicyConfirmation();
 	QString attendanceName() const { return m_studentName.isEmpty() ? m_expectedStudentName : m_studentName; }
 	QString attendanceStatus() const;
 	QString attendanceLabel() const;

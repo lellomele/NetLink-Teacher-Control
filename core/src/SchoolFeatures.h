@@ -3,6 +3,7 @@
 #include <QDialog>
 #include <QElapsedTimer>
 #include <QPointer>
+#include <QSet>
 #include <QTimer>
 #include <QThread>
 #include "FeatureProviderInterface.h"
@@ -32,6 +33,14 @@ public:
     bool handleFeatureMessage(ComputerControlInterface::Pointer, const FeatureMessage&) override;
     bool handleFeatureMessage(VeyonServerInterface&, const MessageContext&, const FeatureMessage&) override;
     bool handleFeatureMessage(VeyonWorkerInterface&, const FeatureMessage&) override;
+    int activeInternetPolicies() const {
+        QSet<const ComputerControlInterface*> active;
+        for(const auto& target:m_guardTargets) if(target.control) active.insert(target.control.data());
+        for(const auto& ci:m_resolutionClients) if(ci) active.insert(ci.data());
+        for(const auto& ci:m_unconfirmedReleases) if(ci) active.insert(ci.data());
+        return active.size();
+    }
+    void stopPolicyRenewals() { m_timer.stop(); }
     QString commandLineModuleName() const override {return QStringLiteral("school");}
     QString commandLineModuleHelp() const override {return QStringLiteral("NetLink discovery firewall");}
     QStringList commands() const override {return {QStringLiteral("firewall_setup"),QStringLiteral("firewall_remove"),QStringLiteral("selftest")};}
@@ -60,6 +69,7 @@ private:
     QThread* m_serviceThread = nullptr;
     struct Target { QPointer<ComputerControlInterface> control; QStringList addresses; qint64 sent = 0; };
     QList<Target> m_guardTargets;
+    QList<QPointer<ComputerControlInterface>> m_unconfirmedReleases;
     QElapsedTimer m_clock;
     MessageContext m_attendanceContext;
     QString m_attendanceRequest;

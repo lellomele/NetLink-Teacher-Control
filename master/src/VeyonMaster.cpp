@@ -27,6 +27,7 @@
 #include "VeyonMaster.h"
 #include "ClassProfiles.h"
 #include "BuiltinFeatures.h"
+#include "SchoolFeatures.h"
 #include "ComputerControlListModel.h"
 #include "ComputerMonitoringModel.h"
 #include "FeatureManager.h"
@@ -269,12 +270,15 @@ void VeyonMaster::stopAllFeatures( const ComputerControlInterfaceList& computerC
 
 void VeyonMaster::shutdown()
 {
+	// Do not let the periodic lease renewal race with shutdown releases.
+	VeyonCore::builtinFeatures().schoolFeatures().stopPolicyRenewals();
 	stopAllFeatures( m_computerControlListModel->computerControlInterfaces() );
 
 	const auto allMessageQueuesEmpty = [&]() {
 		for( const auto& computerControlInterface : m_computerControlListModel->computerControlInterfaces() )
 		{
-			if( computerControlInterface->isMessageQueueEmpty() == false )
+			if( computerControlInterface->state() == ComputerControlInterface::State::Connected &&
+				computerControlInterface->isMessageQueueEmpty() == false )
 			{
 				return false;
 			}
@@ -283,7 +287,9 @@ void VeyonMaster::shutdown()
 		return true;
 	};
 
-	static constexpr auto MessageQueueWaitTimeout = 60 * 1000;
+	// Offline clients cannot acknowledge outgoing messages. Never stall the UI
+	// for a minute; InternetGuard's native 90-second lease is the fallback.
+	static constexpr auto MessageQueueWaitTimeout = 2000;
 	static constexpr auto MessageQueuePollInterval = 10;
 
 	QElapsedTimer messageQueueWaitTimer;

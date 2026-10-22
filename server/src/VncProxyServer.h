@@ -50,6 +50,7 @@ public:
 	void stop();
 	bool isListening() const;
 	bool listensLocallyOnly() const { return m_listenAddress.isLoopback(); }
+	QHostAddress listenAddress() const { return m_listenAddress; }
 
 	const VncProxyConnectionList& clients() const
 	{

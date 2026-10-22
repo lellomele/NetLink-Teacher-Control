@@ -44,6 +44,8 @@ public:
 
 	int serverBasePort() const;
 	int serverPort() const;
+	QString pluginName() const;
+	bool externalBackend() const;
 
 	Password password() const;
 

@@ -146,12 +146,66 @@ private Q_SLOTS:
         IsolatedSchoolMaster master;
         const auto original=client();const auto replacement=client("192.0.2.26");
         SchoolFeatures features(nullptr,false);
+        master.clients={original};
         QVERIFY(features.startFeature(master,features.featureList().first(),{original}));
         auto table=features.m_guardDialog->findChild<QTableWidget*>();QVERIFY(table);QCOMPARE(table->rowCount(),1);
-        auto status=table->item(0,1);original->setNetworkPolicyStatus("confermato");QCOMPARE(status->text(),QString("confermato"));
+        original->setNetworkPolicyStatus("confermato");QTRY_COMPARE(table->item(0,1)->text(),QString("confermato"));
+        master.clients={replacement};
         QVERIFY(features.startFeature(master,features.featureList().first(),{replacement}));
-        QCOMPARE(table->item(0,1),status);QCOMPARE(table->item(0,0)->text(),original->computer().name());
-        replacement->setNetworkPolicyStatus("altro PC");QCOMPARE(status->text(),QString("confermato"));
+        replacement->setNetworkPolicyStatus("altro PC");QTRY_COMPARE(table->item(0,1)->text(),QString("altro PC"));
+        original->setNetworkPolicyStatus("vecchio PC");QTest::qWait(300);QCOMPARE(table->item(0,1)->text(),QString("altro PC"));
+    }
+    void guardCommandsHonorHighlightedRowsAndNeverFallBackToAll() {
+        IsolatedSchoolMaster master;const auto first=client(),second=client("192.0.2.26");
+        master.clients={first,second};SchoolFeatures features(nullptr,false);
+        first->setNetworkPolicyStatus("unchanged");second->setNetworkPolicyStatus("unchanged");
+        QVERIFY(features.startFeature(master,features.featureList().first(),master.clients));
+        auto table=features.m_guardDialog->findChild<QTableWidget*>();QVERIFY(table);
+        QCOMPARE(table->selectionBehavior(),QAbstractItemView::SelectRows);QCOMPARE(table->selectionModel()->selectedRows().size(),2);
+        auto button=[&](const char* text) -> QPushButton* {for(auto b:features.m_guardDialog->findChildren<QPushButton*>()) if(b->text()==NetLinkUi::text(text)) return b;return nullptr;};
+        const auto block=button("Block Internet"),release=button("Unblock"),query=button("Check status");QVERIFY(block);QVERIFY(release);QVERIFY(query);
+        table->selectRow(1);QCOMPARE(table->selectionModel()->selectedRows().size(),1);
+        block->click();QCOMPARE(first->networkPolicyStatus(),QString("unchanged"));QVERIFY(second->networkPolicyStatus()!=QString("unchanged"));
+        second->setNetworkPolicyStatus("unchanged");query->click();QCOMPARE(first->networkPolicyStatus(),QString("unchanged"));QVERIFY(second->networkPolicyStatus()!=QString("unchanged"));
+        features.m_guardTargets={{first.data(),{},0},{second.data(),{},0}};
+        release->click();QCOMPARE(features.m_guardTargets.size(),1);QCOMPARE(features.m_guardTargets.first().control.data(),first.data());
+        table->clearSelection();QVERIFY(!block->isEnabled());QVERIFY(!release->isEnabled());QVERIFY(!query->isEnabled());
+        block->click();release->click();query->click();QCOMPARE(features.m_guardTargets.size(),1);
+        // The toolbar can pass all filtered PCs: the dialog must still use the
+        // Master's actual selection, refreshed when it is opened again.
+        master.clients={second};QVERIFY(features.startFeature(master,features.featureList().first(),{first,second}));
+        QCOMPARE(table->rowCount(),1);QCOMPARE(table->selectionModel()->selectedRows().size(),1);
+        QCOMPARE(table->item(0,1)->text(),second->networkPolicyStatus());
+    }
+    void partialUnblockPreservesOtherPendingClients() {
+        const auto first=client(),second=client("192.0.2.26");FakeDns dns;SchoolFeatures features(nullptr,false);
+        auto resolver=new SchoolPolicyResolver({"one.invalid"},{},&features,dns.lookup(),dns.abort(),500);
+        features.m_resolution=resolver;features.m_resolutionClients={first,second};resolver->start();
+        features.policy({first},false);QCOMPARE(features.m_resolution.data(),resolver);
+        QCOMPARE(features.m_resolutionClients,ComputerControlInterfaceList{second});QVERIFY(dns.aborted.isEmpty());
+        features.policy({second},false);QVERIFY(!features.m_resolution);QCOMPARE(dns.aborted,QList<int>{1});
+    }
+    void guardCanReopenBeforeDeferredDeletionOfPreviousDialog() {
+        IsolatedSchoolMaster master;const auto ci=client();master.clients={ci};SchoolFeatures features(nullptr,false);
+        QVERIFY(features.startFeature(master,features.featureList().first(),master.clients));
+        QPointer<QDialog> previous=features.m_guardDialog;previous->reject();QVERIFY(previous);
+        QVERIFY(features.startFeature(master,features.featureList().first(),master.clients));
+        QVERIFY(features.m_guardDialog!=previous);QVERIFY(features.m_guardDialog->isVisible());
+        QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);QVERIFY(!previous);
+        QVERIFY(features.m_guardDialog);QVERIFY(features.m_guardDialog->isVisible());
+    }
+    void confirmedAllowedCannotRemainInRenewalTargetsAndOldRepliesAreIgnored() {
+        SchoolFeatures features(nullptr,false);const auto ci=client();
+        features.m_guardTargets.append({ci.data(),{"192.0.2.25"},0});
+        features.m_unconfirmedReleases.append(ci.data());
+        const auto id=QUuid::createUuid().toString(QUuid::WithoutBraces);ci->setProperty("schoolPolicyRequest",id);
+        const auto reply=QJsonDocument(QJsonObject{{"ok",true},{"status","allowed"}}).toJson(QJsonDocument::Compact);
+        features.handleFeatureMessage(ci,FeatureMessage(features.m_guardUid,SchoolFeatures::Reply).addArgument(0,"old-request").addArgument(1,reply));
+        QCOMPARE(features.activeInternetPolicies(),1);QVERIFY(ci->property("schoolPolicyVerifiedState").toString().isEmpty());
+        features.handleFeatureMessage(ci,FeatureMessage(features.m_guardUid,SchoolFeatures::Reply).addArgument(0,id).addArgument(1,reply));
+        QCOMPARE(features.activeInternetPolicies(),0);QCOMPARE(ci->property("schoolPolicyVerifiedState").toString(),QString("allowed"));
+        QVERIFY(features.m_unconfirmedReleases.isEmpty());
+        features.m_timer.start(1000);features.stopPolicyRenewals();QVERIFY(!features.m_timer.isActive());
     }
     void featureDestructionClosesAllOwnedDialogs() {
         IsolatedSchoolMaster master;
@@ -594,7 +648,9 @@ private Q_SLOTS:
         features.discovery(master,{"192.0.2.25"});auto dialog=features.m_discoveryDialog;
         auto table=dialog->findChild<QTableWidget*>();QCOMPARE(table->rowCount(),1);table->selectRow(0);
         auto buttons=dialog->findChild<QDialogButtonBox*>();for(auto button:buttons->buttons()) if(buttons->buttonRole(button)==QDialogButtonBox::ActionRole) button->click();
-        auto notice=dialog->findChild<QMessageBox*>();QVERIFY(notice);QVERIFY(notice->text().contains(NetLinkUi::text("Discovery results changed or conflict. Select the computer again or add it manually.")));
+        auto notice=dialog->findChild<QMessageBox*>();QVERIFY(notice);
+        const auto record=agent.records().first();
+        QCOMPARE(notice->text(),NetLinkUi::text("The announcement for %1 (%2:%3) expired, changed, or contains conflicting data. Refresh discovery and select the computer again. No computer was imported.").arg(record.name,record.address,QString::number(record.port)));
     }
     void discoveryBoundsObservationsAndDoesNotMergeByClaimedName() {
         SchoolDiscovery::Agent agent(true,{},11100,nullptr,false);const auto endpoint="urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces);

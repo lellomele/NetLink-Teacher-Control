@@ -91,6 +91,18 @@ VncServer::~VncServer()
 	vDebug();
 }
 
+QString VncServer::pluginName() const
+{
+	const auto plugin=dynamic_cast<PluginInterface*>(m_pluginInterface);
+	return plugin?plugin->name():QStringLiteral("unavailable");
+}
+
+bool VncServer::externalBackend() const
+{
+	const auto plugin=dynamic_cast<PluginInterface*>(m_pluginInterface);
+	return plugin && plugin->uid()==QUuid(QStringLiteral("67dfc1c1-8f37-4539-a298-16e74e34fd8b"));
+}
+
 
 
 void VncServer::prepare()

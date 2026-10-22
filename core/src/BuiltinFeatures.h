@@ -53,6 +53,7 @@ public:
 	{
 		return *m_desktopAccessDialog;
 	}
+	SchoolFeatures& schoolFeatures() { return *m_schoolFeatures; }
 
 private:
 	SystemTrayIcon* m_systemTrayIcon;

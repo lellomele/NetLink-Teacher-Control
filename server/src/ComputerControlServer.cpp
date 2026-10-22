@@ -25,6 +25,8 @@
 #include <QCoreApplication>
 #include <QSysInfo>
 #include <QTimer>
+#include <QNetworkInterface>
+#include <QTcpSocket>
 #include "NetLinkUi.h"
 
 #include "AccessControlProvider.h"
@@ -90,8 +92,10 @@ bool ComputerControlServer::start()
 	}
 
 	m_vncServer.prepare();
+	m_backendProbeClock.start();
 	m_vncServer.start();
 	updateTrayIconToolTip();
+	QTimer::singleShot(1000,this,[this] {m_backendProbeClock.invalidate();updateTrayIconToolTip();});
 
 	return true;
 }
@@ -304,18 +308,59 @@ void ComputerControlServer::updateTrayIconToolTip()
 	for(auto connection:m_vncProxyServer.clients())
 		if(auto client=qobject_cast<ComputerControlClient*>(connection)) current.insert(client->serverClient());
 	m_trayAuthorizedClients.intersect(current);
-	auto toolTip=NetLinkUi::traySummary(QSysInfo::machineHostName(),
-		VeyonCore::config().veyonServerPort()+VeyonCore::sessionId(),m_vncProxyServer.isListening(),
-		m_vncProxyServer.listensLocallyOnly(),
-		VeyonCore::config().authenticationMethod()==VeyonCore::AuthenticationMethod::KeyFileAuthentication,
-		VeyonCore::config().schoolDiscoveryEnabled(),m_trayAuthorizedClients.size(),current.size()-m_trayAuthorizedClients.size());
+	NetLinkUi::ServiceSnapshot snapshot;
+	snapshot.host=QSysInfo::machineHostName();snapshot.port=VeyonCore::config().veyonServerPort()+VeyonCore::sessionId();
+	snapshot.bindAddress=m_vncProxyServer.listenAddress().toString();snapshot.listening=m_vncProxyServer.isListening();
+	snapshot.plugin=m_vncServer.pluginName();snapshot.external=m_vncServer.externalBackend();snapshot.backendPort=m_vncServer.serverPort();
+	snapshot.authorized=m_trayAuthorizedClients.size();snapshot.pending=current.size()-snapshot.authorized;
+	snapshot.discovery=VeyonCore::config().schoolDiscoveryEnabled();
+	bool backendConnecting=false,backendConnected=false;
+	const auto addressText=[](const QHostAddress& address) {bool v4=false;const auto value=address.toIPv4Address(&v4);return v4?QHostAddress(value).toString():address.toString();};
+	for(auto connection:m_vncProxyServer.clients()) {
+		snapshot.backendReady|=connection->backendReady();
+		backendConnecting|=connection->vncServerSocket()->state()!=QAbstractSocket::UnconnectedState;
+		backendConnected|=connection->vncServerSocket()->state()==QAbstractSocket::ConnectedState;
+		const auto age=connection->videoFrameAge();
+		if(age>=0 && (snapshot.frameAgeMs<0 || age<snapshot.frameAgeMs)) snapshot.frameAgeMs=age;
+		const auto local=connection->proxyClientSocket()->localAddress();
+		if(!local.isNull() && !local.isLoopback() && !snapshot.localAddresses.contains(addressText(local))) snapshot.localAddresses.append(addressText(local));
+	}
+	for(const auto& interface:QNetworkInterface::allInterfaces()) {
+		if(!interface.flags().testFlag(QNetworkInterface::IsUp) || !interface.flags().testFlag(QNetworkInterface::IsRunning)) continue;
+		for(const auto& entry:interface.addressEntries()) {
+			const auto ip=entry.ip();
+			if(ip.isNull() || (!m_vncProxyServer.listensLocallyOnly() && ip.isLoopback())) continue;
+			if(m_vncProxyServer.listensLocallyOnly() && !ip.isLoopback()) continue;
+			if(snapshot.localAddresses.size()<16 && !snapshot.localAddresses.contains(addressText(ip))) snapshot.localAddresses.append(addressText(ip));
+		}
+	}
+	snapshot.backendChecked=m_backendChecked || backendConnected;snapshot.backendAvailable=m_backendAvailable || backendConnected;
+	// Loopback-only, bounded and asynchronous: this checks TCP, not VNC auth.
+	if(!backendConnecting && m_vncServer.isRunning() && (!m_backendProbeClock.isValid() || m_backendProbeClock.elapsed()>=15000)) {
+		m_backendProbeClock.start();
+		auto socket=new QTcpSocket(this);auto deadline=new QTimer(socket);deadline->setSingleShot(true);
+		auto finish=[this,socket,deadline](bool available) {
+			if(socket->property("netlinkProbeFinished").toBool()) return;
+			socket->setProperty("netlinkProbeFinished",true);deadline->stop();socket->abort();socket->deleteLater();
+			m_backendChecked=true;m_backendAvailable=available;updateTrayIconToolTip();
+		};
+		connect(socket,&QTcpSocket::connected,this,[finish]{finish(true);});
+		connect(socket,&QTcpSocket::errorOccurred,this,[finish](QAbstractSocket::SocketError){finish(false);});
+		connect(deadline,&QTimer::timeout,this,[finish]{finish(false);});deadline->start(1000);
+		socket->connectToHost(QHostAddress::LocalHost,snapshot.backendPort);
+	}
+	auto toolTip=NetLinkUi::serviceSnapshot(snapshot);
+	toolTip+=QLatin1Char('\n')+NetLinkUi::text("Authentication: %1").arg(
+		VeyonCore::config().authenticationMethod()==VeyonCore::AuthenticationMethod::KeyFileAuthentication?NetLinkUi::text("Key"):QStringLiteral("Account"));
 	QStringList peers;
 	for(auto connection:m_vncProxyServer.clients()) {
-		if(peers.size()>=8) {peers.append(QStringLiteral("… altre connessioni non elencate"));break;}
+		if(peers.size()>=8) {peers.append(NetLinkUi::text("Additional connections not shown"));break;}
 		if(auto client=qobject_cast<ComputerControlClient*>(connection))
 			peers.append(client->proxyClientSocket()->peerAddress().toString().left(64)+
-				(m_trayAuthorizedClients.contains(client->serverClient())?QStringLiteral(" — autorizzato"):QStringLiteral(" — altro TCP")));
+				QStringLiteral(" — ")+(m_trayAuthorizedClients.contains(client->serverClient())?NetLinkUi::text("authorized"):NetLinkUi::text("other TCP"))+
+				QStringLiteral(" — ")+(connection->backendReady()?NetLinkUi::text("VNC ready"):NetLinkUi::text("waiting for VNC"))+
+				QStringLiteral(" — ")+NetLinkUi::text("Video: %1").arg(connection->videoFrameAge()>=0?QString::number(connection->videoFrameAge()/1000)+QStringLiteral(" s"):NetLinkUi::text("waiting for frame")));
 	}
-	if(!peers.isEmpty()) toolTip+=QStringLiteral("\n\nConnessioni TCP osservate:\n")+peers.join(QLatin1Char('\n'));
+	if(!peers.isEmpty()) toolTip+=QStringLiteral("\n\n")+NetLinkUi::text("Observed TCP connections:")+QLatin1Char('\n')+peers.join(QLatin1Char('\n'));
 	VeyonCore::builtinFeatures().systemTrayIcon().setToolTip(toolTip,m_featureWorkerManager);
 }

@@ -25,6 +25,7 @@
 #pragma once
 
 #include "VeyonCore.h"
+#include <QElapsedTimer>
 
 class QBuffer;
 class QTcpSocket;
@@ -44,6 +45,8 @@ public:
 	~VncProxyConnection() override;
 
 	void start();
+	bool backendReady();
+	qint64 videoFrameAge() const { return m_lastVideoFrame.isValid()?m_lastVideoFrame.elapsed():-1; }
 
 	QTcpSocket* proxyClientSocket() const
 	{
@@ -73,6 +76,7 @@ protected:
 	virtual VncServerProtocol& serverProtocol() = 0;
 
 private:
+	QElapsedTimer m_lastVideoFrame;
 	const int m_vncServerPort;
 
 	QTcpSocket* m_proxyClientSocket;

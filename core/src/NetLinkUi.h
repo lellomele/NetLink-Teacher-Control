@@ -32,8 +32,18 @@ VEYON_CORE_EXPORT QString featureDescription(const Feature& feature);
 VEYON_CORE_EXPORT void addInformationMenu(QMainWindow* window);
 VEYON_CORE_EXPORT bool easyPage(const QString& className);
 VEYON_CORE_EXPORT void setEasyPage(QWidget* page, bool easy);
+VEYON_CORE_EXPORT void setPropertyVisibility(QWidget* widget, bool advanced);
 // Pure formatting: no DNS, sockets, service queries or changes to the machine.
 VEYON_CORE_EXPORT QString traySummary(const QString& host, int port, bool listening,
     bool localOnly, bool keyAuthentication, bool discovery, int authenticated, int pending);
+struct ServiceSnapshot {
+    QString host, bindAddress, plugin;
+    QStringList localAddresses;
+    int port=0, backendPort=0, authorized=0, pending=0;
+    bool listening=false, external=false, discovery=false;
+    bool backendChecked=false, backendAvailable=false, backendReady=false;
+    qint64 frameAgeMs=-1;
+};
+VEYON_CORE_EXPORT QString serviceSnapshot(const ServiceSnapshot& status);
 VEYON_CORE_EXPORT QMessageBox* showTrayDetails(const QString& snapshot,const QString& version,const QString& updated);
 }

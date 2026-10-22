@@ -368,11 +368,7 @@ void MainWindow::switchToAdvancedView()
 	const auto widgets = findChildren<QWidget *>();
 	for( auto widget : widgets )
 	{
-		const auto flags = Configuration::UiMapping::flags( widget );
-		if( flags & Configuration::Property::Flag::Advanced )
-		{
-			widget->show();
-		}
+		NetLinkUi::setPropertyVisibility(widget,true);
 	}
 
 	for( int i = 0; i < ui->pageSelector->count(); ++i )

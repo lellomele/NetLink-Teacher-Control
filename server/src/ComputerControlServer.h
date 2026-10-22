@@ -23,6 +23,7 @@
  */
 
 #pragma once
+#include <QElapsedTimer>
 
 #include <QMutex>
 #include <QSet>
@@ -105,5 +106,8 @@ private:
 
 	VncServer m_vncServer;
 	VncProxyServer m_vncProxyServer;
+	QElapsedTimer m_backendProbeClock;
+	bool m_backendChecked=false;
+	bool m_backendAvailable=false;
 
 } ;

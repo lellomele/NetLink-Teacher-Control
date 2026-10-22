@@ -6,9 +6,9 @@ Suite NetLink per la gestione delle aule Windows, basata su **Veyon 4.7.5**.
 Integra controllo remoto, InternetGuard WFP, Appello, profili classe–aula,
 ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
 
-**Versione preliminare 1.0.0-alpha.26: usare consapevolmente.**
+**Versione preliminare 1.0.0-alpha.27: usare consapevolmente.**
 
-**[Scarica l’installer Windows x64 — ultima release (alpha.26)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.26/NetLink-1.0.0-alpha.26-win64-setup.exe)**
+**[Scarica l’installer Windows x64 — ultima release (alpha.27)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.27/NetLink-1.0.0-alpha.27-win64-setup.exe)**
 
 ## Funzionalità
 
@@ -19,6 +19,7 @@ ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
   con supporto ai display ad alta risoluzione e descrizioni dei comandi.
 - **InternetGuard WFP:** blocco/sblocco sui client selezionati, feedback di
   applicazione o errore e scadenza dei filtri in assenza di rinnovo.
+  La finestra seleziona inizialmente tutte le righe; i comandi agiscono solo su quelle evidenziate.
 - **Appello:** nome dichiarato dallo studente sulle miniature, insieme ad account
   Windows e nome del PC. Non è una verifica dell'identità o della presenza.
 - **Profili classe–aula:** assegnazioni studente/postazione modificabili,
@@ -31,6 +32,7 @@ ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
   riutilizzo di aule, PC, chiavi e regole di accesso già configurati.
 - **Stato e diagnostica:** icona del servizio con riepilogo locale, Companion
   per analizzare PC/rete e distinguere le prove di controllo remoto e discovery.
+  I dettagli distinguono indirizzi di ascolto, backend VNC e fotogrammi inoltrati.
   Un canale temporaneo abbinato esplicitamente consente lo scambio di rapporti.
 
 ## Installazione e aggiornamento
@@ -72,6 +74,8 @@ Procedura completa: [installazione, disinstallazione e recupero](docs/INSTALLATI
   assegnazioni. Il profilo non modifica gli indirizzi di rete del Configurator.
 - In **Trova client** disattivare il filtro dei PC noti per visualizzare anche
   quelli già configurati. Verificare i destinatari prima di importarli.
+  Per importare occorre che la Console stessa possa scrivere la configurazione
+  di sistema: il Configurator amministratore non eleva una Console già aperta.
 - Se installato, da **Start → NetLink → NetLink Companion** scegliere ruolo e prova:
   controllo remoto dal docente al client, discovery diretto dal client al docente.
 

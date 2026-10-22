@@ -167,7 +167,7 @@ bool SystemTrayIcon::handleFeatureMessage( VeyonWorkerInterface& worker, const F
 	case SetToolTipCommand:
 		if( m_systemTrayIcon )
 		{
-			m_lastToolTip=message.argument( Argument::ToolTipText ).toString().left(2048);
+			m_lastToolTip=message.argument( Argument::ToolTipText ).toString().left(4096);
 			m_systemTrayIcon->setProperty("netlinkStatusTime",QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss")));
 			m_systemTrayIcon->setToolTip(m_lastToolTip.section(QStringLiteral("\n\n"),0,0).left(127));
 		}

@@ -159,7 +159,17 @@ void ComputerControlInterface::stop()
 
 	m_state = State::Disconnected;
 	clearStudentDeclaration();
+	invalidatePolicyConfirmation();
 	m_serverVersion = VeyonCore::ApplicationVersion::Unknown;
+}
+
+void ComputerControlInterface::invalidatePolicyConfirmation()
+{
+	if(m_networkPolicyStatus.isEmpty()) return;
+	setProperty("schoolPolicyVerifiedState",QStringLiteral("unknown"));
+	setProperty("schoolPolicyRequest",QString{});setProperty("schoolPolicyDeadline",0);
+	if(auto deadline=findChild<QTimer*>(QStringLiteral("schoolPolicyDeadlineTimer"),Qt::FindDirectChildrenOnly)) deadline->stop();
+	setNetworkPolicyStatus(NetLinkUi::text("not connected"));
 }
 
 void ComputerControlInterface::clearStudentDeclaration()
@@ -453,7 +463,7 @@ void ComputerControlInterface::updateState()
 	unlock();
 	// A declaration belongs to this connection, never to a later Windows session.
 	// Keep only the expected seat assignment across disconnect/reconnect.
-	if (m_state != State::Connected) clearStudentDeclaration();
+	if (m_state != State::Connected) {clearStudentDeclaration();invalidatePolicyConfirmation();}
 }
 
 

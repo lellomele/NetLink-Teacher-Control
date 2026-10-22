@@ -6,9 +6,9 @@ NetLink is a Windows classroom-management suite based on **Veyon 4.7.5**.
 It integrates remote control, WFP InternetGuard, student names, class–room profiles,
 automatic client discovery and Companion diagnostics, without external plugins.
 
-**Pre-release 1.0.0-alpha.26: use with awareness of its limitations.**
+**Pre-release 1.0.0-alpha.27: use with awareness of its limitations.**
 
-**[Download Windows x64 installer — latest release (alpha.26)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.26/NetLink-1.0.0-alpha.26-win64-setup.exe)**
+**[Download Windows x64 installer — latest release (alpha.27)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.27/NetLink-1.0.0-alpha.27-win64-setup.exe)**
 
 ## Features
 
@@ -19,6 +19,7 @@ automatic client discovery and Companion diagnostics, without external plugins.
   high-resolution display support and descriptive tooltips.
 - **WFP InternetGuard:** block/release Internet on selected clients, with
   application/error feedback and filter expiry when renewal stops.
+  All dialog rows are initially selected; commands affect highlighted rows only.
 - **Student names:** the student's self-declared name appears beside the Windows
   account and PC name. It does not verify identity or attendance.
 - **Class–room profiles:** editable student/workstation assignments,
@@ -29,6 +30,7 @@ automatic client discovery and Companion diagnostics, without external plugins.
   reuse existing locations, computers, keys and access rules.
 - **Status and diagnostics:** service tray summary and Companion PC/network
   analysis with distinct remote-control and discovery tests.
+  Service details distinguish listening addresses, VNC backend and forwarded video.
   An explicitly paired temporary channel transfers diagnostic reports.
 
 ## Installation and updates
@@ -70,6 +72,8 @@ Full procedure: [installation, uninstall and recovery](docs/INSTALLATION.md).
   A profile does not change Configurator network addresses.
 - In **Find clients**, turn off the known-computer filter to see configured PCs
   too. Verify destinations before importing them.
+  Import needs system-configuration write permission in the Console itself;
+  an administrator Configurator does not elevate an already running Console.
 - If installed, open **Start → NetLink → NetLink Companion**, choose the role and test:
   teacher-to-client remote control or client-to-teacher direct discovery.
 

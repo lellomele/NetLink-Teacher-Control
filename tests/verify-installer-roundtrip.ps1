@@ -1,5 +1,18 @@
 param([Parameter(Mandatory=$true)][string]$BuildRoot,[Parameter(Mandatory=$true)][string]$Toolchain,[Parameter(Mandatory=$true)][string]$Helper,[Parameter(Mandatory=$true)][string]$Cli)
 $ErrorActionPreference='Stop'
+# The actual installer launches netlink-wcli (Windows GUI subsystem), not a
+# console program vulnerable to an unrelated console-close/Ctrl-C notification.
+$cliReader=[IO.BinaryReader]::new([IO.File]::OpenRead($Cli))
+try {
+    $stream=$cliReader.BaseStream
+    if($stream.Length-lt64){throw 'Invalid CLI fixture PE header'}
+    [void]$stream.Seek(0x3c,[IO.SeekOrigin]::Begin);$peOffset=$cliReader.ReadInt32()
+    if($peOffset-lt64 -or $peOffset+94-gt$stream.Length){throw 'Invalid CLI fixture PE offset'}
+    [void]$stream.Seek($peOffset,[IO.SeekOrigin]::Begin)
+    if($cliReader.ReadUInt32()-ne0x4550){throw 'Invalid CLI fixture PE signature'}
+    [void]$stream.Seek($peOffset+92,[IO.SeekOrigin]::Begin)
+    if($cliReader.ReadUInt16()-ne2){throw 'CLI fixture must match netlink-wcli: Windows GUI subsystem required'}
+} finally {$cliReader.Dispose()}
 $repoRoot=Split-Path $PSScriptRoot
 $base=(Resolve-Path -LiteralPath $BuildRoot).Path
 $id=[Guid]::NewGuid().ToString('N')
@@ -38,9 +51,11 @@ $settings.SetValue('OtherSetting','PRESERVE ON UPGRADE - REMOVE ON PURGE')
 $settings.Dispose()
 $script:successfulInstalls=0
 function RunInstaller([string]$file,[string]$arguments,[int]$expectedExit=0) {
+    $errorFile=Join-Path $root 'fixture-error.txt'
+    if(Test-Path -LiteralPath $errorFile){Remove-Item -LiteralPath $errorFile}
     $process=Start-Process -FilePath $file -ArgumentList $arguments -WindowStyle Hidden -PassThru
-    try {if(!$process.WaitForExit(60000)){$process.Kill();throw "Installer fixture deadline exceeded: $file $arguments"}; if($process.ExitCode-ne$expectedExit){$detail=if(Test-Path -LiteralPath (Join-Path $root 'fixture-error.txt')){Get-Content -LiteralPath (Join-Path $root 'fixture-error.txt') -Raw}else{'no helper error'}; throw "Installer fixture failed: $($process.ExitCode), expected $expectedExit`: $detail"}}finally{$process.Dispose()}
-    if($expectedExit-eq0 -and (Split-Path $file -Leaf)-eq'NetLink-1.0.0-alpha.26-win64-setup.exe'){$script:successfulInstalls++}
+    try {if(!$process.WaitForExit(60000)){$process.Kill();throw "Installer fixture deadline exceeded: $file $arguments"}; if($process.ExitCode-ne$expectedExit){$detail=if(Test-Path -LiteralPath $errorFile){Get-Content -LiteralPath $errorFile -Raw}else{'no helper error'}; $trace=Join-Path $root 'installer-cli-trace.txt'; if(Test-Path -LiteralPath $trace){$detail+="`n"+((Get-Content -LiteralPath $trace | Select-Object -Last 12)-join"`n")}; throw "Installer fixture failed after $script:successfulInstalls successful installs: exit $($process.ExitCode), expected $expectedExit; command '$file $arguments'; $detail"}}finally{$process.Dispose()}
+    if($expectedExit-eq0 -and (Split-Path $file -Leaf)-eq'NetLink-1.0.0-alpha.27-win64-setup.exe'){$script:successfulInstalls++}
 }
 function WaitRemoval {
     $deadline=[DateTime]::UtcNow.AddSeconds(20)
@@ -98,7 +113,7 @@ function CheckComponents([string]$role,[bool]$companion=$false) {
 try {
     & (Join-Path $Toolchain 'bin/makensis.exe') '/INPUTCHARSET' 'UTF8' "/DNETLINK_INSTALLER_FIXTURE" "/DFIXTURE_ID=$id" "/DFIXTURE_ROOT=$root" "/DFIXTURE_REGKEY=$registry" "/DREPOROOT=$repoRoot" "/DOUTPUT=$root" "/DPAYLOAD=$payload" (Join-Path $repoRoot 'packaging/veyon-school.nsi') | Out-Null
     if($LASTEXITCODE-ne0){throw 'Full installer fixture compilation failed'}
-    $installer=Join-Path $root 'NetLink-1.0.0-alpha.26-win64-setup.exe'
+    $installer=Join-Path $root 'NetLink-1.0.0-alpha.27-win64-setup.exe'
     $oldHashes=@{};Get-ChildItem -LiteralPath $app -File | ForEach-Object {$oldHashes[$_.Name]=(Get-FileHash -LiteralPath $_.FullName).Hash}
     $loaded=Start-Process -FilePath $Helper -ArgumentList ('hold-image "'+$app+'"') -WindowStyle Hidden -PassThru
     try {

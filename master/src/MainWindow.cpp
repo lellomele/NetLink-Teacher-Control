@@ -34,6 +34,7 @@
 #include "AccessControlProvider.h"
 #include "MainWindow.h"
 #include "BuiltinFeatures.h"
+#include "SchoolFeatures.h"
 #include "AuthenticationCredentials.h"
 #include "ComputerControlListModel.h"
 #include "ComputerManager.h"
@@ -359,11 +360,16 @@ void MainWindow::closeEvent( QCloseEvent* event )
 	{
 		const Feature& activeFeature = VeyonCore::featureManager().feature( m_master.currentMode() );
 
-		QMessageBox::information( this, tr( "Feature active" ),
-								  tr( "The feature \"%1\" is still active. Please stop it before closing %2." ).
-								  arg( activeFeature.displayName(), VeyonCore::applicationName() ) );
-		event->ignore();
-		return;
+		if(QMessageBox::question(this,tr("Feature active"),
+			NetLinkUi::text("Stop the active feature (%1) and close the Console?").arg(activeFeature.displayName()),
+			QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes) {
+			event->ignore();return;
+		}
+	}
+	if(VeyonCore::builtinFeatures().schoolFeatures().activeInternetPolicies()>0 &&
+		QMessageBox::question(this,QStringLiteral("InternetGuard"),NetLinkUi::text("InternetGuard has requested blocks or unconfirmed unblocks. Close and send unblock commands? Unconfirmed clients normally release filters after 90 seconds without renewal; Windows errors may delay cleanup."),
+			QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes) {
+		event->ignore();return;
 	}
 
 	QJsonObject splitterStates;
