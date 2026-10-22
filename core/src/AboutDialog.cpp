@@ -39,7 +39,8 @@ AboutDialog::AboutDialog( QWidget *parent ) :
 	ui->setupUi( this );
 
 	const auto productVersion=NetLinkUi::displayVersion(VeyonCore::versionString());
-	setWindowTitle( NetLinkUi::windowTitle(tr( "About %1 %2" ).arg( VeyonCore::applicationName(), productVersion )) );
+	const auto productName=VeyonCore::instance() ? VeyonCore::applicationName() : QStringLiteral("NetLink");
+	setWindowTitle( NetLinkUi::text("About NetLink").replace(QStringLiteral("NetLink"),productName)+QStringLiteral(" — ")+productVersion );
 
 	ui->versionLabel->setText( productVersion );
 
@@ -51,11 +52,14 @@ AboutDialog::AboutDialog( QWidget *parent ) :
 	license.open( QFile::ReadOnly ); // Flawfinder: ignore
 	ui->license->setPlainText( QString::fromUtf8( license.readAll() ) );
 
-	VeyonCore::enforceBranding( this );
+	// Companion has no VeyonCore singleton: About must remain read-only and
+	// usable without initializing service/configuration/plugin infrastructure.
+	if(VeyonCore::instance()) VeyonCore::enforceBranding( this );
+	ui->label_2->setText(productName);
 	ui->label_3->setText(NetLinkUi::text("NetLink — classroom management console\nBased on Veyon 4.7.5"));
 	ui->label_8->setText(NetLinkUi::copyrightText()+QString::fromUtf8("\nVeyon: Copyright © 2004-2022 Tobias Junghans / Veyon Solutions e contributori"));
 	ui->label_8->setWordWrap(true);
-	ui->label_4->setText(QStringLiteral("<a href=\"https://github.com/lellomele/veyon-school\">NetLink — repository</a> | "
+	ui->label_4->setText(QStringLiteral("<a href=\"https://github.com/lellomele/NetLink-Teacher-Control\">NetLink — repository</a> | "
 		"<a href=\"https://veyon.io\">Progetto originale Veyon</a>"));
 	ui->donateButton->setText(NetLinkUi::text("Support the original Veyon project"));
 }

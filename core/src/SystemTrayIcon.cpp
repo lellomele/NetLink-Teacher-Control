@@ -152,7 +152,9 @@ bool SystemTrayIcon::handleFeatureMessage( VeyonWorkerInterface& worker, const F
 		connect(status,&QAction::triggered,this,[this] {
 			NetLinkUi::showTrayDetails(m_lastToolTip,VeyonCore::versionString(),m_systemTrayIcon->property("netlinkStatusTime").toString());
 		});
-		auto copyright=menu->addAction(NetLinkUi::copyrightText());copyright->setEnabled(false);
+		auto about=menu->addAction(NetLinkUi::text("About NetLink"));
+		about->setObjectName(QStringLiteral("netlinkTrayAboutAction"));
+		connect(about,&QAction::triggered,this,[]{NetLinkUi::showAbout();});
 		m_systemTrayIcon->setContextMenu(menu);
 
 		updateIcon();

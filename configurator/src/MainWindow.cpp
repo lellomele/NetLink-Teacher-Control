@@ -65,7 +65,7 @@ MainWindow::MainWindow( QWidget* parent ) :
 	NetLinkUi::addInformationMenu(this);
 	ui->actionAboutVeyon->setText(NetLinkUi::text("About NetLink"));
 
-	setWindowTitle(NetLinkUi::windowTitle(QStringLiteral("Configurator %1").arg(VeyonCore::versionString()))+QStringLiteral(" — ")+VeyonCore::applicationName());
+	setWindowTitle(VeyonCore::applicationName()+QStringLiteral(" Configurator"));
 
 	loadConfigurationPagePlugins();
 

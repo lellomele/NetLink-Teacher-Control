@@ -216,7 +216,7 @@ private Q_SLOTS:
         ProfileMaster master;const auto profile=sample();auto ci=client(profile.assignments[0].computerId);master.clients={ci};master.selected={ci};
         ClassProfiles profiles(master);profiles.activate(profile);profiles.show();auto dialog=profiles.m_dialog;QVERIFY(dialog);QCOMPARE(dialog->windowModality(),Qt::NonModal);
         auto table=dialog->findChild<QTableWidget*>("profileAssignments");QVERIFY(table);QCOMPARE(table->rowCount(),1);
-        QVERIFY(dialog->windowTitle().endsWith(NetLinkUi::copyrightText()));
+        QVERIFY(!dialog->windowTitle().contains(NetLinkUi::copyrightText()));
         table->item(0,1)->setText("Nome modificato");QCOMPARE(ci->expectedStudentName(),QString("Nome modificato"));QVERIFY(profiles.m_dirty);
         dialog->reject();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);QVERIFY(!profiles.m_dialog);QCOMPARE(profiles.profile().assignments[0].student,QString("Nome modificato"));
         profiles.show("save");QTRY_VERIFY(profiles.m_dialog->findChild<QFileDialog*>("profileFileDialog"));const auto path=directory.filePath("ui-saved.json");QVERIFY(acceptPath(profiles.m_dialog,path));

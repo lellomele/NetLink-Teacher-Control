@@ -83,6 +83,24 @@ private Q_SLOTS:
     void htmlEscaping() {
         auto report=fixture();report["system"]=QJsonObject{{"computer","<script>bad()</script>"}};const auto output=Companion::html(report,"teacher");QVERIFY(!output.contains("<script>"));QVERIFY(output.contains("&lt;script&gt;"));
     }
+    void copyrightOnlyAppearsInExportMetadata() {
+        const auto report=fixture();
+        QVERIFY(!Companion::html(report,"teacher").contains(NetLinkUi::copyrightText()));
+        for(bool identifiers:{false,true}) {
+            const auto exported=Companion::exportedReport(report,identifiers);
+            QCOMPARE(exported["copyright"].toString().count(NetLinkUi::copyrightText()),1);
+            QVERIFY(exported["copyright"].toString().contains("Veyon"));
+            auto contents=exported;contents.remove("copyright");
+            QCOMPARE(contents,Companion::publicReport(report,identifiers));
+            QJsonObject reopened;QString error;
+            QVERIFY2(Companion::parseReport(QJsonDocument(exported).toJson(),reopened,error),qPrintable(error));
+            QCOMPARE(reopened,exported);
+        }
+        CompanionWindow window(report,false);QCOMPARE(window.windowTitle(),QString("NetLink Companion"));
+        auto view=window.findChild<QTextBrowser*>("companionReport");QVERIFY(view);
+        QVERIFY(!view->toPlainText().contains(NetLinkUi::copyrightText()));
+        window.close();
+    }
     void subnetMaskAsymmetry() {
         auto teacher=fixture("192.0.2.10");auto client=fixture("192.0.3.10");auto interfaces=client["interfaces"].toArray();auto iface=interfaces[0].toObject();iface["addresses"]=QJsonArray{QJsonObject{{"address","192.0.3.10"},{"prefix",16}}};interfaces[0]=iface;client["interfaces"]=interfaces;
         QVERIFY(Companion::compare(teacher,client).join('\n').contains("Non risulta una subnet IP comune"));

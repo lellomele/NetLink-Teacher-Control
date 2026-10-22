@@ -73,7 +73,7 @@ private Q_SLOTS:
             auto dialog=qApp->findChild<QDialog*>("netLinkAppearanceDialog");
             // The dialog is a top-level object rather than an application child.
             if(!dialog) for(auto widget:QApplication::topLevelWidgets()) if(widget->objectName()=="netLinkAppearanceDialog") dialog=qobject_cast<QDialog*>(widget);
-            QVERIFY(dialog);QVERIFY(dialog->windowTitle().endsWith(NetLinkUi::copyrightText()));
+            QVERIFY(dialog);QVERIFY(!dialog->windowTitle().contains(NetLinkUi::copyrightText()));
             for(auto label:dialog->findChildren<QLabel*>()) QVERIFY(label->text()!=NetLinkUi::copyrightText());
             dialog->findChild<QComboBox*>("appearanceMode")->setCurrentIndex(2);
             dialog->findChild<QComboBox*>("appearanceIconSet")->setCurrentIndex(1);

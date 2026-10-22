@@ -124,7 +124,18 @@ QString NetLinkUi::applicationName(const QString& configuredName) {
         name.compare("Veyon School",Qt::CaseInsensitive)==0 ? QStringLiteral("NetLink") : name;
 }
 QString NetLinkUi::windowTitle(const QString& title) {
-    return title.contains(copyrightText()) ? title : title+QString::fromUtf8(" — ")+copyrightText();
+    return title;
+}
+QDialog* NetLinkUi::showAbout(QWidget* parent) {
+    for(auto widget:QApplication::topLevelWidgets()) {
+        if(widget->objectName()=="netlinkAboutDialog" && widget->parentWidget()==parent) {
+            widget->show();widget->raise();widget->activateWindow();return qobject_cast<QDialog*>(widget);
+        }
+    }
+    auto dialog=new AboutDialog(parent);dialog->setObjectName("netlinkAboutDialog");
+    dialog->setAttribute(Qt::WA_DeleteOnClose);dialog->setAttribute(Qt::WA_QuitOnClose,false);
+    dialog->setModal(false);
+    dialog->show();return dialog;
 }
 QIcon NetLinkUi::icon(const QString& name,const QString& set,const QColor& accent,const QIcon& fallback) {
     const auto symbol=glyph(name);
@@ -177,12 +188,8 @@ void NetLinkUi::addInformationMenu(QMainWindow* window) {
     auto appearance=menu->addAction(NetLinkUi::text("Appearance, colors and icons…"));appearance->setObjectName("netlinkAppearanceAction");
     appearance->setToolTip(NetLinkUi::text("Choose a theme, colors, icon set and button size. These are personal preferences and do not change keys or the service."));
     QObject::connect(appearance,&QAction::triggered,window,[window]{NetLinkAppearance::install()->showSettings(window);});
-    auto about=menu->addAction(NetLinkUi::text("About, copyright and licenses…"));about->setObjectName("netlinkAboutAction");
-    QObject::connect(about,&QAction::triggered,window,[window]{
-        if(auto previous=window->findChild<AboutDialog*>("netlinkAboutDialog")){previous->show();previous->raise();previous->activateWindow();return;}
-        auto dialog=new AboutDialog(window);dialog->setObjectName("netlinkAboutDialog");dialog->setAttribute(Qt::WA_DeleteOnClose);dialog->open();
-    });
-    menu->addSeparator();auto copyright=menu->addAction(copyrightText());copyright->setEnabled(false);
+    auto about=menu->addAction(NetLinkUi::text("About NetLink"));about->setObjectName("netlinkAboutAction");
+    QObject::connect(about,&QAction::triggered,window,[window]{showAbout(window);});
 }
 bool NetLinkUi::easyPage(const QString& name) {
     return QStringList{"GeneralConfigurationPage","ServiceConfigurationPage","AuthKeysConfigurationPage",

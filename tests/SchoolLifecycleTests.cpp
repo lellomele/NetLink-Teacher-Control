@@ -135,7 +135,7 @@ private Q_SLOTS:
             QVERIFY(features.startFeature(master,feature,{}));
             QCOMPARE(dialog,feature.uid()==features.m_guardUid ? features.m_guardDialog : feature.uid()==features.m_attendanceUid ? features.m_attendanceDialog : features.m_discoveryDialog);
             QTest::qWait(2);
-            QVERIFY(dialog->windowTitle().endsWith(NetLinkUi::copyrightText()));
+            QVERIFY(!dialog->windowTitle().contains(NetLinkUi::copyrightText()));
             QVERIFY(dialog->findChildren<QLabel*>("netlinkCopyright").isEmpty());
             dialog->reject();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);QVERIFY(dialog.isNull());
         }

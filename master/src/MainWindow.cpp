@@ -76,7 +76,7 @@ MainWindow::MainWindow( VeyonMaster &masterCore, QWidget* parent ) :
 	ui->computerMonitoringWidget->refreshAppearance();
 
 	// Qt appends the display name unless already at the end: include it once.
-	setWindowTitle(NetLinkUi::windowTitle(NetLinkUi::text("Teacher Console"))+QStringLiteral(" — ")+VeyonCore::applicationName());
+	setWindowTitle(VeyonCore::applicationName()+QStringLiteral(" — ")+NetLinkUi::text("Teacher Console"));
 
 	restoreState( QByteArray::fromBase64( m_master.userConfig().windowState().toUtf8() ) );
 	restoreGeometry( QByteArray::fromBase64( m_master.userConfig().windowGeometry().toUtf8() ) );

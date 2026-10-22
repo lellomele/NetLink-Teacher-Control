@@ -16,6 +16,7 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QPlainTextEdit>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QTableWidget>
@@ -108,13 +109,40 @@ private Q_SLOTS:
         QVERIFY(!cover.close());QVERIFY(cover.isVisible());
         cover.hide();QVERIFY(!cover.isVisible());cover.restoreWindow();QVERIFY(cover.isVisible());
     }
-    void copyrightUsesUnicodeAndOnlyOneNativeTitleSuffix() {
+    void copyrightIsNotAddedToOperationalTitles() {
         QCOMPARE(NetLinkUi::copyrightText(),QString::fromUtf8("© 2026 prof. Ing. Raffaele Mele"));
         const auto title=NetLinkUi::windowTitle("NetLink — Console docente");
         QVERIFY(title.startsWith("NetLink — Console docente"));
-        QVERIFY(title.endsWith(NetLinkUi::copyrightText()));
+        QCOMPARE(title,QString("NetLink — Console docente"));
+        QVERIFY(!title.contains(NetLinkUi::copyrightText()));
         QCOMPARE(NetLinkUi::windowTitle(title),title);
         QVERIFY(!title.contains("(C)"));
+    }
+    void aboutRetainsAttributionWithoutCoreOrModalBlocking() {
+        QVERIFY(!VeyonCore::instance());
+        QMainWindow window;NetLinkUi::addInformationMenu(&window);
+        NetLinkUi::addInformationMenu(&window);
+        QCOMPARE(window.findChildren<QMenu*>("netlinkInformationMenu").size(),1);
+        auto menu=window.findChild<QMenu*>("netlinkInformationMenu");QVERIFY(menu);
+        for(auto action:menu->actions()) QVERIFY(!action->text().contains(NetLinkUi::copyrightText()));
+        auto action=menu->findChild<QAction*>("netlinkAboutAction");QVERIFY(action);
+        QCOMPARE(action->text(),NetLinkUi::text("About NetLink"));QVERIFY(action->isEnabled());
+        action->trigger();
+        QPointer<QDialog> dialog=window.findChild<QDialog*>("netlinkAboutDialog");QVERIFY(dialog);
+        QCOMPARE(NetLinkUi::showAbout(&window),dialog.data());
+        QVERIFY(!dialog->isModal());QVERIFY(!dialog->testAttribute(Qt::WA_QuitOnClose));
+        QVERIFY(!dialog->windowTitle().contains(NetLinkUi::copyrightText()));
+        auto attribution=dialog->findChild<QLabel*>("label_8");QVERIFY(attribution);
+        QCOMPARE(attribution->text().count(NetLinkUi::copyrightText()),1);
+        QVERIFY(attribution->text().contains("Veyon: Copyright"));
+        auto license=dialog->findChild<QPlainTextEdit*>("license");QVERIFY(license);
+        QVERIFY(license->toPlainText().contains("GNU"));
+        snapshot(*dialog,"netlink-about");dialog->close();QTRY_VERIFY(dialog.isNull());
+        QPointer<QDialog> trayAbout=NetLinkUi::showAbout();QVERIFY(trayAbout);
+        QCOMPARE(NetLinkUi::showAbout(),trayAbout.data());
+        QVERIFY(!trayAbout->testAttribute(Qt::WA_QuitOnClose));
+        trayAbout->close();QTRY_VERIFY(trayAbout.isNull());
+        QVERIFY(!VeyonCore::instance());
     }
     void vectorSetsRenderAtEverySize() {
         for(const auto& set:{"Organic","Outline","Spectrum"}) for(const auto& name:{"MonitoringMode","InternetGuard","Appello","Discovery","RemoteControl","RemoteView","Demo","ScreenLock","TextMessage","Screenshot","PowerOn","PowerDown","Reboot","StartApp","OpenWebsite","ClipboardExchange","FileTransfer","UserLogon","UserLogoff","add","remove","settings","info","key","group"}) {
@@ -317,7 +345,7 @@ private Q_SLOTS:
         QVERIFY(box);QVERIFY(!box->testAttribute(Qt::WA_QuitOnClose));QCOMPARE(box->textFormat(),Qt::PlainText);
         QCOMPARE(NetLinkUi::showTrayDetails("Seconda istantanea\n\nClient: 192.0.2.11","test","12:00:15"),box.data());
         QVERIFY(box->detailedText().contains("192.0.2.11"));QVERIFY(!box->text().contains("192.0.2.11"));
-        QVERIFY(box->windowTitle().contains(NetLinkUi::copyrightText()));
+        QVERIFY(!box->windowTitle().contains(NetLinkUi::copyrightText()));
         QVERIFY(!box->text().contains(NetLinkUi::copyrightText()));QVERIFY(box->text().contains("Seconda istantanea"));
         snapshot(*box,"netlink-stato-servizio");box->close();QTRY_VERIFY(box.isNull());
     }

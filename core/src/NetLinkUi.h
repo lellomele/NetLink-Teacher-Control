@@ -10,6 +10,7 @@ class QMainWindow;
 class QWidget;
 class Feature;
 class QMessageBox;
+class QDialog;
 
 namespace NetLinkUi {
 VEYON_CORE_EXPORT QString copyrightText();
@@ -20,8 +21,10 @@ VEYON_CORE_EXPORT QString displayVersion(const QString& technicalVersion);
 VEYON_CORE_EXPORT QString text(const QString& source);
 VEYON_CORE_EXPORT QString text(const char* source);
 VEYON_CORE_EXPORT void installStandardTranslations();
-// Native title-bar text: one suffix, without consuming the working area.
+// Native titles contain operational context only; attribution belongs in About.
 VEYON_CORE_EXPORT QString windowTitle(const QString& title);
+// Reuse one About window per owner; closing it must not terminate a tray worker.
+VEYON_CORE_EXPORT QDialog* showAbout(QWidget* parent = nullptr);
 // Original, resolution-independent QPainter paths; no icon font/SVG runtime.
 VEYON_CORE_EXPORT QIcon icon(const QString& name, const QString& set, const QColor& accent,
                             const QIcon& fallback = {});

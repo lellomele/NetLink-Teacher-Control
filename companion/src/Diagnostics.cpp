@@ -328,6 +328,12 @@ QJsonObject publicReport(const QJsonObject& report,bool includeIdentifiers) {
     QJsonObject settings;const auto input=report["settings"].toObject();for(const auto& field:{"Authentication/Method","Network/VeyonServerPort","Network/LocalConnectOnly","School/DiscoveryEnabled"}) settings[field]=input[field];
     return {{"format","netlink-companion"},{"schema",1},{"identifiersIncluded",false},{"createdUtc",report["createdUtc"]},{"system",system},{"services",services},{"settings",settings},{"interfaces",QJsonArray{}},{"keys",QJsonArray{}}};
 }
+QJsonObject exportedReport(const QJsonObject& report,bool includeIdentifiers) {
+    auto result=publicReport(report,includeIdentifiers);
+    // Keep this data-only library independent of Qt GUI / VeyonCore startup.
+    result["copyright"]=QString::fromUtf8("© 2026 prof. Ing. Raffaele Mele; Veyon © 2004-2022 Tobias Junghans / Veyon Solutions and contributors");
+    return result;
+}
 QStringList recommendations(const QJsonObject& report,const QString& role) {
     QStringList result;const auto settings=report["settings"].toObject();const auto services=report["services"].toArray();
     const auto health=report["health"].toObject();int desktopCrashes=0,suiteModules=0,suiteCrashes=0;
@@ -428,6 +434,6 @@ QString html(const QJsonObject& report,const QString& role) {
     result+="<h2>Chiavi: metadati e permessi</h2><p>Nessun contenuto di chiave privata viene letto o esportato. Le impronte SHA-256 riguardano soltanto i file pubblici, non la validità di una coppia crittografica.</p>";for(const auto& value:report["keys"].toArray()) result+=table(value.toObject());
     result+="<h2>Informazioni non disponibili</h2><ul>";for(const auto& value:report["errors"].toArray()) result+="<li>"+value.toString().toHtmlEscaped()+"</li>";
     result+="</ul><h2>Dettaglio tecnico: gruppi del token</h2>";for(const auto& value:groups) result+=table(value.toObject());
-    return result+"<p>Copyright © 2025-26 prof. Ing. Raffaele Mele. Basato su NetLink/Veyon; attribuzioni originali conservate.</p>";
+    return result;
 }
 }

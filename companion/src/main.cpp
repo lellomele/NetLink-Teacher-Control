@@ -49,7 +49,7 @@
 class CompanionWindow : public QMainWindow {
 public:
     explicit CompanionWindow(const QJsonObject& initialReport={},bool autoScan=true) {
-        setWindowTitle(NetLinkUi::windowTitle("NetLink Companion — diagnosi e configurazione assistita"));
+        setWindowTitle(QStringLiteral("NetLink Companion"));
         setWindowIcon(QIcon(":/companion/icon.png"));resize(1050,800);
         auto central=new QWidget(this);setCentralWidget(central);auto root=new QVBoxLayout(central);
         auto tabs=new QTabWidget(central);root->addWidget(tabs);
@@ -230,7 +230,7 @@ private:
     void exportReport(){
         if(m_identifiers->isChecked() && QMessageBox::question(this,"Dati del rapporto","Il rapporto completo contiene nomi PC/account, SID, indirizzi IP/MAC, configurazione e permessi. Non include password o contenuti di chiavi private. Conservarlo e condividerlo soltanto con persone autorizzate. Continuare?")!=QMessageBox::Yes) return;
         const auto path=QFileDialog::getSaveFileName(this,"Esporta rapporto Companion","NetLink-Companion.json","Rapporto JSON (*.json)");if(path.isEmpty()) return;
-        QSaveFile file(path);const auto bytes=QJsonDocument(Companion::publicReport(m_report,m_identifiers->isChecked())).toJson(QJsonDocument::Indented);
+        QSaveFile file(path);const auto bytes=QJsonDocument(Companion::exportedReport(m_report,m_identifiers->isChecked())).toJson(QJsonDocument::Indented);
         if(!file.open(QIODevice::WriteOnly) || file.write(bytes)!=bytes.size() || !file.commit()) QMessageBox::warning(this,"NetLink Companion","Salvataggio del rapporto non riuscito.");
     }
     void compareReport(){

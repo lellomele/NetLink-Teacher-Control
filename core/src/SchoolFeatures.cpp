@@ -358,7 +358,7 @@ bool SchoolFeatures::handleFeatureMessage(VeyonWorkerInterface& worker,const Fea
     // worker's TCP reply reaches the service. The worker owns bounded shutdown.
     dialog->setAttribute(Qt::WA_QuitOnClose,false);m_studentDialog=dialog;
     dialog->setProperty("schoolAttendanceRequest",request);
-    dialog->setWindowTitle(NetLinkUi::windowTitle(NetLinkUi::text("Attendance — NetLink")));dialog->setWindowIcon(QIcon(":/core/veyon.png"));
+    dialog->setWindowTitle(NetLinkUi::windowTitle(NetLinkUi::text("Attendance")));dialog->setWindowIcon(QIcon(":/core/veyon.png"));
     auto layout=new QVBoxLayout(dialog);auto label=new QLabel(NetLinkUi::text("Enter your first and last name for the teacher's attendance request."),dialog);label->setTextFormat(Qt::PlainText);layout->addWidget(label);
     auto name=dialog->nameEditor();layout->addWidget(name);
     auto buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,dialog);layout->addWidget(buttons);
