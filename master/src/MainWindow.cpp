@@ -52,6 +52,7 @@
 #include "UserConfig.h"
 #include "NetLinkAppearance.h"
 #include "NetLinkUi.h"
+#include "SelectedFeatureControl.h"
 
 #include "ui_MainWindow.h"
 
@@ -268,6 +269,12 @@ MainWindow::MainWindow( VeyonMaster &masterCore, QWidget* parent ) :
 	reloadSubFeatures();
 
 	m_modeGroup->button(int(qHash(VeyonCore::builtinFeatures().monitoringMode().feature().uid())))->setChecked(true); // clazy:exclude=qt6-qhash-signature
+	connect(ui->computerMonitoringWidget->selectionModel(),&QItemSelectionModel::selectionChanged,this,[this] {
+		updateModeButtonGroup();reloadSubFeatures();
+	});
+	connect(&m_master.computerControlListModel(),&ComputerControlListModel::activeFeaturesChanged,this,[this] {
+		updateModeButtonGroup();
+	});
 
 	VeyonCore::enforceBranding( this );
 }
@@ -356,10 +363,13 @@ ComputerControlInterfaceList MainWindow::selectedComputerControlInterfaces() con
 
 void MainWindow::closeEvent( QCloseEvent* event )
 {
-	if( m_master.currentMode() != VeyonCore::builtinFeatures().monitoringMode().feature().uid() )
+	Feature activeFeature;
+	const auto monitoringUid=VeyonCore::builtinFeatures().monitoringMode().feature().uid();
+	for(const auto& ci:m_master.allComputerControlInterfaces()) if(ci && !ci->designatedModeFeature().isNull() && ci->designatedModeFeature()!=monitoringUid) {
+		activeFeature=VeyonCore::featureManager().feature(ci->designatedModeFeature());break;
+	}
+	if( activeFeature.isValid() )
 	{
-		const Feature& activeFeature = VeyonCore::featureManager().feature( m_master.currentMode() );
-
 		if(QMessageBox::question(this,tr("Feature active"),
 			NetLinkUi::text("Stop the active feature (%1) and close the Console?").arg(activeFeature.displayName()),
 			QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes) {
@@ -522,9 +532,9 @@ void MainWindow::addSubFeaturesToToolButton( QToolButton* button, const Feature&
 		connect( action, &QAction::triggered, this,
 			[=]() {
 				m_master.runFeature( subFeature );
+				updateModeButtonGroup();
 				if( parentFeatureIsMode )
 				{
-					button->setChecked( true );
 					reloadSubFeatures();
 				}
 			}
@@ -533,12 +543,9 @@ void MainWindow::addSubFeaturesToToolButton( QToolButton* button, const Feature&
 		auto action = menu->addAction( QIcon( subFeature.iconUrl() ), subFeature.displayName(), this,
 			[=]() {
 				m_master.runFeature( subFeature );
+				updateModeButtonGroup();
 				if( parentFeatureIsMode )
 				{
-					if( subFeature.testFlag( Feature::Flag::Option ) == false )
-					{
-						button->setChecked( true );
-					}
 					reloadSubFeatures();
 				}
 			},
@@ -565,11 +572,20 @@ void MainWindow::addSubFeaturesToToolButton( QToolButton* button, const Feature&
 void MainWindow::updateModeButtonGroup()
 {
 	const auto& monitoringMode = VeyonCore::builtinFeatures().monitoringMode().feature();
-
-	if( m_master.currentMode() == monitoringMode.uid() )
-	{
-		m_modeGroup->button( buttonId( monitoringMode ) )->setChecked( true );
+	const auto selected=SelectedFeatureControl::targets(m_master.selectedComputerControlInterfaces());
+	bool any=false,changed=false;
+	m_modeGroup->setExclusive(false);
+	for(const auto& feature:m_master.features()) if(feature.testFlag(Feature::Flag::Mode) && feature.uid()!=monitoringMode.uid()) {
+		auto button=m_modeGroup->button(buttonId(feature));if(!button) continue;
+		FeatureUidList family;
+		for(const auto& related:VeyonCore::featureManager().relatedFeatures(feature.uid())) family.append(related.uid());
+		if(!family.contains(feature.uid())) family.append(feature.uid());
+		const bool active=SelectedFeatureControl::allActive(selected,family);
+		changed|=button->isChecked()!=active;button->setChecked(active);any|=active;
 	}
+	if(auto button=m_modeGroup->button(buttonId(monitoringMode))) {changed|=button->isChecked()==any;button->setChecked(!any);}
+	m_modeGroup->setExclusive(true);
+	if(changed) reloadSubFeatures();
 }
 
 void MainWindow::refreshFeatureAppearance()

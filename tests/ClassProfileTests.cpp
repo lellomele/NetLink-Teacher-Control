@@ -4,6 +4,7 @@
 #undef QT_USE_QSTRINGBUILDER
 #include <QtTest>
 #include <QFileDialog>
+#include <QFontDatabase>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -13,16 +14,19 @@
 #include <QPainter>
 #include <QPushButton>
 #include <QSortFilterProxyModel>
+#include <QSettings>
 #include <QStandardItemModel>
 #include <QStyleFactory>
 #include <QTableWidget>
 #include <QTemporaryDir>
+#include <memory>
 #include "ClassProfiles.h"
 #include "ComputerCaptionDelegate.h"
 #include "NetLinkAppearance.h"
 #include "NetLinkUi.h"
 #include "SchoolFeatures.h"
 #include "VeyonMasterInterface.h"
+#include "SelectedFeatureControl.h"
 
 class ProfileMaster : public VeyonMasterInterface {
 public:
@@ -53,7 +57,15 @@ class ClassProfileTests : public QObject {
         return invoked && selected.count()==1;
     }
 private Q_SLOTS:
-    void initTestCase() {QVERIFY(directory.isValid());QLocale::setDefault(QLocale("en_US"));}
+    void initTestCase() {
+        QVERIFY(directory.isValid());QLocale::setDefault(QLocale("en_US"));
+#ifdef Q_OS_WIN
+        // Offscreen tests cannot always enumerate Windows' system font store.
+        // Load the font file explicitly so pixel assertions check actual glyphs.
+        QVERIFY(QFontDatabase::addApplicationFont(qEnvironmentVariable("WINDIR","C:/Windows")+"/Fonts/segoeui.ttf")>=0);
+        QVERIFY(QFontDatabase::addApplicationFont(qEnvironmentVariable("WINDIR","C:/Windows")+"/Fonts/seguisb.ttf")>=0);
+#endif
+    }
     void thumbnailCaptionKeepsLoginComputerAndPolicy() {
         auto ci=client(QUuid::createUuid());ci->m_state=ComputerControlInterface::State::Connected;
         ci->setUserInformation("SCUOLA\\studente","Account condiviso",1);ci->setStudentName("Anna Rossi");
@@ -61,19 +73,91 @@ private Q_SLOTS:
                           ComputerListModel::DisplayRoleContent::ComputerName,ComputerListModel::DisplayRoleContent::UserName})
             QCOMPARE(ComputerCaptionDelegate::captionText(*ci,content),QString("[Anna Rossi] - SCUOLA\\studente - PC-01"));
         ci->setNetworkPolicyStatus("blocked");
+        ci->setProperty("schoolPolicyVerifiedState","blocked");
         const auto text=ComputerCaptionDelegate::captionText(*ci,ComputerListModel::DisplayRoleContent::UserAndComputerName);
-        QCOMPARE(text,QString("[Anna Rossi] - SCUOLA\\studente - PC-01 [IG: blocked]"));
+        QCOMPARE(text,QString("[Anna Rossi] - SCUOLA\\studente - PC-01 [web locked]"));
         QVERIFY(!text.contains("Declared"));QVERIFY(!text.contains("Account condiviso"));
         ci->setExpectedStudentName("Luca Bianchi");ci->clearStudentDeclaration();
         QCOMPARE(ComputerCaptionDelegate::captionText(*ci,ComputerListModel::DisplayRoleContent::UserAndComputerName),
-                 QString("[Luca Bianchi] - SCUOLA\\studente - PC-01 [IG: blocked]"));
+                 QString("[Luca Bianchi] - SCUOLA\\studente - PC-01 [web locked]"));
         QCOMPARE(ci->attendanceStatus(),QString("Preloaded name"));
         ci->setExpectedStudentName({});
         QCOMPARE(ComputerCaptionDelegate::captionText(*ci,ComputerListModel::DisplayRoleContent::UserAndComputerName),
-                 QString("Account condiviso - PC-01 [IG: blocked]"));
+                 QString("Account condiviso - PC-01 [web locked]"));
         ci->setStudentName("Anna Rossi");ci->setUserInformation({},{},-1);
         QCOMPARE(ComputerCaptionDelegate::captionText(*ci,ComputerListModel::DisplayRoleContent::UserAndComputerName),
-                 QString("[Anna Rossi] - PC-01 [IG: blocked]"));
+                 QString("[Anna Rossi] - PC-01 [web locked]"));
+    }
+    void webLockedCaptionUsesConfirmedStateOnly() {
+        auto ci=client(QUuid::createUuid());
+        auto caption=[&] {return ComputerCaptionDelegate::captionText(*ci,ComputerListModel::DisplayRoleContent::ComputerName);};
+        for(const auto& status:{"filters active","filtri attivi","pending...","unblocked","error",""}) {
+            ci->setNetworkPolicyStatus(status);QCOMPARE(caption(),QString("PC-01"));
+        }
+        ci->setProperty("schoolPolicyVerifiedState","blocked");QCOMPARE(caption(),QString("PC-01 [web locked]"));
+        ci->setNetworkPolicyStatus("pending...");QCOMPARE(caption(),QString("PC-01 [web locked]"));
+        ci->setProperty("schoolPolicyVerifiedState","allowed");QCOMPARE(caption(),QString("PC-01"));
+        ci->setProperty("schoolPolicyVerifiedState","blocked");ci->stop();QCOMPARE(caption(),QString("PC-01"));
+    }
+    void webLockedBadgeIsWhiteOnOpaqueRed_data() {
+        QTest::addColumn<bool>("attendance");QTest::addColumn<bool>("selected");QTest::addColumn<bool>("wrap");
+        for(bool attendance:{false,true}) for(bool selected:{false,true}) for(bool wrap:{false,true})
+            QTest::newRow(qPrintable(QString("name-%1-selection-%2-wrap-%3").arg(attendance).arg(selected).arg(wrap)))<<attendance<<selected<<wrap;
+    }
+    void webLockedBadgeIsWhiteOnOpaqueRed() {
+        QFETCH(bool,attendance);QFETCH(bool,selected);QFETCH(bool,wrap);
+        QStandardItemModel model;
+        const auto prefix=attendance?QString("[Anna Rossi] - "):QString{};
+        auto row=new QStandardItem(prefix+"studente - PC-01 [web locked]");
+        if(attendance) row->setData("Anna Rossi",ComputerListModel::AttendanceNameRole);
+        row->setData(true,ComputerListModel::InternetGuardActiveRole);model.appendRow(row);
+        QStyleOptionViewItem option;option.rect=QRect(10,10,600,120);option.font=QFont("Segoe UI",11);
+        option.fontMetrics=QFontMetrics(option.font);option.features=QStyleOptionViewItem::HasDisplay;
+        if(wrap) option.features|=QStyleOptionViewItem::WrapText;
+        option.state=QStyle::State_Enabled|QStyle::State_Active;
+        if(selected) option.state|=QStyle::State_Selected;
+        option.displayAlignment=Qt::AlignCenter;
+        QImage image(620,140,QImage::Format_ARGB32_Premultiplied);image.fill(Qt::magenta);
+        ComputerCaptionDelegate delegate;
+        {QPainter painter(&image);delegate.paint(&painter,option,model.index(0,0));}
+        const auto red=ComputerCaptionDelegate::webLockedBackground();QCOMPARE(red,QColor("#a52a32"));QCOMPARE(red.alpha(),255);
+        int redPixels=0,whiteInBadge=0;QRect badge;
+        for(int y=0;y<image.height();++y) for(int x=0;x<image.width();++x) if(image.pixelColor(x,y)==red) {++redPixels;badge=badge.united(QRect(x,y,1,1));}
+        QVERIFY(redPixels>50);
+        for(int y=badge.top();y<=badge.bottom();++y) for(int x=badge.left();x<=badge.right();++x) if(image.pixelColor(x,y)==Qt::white) ++whiteInBadge;
+        QVERIFY(whiteInBadge>10);
+        row->setData(false,ComputerListModel::InternetGuardActiveRole);row->setText(prefix+"studente - PC-01");
+        image.fill(Qt::magenta);{QPainter painter(&image);delegate.paint(&painter,option,model.index(0,0));}
+        for(int y=0;y<image.height();++y) for(int x=0;x<image.width();++x) QVERIFY(image.pixelColor(x,y)!=red);
+    }
+    void modeRequestsAlwaysUseNewSelection_data() {
+        QTest::addColumn<QString>("name");
+        for(const auto& name:{"ScreenLock","Demo","ShareOwnScreenWindow","ShareOwnScreenFullScreen","ShareUserScreenWindow","ShareUserScreenFullScreen"}) QTest::newRow(name)<<QString(name);
+    }
+    void modeRequestsAlwaysUseNewSelection() {
+        QFETCH(QString,name);
+        const Feature mode(name,Feature::Flag::Mode,QUuid::createUuid(),{},name,{},{},{});
+        const Feature other("OtherMode",Feature::Flag::Mode,QUuid::createUuid(),{},"Other",{},{},{});
+        const Feature guard("InternetGuard",Feature::Flag::Action,QUuid::createUuid(),{},"IG",{},{},{});
+        const auto first=client(QUuid::createUuid()),second=client(QUuid::createUuid());
+        const FeatureUidList family{mode.uid()};const FeatureList modes{mode,other,guard};
+        QVERIFY(SelectedFeatureControl::applies(mode));QVERIFY(SelectedFeatureControl::applies(guard));
+        auto apply=[&](const ComputerControlInterfaceList& selected) {
+            const auto plan=SelectedFeatureControl::plan(mode,selected,family,modes);
+            for(const auto& feature:plan.stop) QVERIFY(feature!=guard);
+            for(const auto& ci:plan.clients) ci->setDesignatedModeFeature(plan.start?mode.uid():other.uid());
+        };
+        apply({first,second});QCOMPARE(first->designatedModeFeature(),mode.uid());QCOMPARE(second->designatedModeFeature(),mode.uid());
+        apply({second});QCOMPARE(first->designatedModeFeature(),mode.uid());QCOMPARE(second->designatedModeFeature(),other.uid());
+        apply({});QCOMPARE(first->designatedModeFeature(),mode.uid());QCOMPARE(second->designatedModeFeature(),other.uid());
+        apply({second});QCOMPARE(first->designatedModeFeature(),mode.uid());QCOMPARE(second->designatedModeFeature(),mode.uid());
+        apply({first});QCOMPARE(first->designatedModeFeature(),other.uid());QCOMPARE(second->designatedModeFeature(),mode.uid());
+        // Mixed selections start the requested mode on the selected group, not
+        // an inverse operation on whichever client happens to be first.
+        QVERIFY(SelectedFeatureControl::plan(mode,{first,second},family,modes).start);
+        QCOMPARE(SelectedFeatureControl::targets({first,first,{},second}),ComputerControlInterfaceList({first,second}));
+        // Stale server feedback cannot undo an explicit unlock designation.
+        first->setActiveFeatures({mode.uid()});QVERIFY(!SelectedFeatureControl::active(*first,family));
     }
     void thumbnailBadgeIsLiteralClippedAndThemeAware_data() {
         QTest::addColumn<QString>("mode");QTest::addColumn<bool>("selected");QTest::addColumn<bool>("preloaded");
@@ -134,7 +218,10 @@ private Q_SLOTS:
             {QPainter painter(&desktop);painter.setPen(view.palette().color(QPalette::Text));painter.drawText(desktop.rect(),Qt::AlignCenter,"Desktop di prova");}
             for(int i=0;i<3;++i) {
                 const auto name=QStringList{"Anna Rossi","Luca Bianchi",""}[i];
-                auto row=new QStandardItem(QIcon(desktop),name.isEmpty()?QString("studente - PC-03"):QString("[%1] - studente - PC-0%2").arg(name).arg(i+1));
+                auto caption=name.isEmpty()?QString("studente - PC-03"):QString("[%1] - studente - PC-0%2").arg(name).arg(i+1);
+                if(i!=1) caption+=" [web locked]";
+                auto row=new QStandardItem(QIcon(desktop),caption);
+                row->setData(i!=1,ComputerListModel::InternetGuardActiveRole);
                 row->setData(name,ComputerListModel::AttendanceNameRole);row->setData(i==1,ComputerListModel::AttendancePreloadedRole);model.appendRow(row);
             }
             view.setModel(&model);view.setItemDelegate(new ComputerCaptionDelegate(&view));view.show();view.setFocus();QApplication::processEvents();
@@ -256,6 +343,21 @@ private Q_SLOTS:
         auto table=dialog->findChild<QTableWidget*>("profileAssignments");QVERIFY(table->item(0,1)->flags().testFlag(Qt::ItemIsEditable));
         QVERIFY(!table->item(0,0)->flags().testFlag(Qt::ItemIsEditable));
         const auto screenshot=qEnvironmentVariable("NETLINK_PROFILE_SCREENSHOT");if(!screenshot.isEmpty()) QVERIFY(dialog->grab().save(screenshot));
+    }
+    void profileSaveButtonShowsPressWithoutSavingOnMouseDown() {
+        QSettings settings(directory.filePath("profile-press.ini"),QSettings::IniFormat);
+        NetLinkAppearance::Preferences preferences;preferences.mode="Dark";QVERIFY(NetLinkAppearance::save(settings,preferences));
+        std::unique_ptr<NetLinkAppearance> appearance(NetLinkAppearance::install(&settings));
+        ProfileMaster master;ClassProfiles profiles(master);profiles.activate(sample());profiles.show();
+        QTRY_VERIFY(profiles.m_dialog->isVisible());
+        const auto button=profiles.m_dialog->findChild<QPushButton*>("profileSave");QVERIFY(button);button->setFocus();
+        const auto geometry=button->geometry();const auto normal=button->grab().toImage();QSignalSpy clicked(button,&QPushButton::clicked);
+        QTest::mousePress(button,Qt::LeftButton);QVERIFY(button->isDown());QVERIFY(button->grab().toImage()!=normal);
+        QCOMPARE(clicked.count(),0);QCOMPARE(button->geometry(),geometry);QVERIFY(!profiles.m_dialog->findChild<QFileDialog*>());
+        const auto output=qEnvironmentVariable("NETLINK_PRESS_SCREENSHOTS");
+        if(!output.isEmpty()) {QVERIFY(QDir().mkpath(output));QVERIFY(profiles.m_dialog->grab().save(QDir(output).filePath("class-profiles-pressed-scale-"+qEnvironmentVariable("QT_SCALE_FACTOR","1")+".png")));}
+        QTest::mouseRelease(button,Qt::LeftButton,Qt::NoModifier,QPoint(-3,-3));QVERIFY(!button->isDown());QCOMPARE(clicked.count(),0);
+        QCOMPARE(profiles.profile().className,QString("3A"));
     }
 };
 QTEST_MAIN(ClassProfileTests)

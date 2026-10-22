@@ -2,6 +2,18 @@ if(WITH_FUZZERS)
 	add_subdirectory(libfuzzer)
 endif()
 if(WITH_TESTS)
+    add_executable(netlink-demo-selection-tests DemoSelectionTests.cpp
+        ../plugins/demo/DemoFeaturePlugin.cpp ../plugins/demo/DemoFeaturePlugin.h
+        ../plugins/demo/DemoConfigurationPage.cpp ../plugins/demo/DemoConfigurationPage.h ../plugins/demo/DemoConfigurationPage.ui
+        ../plugins/demo/DemoServer.cpp ../plugins/demo/DemoServer.h
+        ../plugins/demo/DemoServerConnection.cpp ../plugins/demo/DemoServerConnection.h
+        ../plugins/demo/DemoServerProtocol.cpp ../plugins/demo/DemoServerProtocol.h
+        ../plugins/demo/DemoClient.cpp ../plugins/demo/DemoClient.h ../plugins/demo/demo.qrc)
+    set_default_target_properties(netlink-demo-selection-tests)
+    target_include_directories(netlink-demo-selection-tests PRIVATE ../plugins/demo ../master/src)
+    target_link_libraries(netlink-demo-selection-tests PRIVATE veyon-core Qt${QT_MAJOR_VERSION}::Test)
+    add_test(NAME netlink-demo-selection-tests COMMAND netlink-demo-selection-tests -o "${CMAKE_CURRENT_BINARY_DIR}/netlink-demo-selection-results.txt,txt")
+    set_tests_properties(netlink-demo-selection-tests PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     add_executable(netlink-service-diagnostics-tests ServiceDiagnosticsTests.cpp)
     set_default_target_properties(netlink-service-diagnostics-tests)
     target_link_libraries(netlink-service-diagnostics-tests PRIVATE veyon-core Qt${QT_MAJOR_VERSION}::Test)
@@ -228,6 +240,11 @@ if(WITH_TESTS)
     target_link_libraries(netlink-appearance-tests PRIVATE veyon-core Qt${QT_MAJOR_VERSION}::Test)
     add_test(NAME netlink-appearance-tests COMMAND netlink-appearance-tests -o "${CMAKE_CURRENT_BINARY_DIR}/netlink-appearance-tests-results.txt,txt")
     set_tests_properties(netlink-appearance-tests PROPERTIES TIMEOUT 30 ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    foreach(scale 1.5 2)
+        string(REPLACE "." "_" press_scale "${scale}")
+        add_test(NAME netlink-button-feedback-scale-${press_scale} COMMAND netlink-appearance-tests -o "${CMAKE_CURRENT_BINARY_DIR}/netlink-button-feedback-${press_scale}-results.txt,txt")
+        set_tests_properties(netlink-button-feedback-scale-${press_scale} PROPERTIES TIMEOUT 45 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_SCALE_FACTOR=${scale}")
+    endforeach()
     add_executable(netlink-companion-tests CompanionTests.cpp ../companion/resources/companion.qrc)
     set_default_target_properties(netlink-companion-tests)
     target_link_libraries(netlink-companion-tests PRIVATE netlink-diagnostics veyon-core Qt${QT_MAJOR_VERSION}::Test)

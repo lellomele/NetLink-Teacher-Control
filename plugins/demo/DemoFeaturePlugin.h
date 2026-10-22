@@ -116,6 +116,8 @@ public:
 	ConfigurationPage* createConfigurationPage() override;
 
 private:
+	friend class DemoSelectionTests;
+	DemoFeaturePlugin(QObject* parent, Configuration::Object* configuration);
 	static constexpr auto ScreenSelectionNone = 0;
 	static constexpr auto DemoServerControlInterval = 1000;
 

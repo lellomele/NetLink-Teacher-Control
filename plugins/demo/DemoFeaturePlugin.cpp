@@ -41,7 +41,9 @@
 #include "VeyonServerInterface.h"
 
 
-DemoFeaturePlugin::DemoFeaturePlugin( QObject* parent ) :
+DemoFeaturePlugin::DemoFeaturePlugin(QObject* parent) : DemoFeaturePlugin(parent,&VeyonCore::config()) {}
+
+DemoFeaturePlugin::DemoFeaturePlugin( QObject* parent, Configuration::Object* configuration ) :
 	QObject( parent ),
 	m_demoFeature( QStringLiteral( "Demo" ),
 				   Feature::Flag::Mode | Feature::Flag::AllComponents,
@@ -106,7 +108,7 @@ DemoFeaturePlugin::DemoFeaturePlugin( QObject* parent ) :
 		m_shareUserScreenFullScreenFeature, m_shareUserScreenWindowFeature
 	} ),
 	m_demoAccessToken( CryptoCore::generateChallenge() ),
-	m_configuration( &VeyonCore::config() ),
+	m_configuration( configuration ),
 	m_demoServer( nullptr ),
 	m_demoClient( nullptr )
 {
@@ -181,6 +183,7 @@ bool DemoFeaturePlugin::startFeature( VeyonMasterInterface& master, const Featur
 {
 	if( feature == m_shareOwnScreenWindowFeature || feature == m_shareOwnScreenFullScreenFeature )
 	{
+		for(const auto& ci:computerControlInterfaces) if(ci) ci->setProperty("netlinkDemoOrigin",QStringLiteral("local"));
 		// start demo clients
 		controlFeature( feature == m_shareOwnScreenFullScreenFeature ? m_demoClientFullScreenFeature.uid()
 																	 : m_demoClientWindowFeature.uid(),
@@ -195,25 +198,24 @@ bool DemoFeaturePlugin::startFeature( VeyonMasterInterface& master, const Featur
 
 	if( feature == m_shareUserScreenWindowFeature || feature == m_shareUserScreenFullScreenFeature )
 	{
-		const auto selectedComputerControlInterfaces = master.selectedComputerControlInterfaces();
-		if( selectedComputerControlInterfaces.size() < 1 )
-		{
-			QMessageBox::critical( master.mainWindow(), feature.name(),
-								   tr( "Please select a user screen to share.") );
-			return true;
-		}
-
-		if( selectedComputerControlInterfaces.size() > 1 )
-		{
-			QMessageBox::critical( master.mainWindow(), feature.name(),
-								   tr( "Please select only one user screen to share.") );
+		if(computerControlInterfaces.isEmpty()) return true;
+		if(computerControlInterfaces.size()==1) {
+			// Reconnection enforcement is not a new user request: reuse the source
+			// chosen for this client, never reopen a chooser or widen the audience.
+			const auto ci=computerControlInterfaces.first();
+			const auto sourceArgs=ci->property("netlinkDemoSourceArguments").toMap();
+			const auto clientArgs=ci->property("netlinkDemoRecipientArguments").toMap();
+			if(!sourceArgs.isEmpty()) controlFeature(m_demoServerFeature.uid(),Operation::Start,sourceArgs,{ci});
+			else if(!clientArgs.isEmpty()) controlFeature(feature==m_shareUserScreenFullScreenFeature?m_demoClientFullScreenFeature.uid():m_demoClientWindowFeature.uid(),Operation::Start,clientArgs,{ci});
 			return true;
 		}
 
 		auto vncServerPortOffset = 0;
 		auto demoServerPort = VeyonCore::config().demoServerPort();
 
-		const auto& demoServerInterface = selectedComputerControlInterfaces.constFirst();
+		// The Master places the explicitly chosen source first; the rest of this
+		// per-request snapshot are the only recipients.
+		const auto demoServerInterface = computerControlInterfaces.first();
 		const auto demoServerHost = demoServerInterface->computer().hostAddress();
 		const auto primaryServerPort = HostAddress::parsePortNumber( demoServerHost );
 
@@ -232,6 +234,14 @@ bool DemoFeaturePlugin::startFeature( VeyonMasterInterface& master, const Featur
 			{ argToString(Argument::DemoServerHost), HostAddress::parseHost(demoServerHost) },
 			{ argToString(Argument::DemoServerPort), demoServerPort },
 		};
+		const QVariantMap demoSourceArgs{
+			{argToString(Argument::VncServerPortOffset),vncServerPortOffset},
+			{argToString(Argument::DemoServerPort),demoServerPort}};
+		demoServerInterface->setProperty("netlinkDemoSourceArguments",demoSourceArgs);
+		for(const auto& ci:userDemoControlInterfaces) {
+			ci->setProperty("netlinkDemoRecipientArguments",demoClientArgs);
+			ci->setProperty("netlinkDemoOrigin",demoServerInterface->computer().networkObjectUid().toString());
+		}
 
 		controlFeature( feature == m_shareUserScreenFullScreenFeature ? m_demoClientFullScreenFeature.uid()
 																	  : m_demoClientWindowFeature.uid(),
@@ -242,11 +252,8 @@ bool DemoFeaturePlugin::startFeature( VeyonMasterInterface& master, const Featur
 
 		// start demo server
 		controlFeature( m_demoServerFeature.uid(), Operation::Start,
-						{
-							{ argToString(Argument::VncServerPortOffset), vncServerPortOffset },
-							{ argToString(Argument::DemoServerPort), demoServerPort },
-							},
-						selectedComputerControlInterfaces );
+						demoSourceArgs,
+						{ demoServerInterface } );
 
 		return true;
 	}
@@ -271,15 +278,25 @@ bool DemoFeaturePlugin::stopFeature( VeyonMasterInterface& master, const Feature
 		feature == m_shareOwnScreenWindowFeature || feature == m_shareOwnScreenFullScreenFeature ||
 		feature == m_shareUserScreenWindowFeature || feature == m_shareUserScreenFullScreenFeature )
 	{
+		for(const auto& ci:computerControlInterfaces) if(ci) {
+			ci->setProperty("netlinkDemoRecipientArguments",QVariant{});
+			ci->setProperty("netlinkDemoOrigin",QVariant{});
+		}
 		controlFeature( m_demoClientFullScreenFeature.uid(), Operation::Stop, {}, computerControlInterfaces );
 		controlFeature( m_demoClientWindowFeature.uid(), Operation::Stop, {}, computerControlInterfaces );
 
-		controlFeature( m_demoClientWindowFeature.uid(), Operation::Stop, {},
-						{ master.localSessionControlInterface().weakPointer() } );
-
 		// no demo clients left?
-		if( m_demoServerClients.isEmpty() )
+		const auto local=master.localSessionControlInterface().weakPointer();
+		bool remoteRecipients=false;
+		for(const auto& ci:m_demoServerClients) if(ci && ci!=local) {remoteRecipients=true;break;}
+		if( !remoteRecipients )
 		{
+			for(const auto& ci:m_demoServerControlInterfaces) if(ci) {
+				ci->setProperty("netlinkDemoSourceArguments",QVariant{});
+				if(ci->designatedModeFeature()==m_shareUserScreenWindowFeature.uid() || ci->designatedModeFeature()==m_shareUserScreenFullScreenFeature.uid()) ci->setDesignatedModeFeature({});
+			}
+			controlFeature( m_demoClientWindowFeature.uid(), Operation::Stop, {},
+				{ master.localSessionControlInterface().weakPointer() } );
 			// then we can stop the server
 			m_demoServerControlTimer.stop();
 
@@ -529,7 +546,8 @@ void DemoFeaturePlugin::updateFeatures()
 
 	m_features = m_staticFeatures + m_screenSelectionFeatures;
 
-	const auto master = VeyonCore::instance()->findChild<VeyonMasterInterface *>();
+	const auto core=VeyonCore::instance();
+	const auto master = core ? core->findChild<VeyonMasterInterface *>() : nullptr;
 	if( master )
 	{
 		master->reloadSubFeatures();
@@ -568,10 +586,10 @@ void DemoFeaturePlugin::controlDemoServer()
 {
 	if( m_demoServerControlTimer.isActive() )
 	{
-		const auto demoServerPort = m_demoServerArguments.value( argToString(Argument::DemoServerPort),
-																 VeyonCore::config().demoServerPort() + VeyonCore::sessionId() ).toInt();
-		const auto vncServerPortOffset = m_demoServerArguments.value( argToString(Argument::VncServerPortOffset),
-																	  VeyonCore::sessionId() ).toInt();
+		const auto demoServerPort = m_demoServerArguments.contains(argToString(Argument::DemoServerPort)) ?
+			m_demoServerArguments.value(argToString(Argument::DemoServerPort)).toInt() : VeyonCore::config().demoServerPort()+VeyonCore::sessionId();
+		const auto vncServerPortOffset = m_demoServerArguments.contains(argToString(Argument::VncServerPortOffset)) ?
+			m_demoServerArguments.value(argToString(Argument::VncServerPortOffset)).toInt() : VeyonCore::sessionId();
 		const auto demoAccessToken = m_demoServerArguments.value( argToString(Argument::DemoAccessToken),
 																  m_demoAccessToken.toByteArray() ).toByteArray();
 
@@ -598,8 +616,8 @@ bool DemoFeaturePlugin::controlDemoClient( Feature::Uid featureUid, Operation op
 		const auto demoAccessToken = arguments.value( argToString(Argument::DemoAccessToken),
 													  m_demoAccessToken.toByteArray() ).toByteArray();
 		const auto demoServerHost = arguments.value( argToString(Argument::DemoServerHost) ).toString();
-		const auto demoServerPort = arguments.value( argToString(Argument::DemoServerPort),
-													 VeyonCore::config().demoServerPort() + VeyonCore::sessionId() ).toInt();
+		const auto demoServerPort = arguments.contains(argToString(Argument::DemoServerPort)) ?
+			arguments.value(argToString(Argument::DemoServerPort)).toInt() : VeyonCore::config().demoServerPort()+VeyonCore::sessionId();
 
 		QRect viewport{
 			arguments.value( argToString(Argument::ViewportX) ).toInt(),
@@ -617,7 +635,7 @@ bool DemoFeaturePlugin::controlDemoClient( Feature::Uid featureUid, Operation op
 
 		for( const auto& computerControlInterface : computerControlInterfaces )
 		{
-			m_demoServerClients += computerControlInterface;
+			if(!m_demoServerClients.contains(computerControlInterface)) m_demoServerClients += computerControlInterface;
 
 			if( disableUpdates )
 			{

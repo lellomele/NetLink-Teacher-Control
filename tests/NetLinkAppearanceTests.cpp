@@ -12,7 +12,10 @@
 #include <QSettings>
 #include <QTemporaryDir>
 #include <QTimer>
+#include <QToolButton>
+#include <QVBoxLayout>
 #include <cmath>
+#include <memory>
 #include "NetLinkAppearance.h"
 #include "NetLinkUi.h"
 
@@ -64,6 +67,50 @@ private Q_SLOTS:
             const auto a=luminance(background),b=luminance(foreground);
             QVERIFY((qMax(a,b)+.05)/(qMin(a,b)+.05)>=4.5);
         }
+    }
+    void buttonPressFeedback_data() {
+        QTest::addColumn<QString>("mode");QTest::addColumn<QString>("kind");QTest::addColumn<bool>("checked");
+        for(const auto& mode:{"Light","Dark"}) for(const auto& kind:{"panel","default","utility","feature","compact"}) for(bool checked:{false,true})
+            QTest::newRow(qPrintable(QString("%1-%2-checked-%3").arg(mode,kind).arg(checked)))<<QString(mode)<<QString(kind)<<checked;
+    }
+    void buttonPressFeedback() {
+        QFETCH(QString,mode);QFETCH(QString,kind);QFETCH(bool,checked);
+        QTemporaryDir directory;QVERIFY(directory.isValid());QSettings settings(directory.filePath("press.ini"),QSettings::IniFormat);
+        NetLinkAppearance::Preferences preferences;preferences.mode=mode;QVERIFY(NetLinkAppearance::save(settings,preferences));
+        std::unique_ptr<NetLinkAppearance> appearance(NetLinkAppearance::install(&settings));
+        QWidget panel;auto layout=new QVBoxLayout(&panel);QAbstractButton* button=nullptr;
+        if(kind=="panel" || kind=="default") {
+            auto push=new QPushButton("Save JSON",&panel);push->setDefault(kind=="default");button=push;
+        } else {
+            auto tool=new QToolButton(&panel);tool->setText("Control");
+            if(kind=="feature") tool->setProperty("netlinkFeatureButton",true);
+            if(kind=="compact") tool->setProperty("netlinkCompactButton",true);
+            button=tool;
+        }
+        button->setCheckable(checked);button->setChecked(checked);button->setMinimumSize(160,52);
+        layout->addWidget(button);panel.resize(240,110);panel.show();button->setFocus();QTest::qWait(20);
+        const auto geometry=button->geometry();const auto hint=button->sizeHint();
+        QSignalSpy clicked(button,&QAbstractButton::clicked);
+        const auto normal=button->grab().toImage();
+        QTest::mousePress(button,Qt::LeftButton);QVERIFY(button->isDown());QCOMPARE(clicked.count(),0);
+        const auto pressed=button->grab().toImage();QVERIFY(normal!=pressed);
+        QCOMPARE(button->geometry(),geometry);QCOMPARE(button->sizeHint(),hint);
+        if(!qApp->property("netlinkHighContrast").toBool()) {
+            const QColor fill(qApp->palette().color(QPalette::Highlight).darker(125).name());int pixels=0;
+            for(int y=0;y<pressed.height();++y) for(int x=0;x<pressed.width();++x) if(pressed.pixelColor(x,y)==fill) ++pixels;
+            // Unstyled utility buttons retain Fusion's native sunken gradient;
+            // flat themed buttons must use the exact stylesheet fill.
+            if(kind!="utility") QVERIFY2(pixels>30,qPrintable(QString("%1 expected %2, observed %3").arg(kind,fill.name(),pressed.pixelColor(10,10).name())));
+            const auto fg=NetLinkAppearance::contrastingText(fill);const auto a=luminance(fill),b=luminance(fg);
+            QVERIFY((qMax(a,b)+.05)/(qMin(a,b)+.05)>=4.5);
+        }
+        const auto output=qEnvironmentVariable("NETLINK_PRESS_SCREENSHOTS");
+        if(!output.isEmpty()) {QVERIFY(QDir().mkpath(output));QVERIFY(button->grab().save(QDir(output).filePath(QString("%1-%2-pressed-scale-%3.png").arg(mode,kind,qEnvironmentVariable("QT_SCALE_FACTOR","1")))));}
+        QTest::mouseRelease(button,Qt::LeftButton);QVERIFY(!button->isDown());QCOMPARE(clicked.count(),1);
+        if(checked) QVERIFY(!button->isChecked());
+        QTest::keyPress(button,Qt::Key_Space);QVERIFY(button->isDown());QCOMPARE(clicked.count(),1);
+        QTest::keyRelease(button,Qt::Key_Space);QVERIFY(!button->isDown());QCOMPARE(clicked.count(),2);
+        button->setEnabled(false);QTest::mouseClick(button,Qt::LeftButton);QCOMPARE(clicked.count(),2);QVERIFY(!button->isDown());
     }
     void cancelPreviewDoesNotSave() {
         QTemporaryDir directory;QVERIFY(directory.isValid());QSettings settings(directory.filePath("cancel.ini"),QSettings::IniFormat);

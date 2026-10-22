@@ -6,9 +6,9 @@ Suite NetLink per la gestione delle aule Windows, basata su **Veyon 4.7.5**.
 Integra controllo remoto, InternetGuard WFP, Appello, profili classe–aula,
 ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
 
-**Versione preliminare 1.0.0-alpha.29: usare consapevolmente.**
+**Versione preliminare 1.0.0-alpha.30: usare consapevolmente.**
 
-**[Scarica l’installer Windows x64 — ultima release (alpha.29)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.29/NetLink-1.0.0-alpha.29-win64-setup.exe)**
+**[Scarica l’installer Windows x64 — ultima release (alpha.30)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.30/NetLink-1.0.0-alpha.30-win64-setup.exe)**
 
 ## Funzionalità
 
@@ -18,10 +18,13 @@ ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
   La barra remota compatta non oscura il desktop: puntina permanente,
   fissaggio aperto e spostamento fra i bordi con clic destro.
 - **Aspetto personalizzabile:** temi, colori e set coordinati di icone vettoriali,
-  con supporto ai display ad alta risoluzione e descrizioni dei comandi.
+  con supporto ai display ad alta risoluzione, descrizioni dei comandi ed effetto di pressione dei pulsanti.
 - **InternetGuard WFP:** blocco/sblocco sui client selezionati, feedback di
   applicazione o errore e scadenza dei filtri in assenza di rinnovo.
   La finestra seleziona inizialmente tutte le righe; i comandi agiscono solo su quelle evidenziate.
+  InternetGuard, Lock e Demo rileggono le miniature selezionate a ogni richiesta;
+  nessuna selezione non significa mai tutta l'aula. Il filtro attivo confermato
+  è indicato da `[web locked]` bianco su rosso; se inattivo non aggiunge etichette.
 - **Appello:** nome dichiarato dallo studente sulle miniature, insieme ad account
   Windows e nome del PC. Non è una verifica dell'identità o della presenza.
 - **Profili classe–aula:** assegnazioni studente/postazione modificabili,

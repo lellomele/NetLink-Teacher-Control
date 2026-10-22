@@ -37,6 +37,19 @@ follow the Console's set. High contrast disables pin fading.
 Choose language in Configurator, apply and restart applications.
 Windows dialogs may still use the system language.
 
+Panel buttons, including class–room profiles, show a transient pressed state
+for mouse clicks and the Space key. Release restores the normal/checked state;
+there is no animation delay or additional command. Windows high contrast keeps
+native accessible button rendering.
+
+**Lock and Demo** read the current thumbnail selection on every request, from
+both the toolbar and context menu. Select at least one workstation: no selection
+never means all computers. A mixed group starts the requested mode on that group;
+when all selected workstations already have that mode, the button stops it only
+for them. Other recipients keep receiving Demo. To share a student's screen,
+select the source and recipients, then choose the source from that group.
+Changing the source is refused while unselected PCs receive a different Demo.
+
 ## Configurator
 
 - **Easy:** access, keys, essential service settings, groups/PCs and discovery.
@@ -55,10 +68,16 @@ A test requiring a private key does not validate a client's public key alone.
 1. Select clients in the Console and open InternetGuard. All listed rows start selected.
    Use Ctrl-click/Shift-click to change the selection; **Block Internet**, **Unblock**
    and **Check status** affect highlighted rows only. No selection disables commands.
-   Opening the panel again refreshes it from the Console's current selection.
+   The panel follows the Console's current thumbnail selection and rechecks it
+   immediately before every command, even when already open. Row selection can
+   further restrict those recipients; it never adds unselected thumbnails.
 2. Read each client's confirmation, error or missing response.
 3. Use **Unblock** to release filters. Closing the panel does not unblock.
 4. **Check status** queries the service; it does not test browsing.
+
+A confirmed active filter adds **[web locked]** to the thumbnail in white on
+opaque red. A confirmed release removes the label; pending/error details remain
+in the tooltip and InternetGuard panel. This reports filter state, not a browsing test.
 
 The Master renews every 20 seconds; expected expiry is 90 seconds without renewal.
 Allowed destinations reuse selected PCs and the Master's actual address.

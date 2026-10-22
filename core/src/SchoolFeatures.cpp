@@ -192,9 +192,10 @@ bool SchoolFeatures::startFeature(VeyonMasterInterface& master,const Feature& fe
     auto release=buttons->addButton(NetLinkUi::text("Unblock"),QDialogButtonBox::ActionRole);
     auto query=buttons->addButton(NetLinkUi::text("Check status"),QDialogButtonBox::ActionRole);
     auto selected=QSharedPointer<ComputerControlInterfaceList>::create();
-    auto selectedRows=[selected,table] {
+    auto selectedRows=[&master,selected,table] {
         ComputerControlInterfaceList targets;
-        for(int row=0;row<selected->size();++row) if(table->selectionModel()->isRowSelected(row,QModelIndex()) && (*selected)[row]) targets.append((*selected)[row]);
+        const auto current=master.selectedComputerControlInterfaces();
+        for(int row=0;row<selected->size();++row) if(table->selectionModel()->isRowSelected(row,QModelIndex()) && (*selected)[row] && current.contains((*selected)[row])) targets.append((*selected)[row]);
         return targets;
     };
     auto updateSelection=[selected,selectedRows,selectionLabel,block,release,query] {
@@ -205,7 +206,7 @@ bool SchoolFeatures::startFeature(VeyonMasterInterface& master,const Feature& fe
     auto refreshStatus=[selected,table] {
         for(int i=0;i<selected->size();++i) table->item(i,1)->setText((*selected)[i]?(*selected)[i]->networkPolicyStatus():NetLinkUi::text("unavailable"));
     };
-    dialog->refreshSelection=[&master,selected,table,refreshStatus,updateSelection] {
+    auto refreshSelection=[&master,selected,table,refreshStatus,updateSelection](bool reset) {
         const auto current=master.selectedComputerControlInterfaces();
         if(current!=*selected) {
             *selected=current;table->setRowCount(0);table->setRowCount(current.size());
@@ -213,15 +214,18 @@ bool SchoolFeatures::startFeature(VeyonMasterInterface& master,const Feature& fe
                 table->setItem(i,0,new QTableWidgetItem(current[i]?current[i]->computer().name():QString{}));
                 table->setItem(i,1,new QTableWidgetItem);
             }
+            reset=true;
         }
-        table->selectAll();refreshStatus();updateSelection();
+        if(reset) table->selectAll();
+        refreshStatus();updateSelection();
     };
+    dialog->refreshSelection=[refreshSelection] {refreshSelection(true);};
     auto selectionTimer=new QTimer(dialog);selectionTimer->setInterval(250);
-    connect(selectionTimer,&QTimer::timeout,dialog,refreshStatus);selectionTimer->start();dialog->refreshSelection();
+    connect(selectionTimer,&QTimer::timeout,dialog,[refreshSelection] {refreshSelection(false);});selectionTimer->start();dialog->refreshSelection();
     connect(table,&QTableWidget::itemSelectionChanged,dialog,updateSelection);
-    connect(block,&QPushButton::clicked,dialog,[this,selectedRows]{policy(selectedRows(),true);});
-    connect(release,&QPushButton::clicked,dialog,[this,selectedRows]{policy(selectedRows(),false);});
-    connect(query,&QPushButton::clicked,dialog,[this,selectedRows]{for(const auto& ci:selectedRows()) sendPolicy(ci.data(),Status,{});});
+    connect(block,&QPushButton::clicked,dialog,[this,selectedRows,refreshSelection]{refreshSelection(false);policy(selectedRows(),true);});
+    connect(release,&QPushButton::clicked,dialog,[this,selectedRows,refreshSelection]{refreshSelection(false);policy(selectedRows(),false);});
+    connect(query,&QPushButton::clicked,dialog,[this,selectedRows,refreshSelection]{refreshSelection(false);for(const auto& ci:selectedRows()) sendPolicy(ci.data(),Status,{});});
     auto close=buttons->addButton(QDialogButtonBox::Close);connect(close,&QPushButton::clicked,dialog,&QDialog::accept);
     // Closing this monitor never releases a policy: its authenticated explicit
     // Release command and service-side lease remain the only recovery paths.

@@ -41,7 +41,8 @@ public:
 		FramebufferRole,
 		ControlInterfaceRole,
 		AttendanceNameRole,
-		AttendancePreloadedRole
+		AttendancePreloadedRole,
+		InternetGuardActiveRole
 	};
 
 	enum class DisplayRoleContent {

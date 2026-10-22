@@ -170,7 +170,11 @@ void NetLinkAppearance::apply()
     } else {
         if(qApp->style()->objectName().compare("fusion", Qt::CaseInsensitive) != 0) qApp->setStyle(QStyleFactory::create("Fusion"));
         qApp->setPalette(makePalette(m_preferences, m_darkSystem));
-        qApp->setStyleSheet("QToolBar{border:0;padding:6px;spacing:5px;}"
+        const QColor pressed(qApp->palette().color(QPalette::Highlight).darker(125).name());
+        // The pressed state is transient, independent of checked/default state.
+        // Keep border+padding totals fixed: glyphs move 2 px, widgets never resize.
+        // Native accessibility styles above retain their own sunken rendering.
+        qApp->setStyleSheet(QStringLiteral("QToolBar{border:0;padding:6px;spacing:5px;}"
             "QToolButton[netlinkFeatureButton=\"true\"]{border:1px solid palette(mid);border-radius:10px;padding:8px;background:palette(button);color:palette(button-text);margin:1px;}"
             "QToolButton[netlinkFeatureButton=\"true\"]:hover{background:palette(midlight);border-color:palette(highlight);}"
             "QToolButton[netlinkFeatureButton=\"true\"]:checked{background:palette(midlight);border:2px solid palette(highlight);padding:7px;}"
@@ -178,6 +182,9 @@ void NetLinkAppearance::apply()
             "QToolButton[netlinkCompactButton=\"true\"]{border:1px solid palette(mid);border-radius:10px;padding:5px;background:palette(button);color:palette(button-text);}"
             "QToolButton[netlinkCompactButton=\"true\"]:hover{background:palette(midlight);border-color:palette(highlight);}"
             "QToolButton[netlinkCompactButton=\"true\"]:checked,QToolButton[netlinkCompactButton=\"true\"]:focus{background:palette(midlight);border:2px solid palette(highlight);padding:4px;}"
+            "QToolButton:pressed:enabled{background:%1;color:%2;}"
+            "QToolButton[netlinkFeatureButton=\"true\"]:pressed:enabled{background:%1;color:%2;border:2px solid palette(dark);padding:9px 7px 5px 7px;}"
+            "QToolButton[netlinkCompactButton=\"true\"]:pressed:enabled{background:%1;color:%2;border:2px solid palette(dark);padding:6px 4px 2px 4px;}"
             "QToolTip{padding:8px;border:1px solid palette(mid);background:palette(tool-tip-base);color:palette(tool-tip-text);}"
             "QPushButton,QComboBox,QLineEdit{padding:6px;border:1px solid palette(mid);border-radius:5px;}"
             // Keep popup geometry and item rendering in list mode. The menu-style
@@ -191,10 +198,11 @@ void NetLinkAppearance::apply()
             "QPushButton:default,QPushButton:checked{background:palette(highlight);color:palette(highlighted-text);}"
             "QPushButton:focus,QComboBox:focus,QLineEdit:focus{border:2px solid palette(highlight);padding:5px;}"
             "QPushButton:disabled{color:palette(mid);}"
+            "QPushButton:pressed:enabled{background:%1;color:%2;border:2px solid palette(dark);padding:7px 5px 3px 5px;}"
             "QGroupBox{border:1px solid palette(mid);border-radius:6px;margin-top:10px;padding:10px;}"
             "QGroupBox::title{subcontrol-origin:margin;left:10px;padding:0 5px;}"
             "QTabWidget::pane{border:1px solid palette(mid);}QStatusBar{border-top:1px solid palette(mid);}"
-            "QSplitter::handle:hover{background:palette(highlight);}");
+            "QSplitter::handle:hover{background:palette(highlight);}").arg(pressed.name(),contrastingText(pressed).name()));
     }
     Q_EMIT changed();
 }

@@ -177,6 +177,30 @@ private Q_SLOTS:
         QCOMPARE(table->rowCount(),1);QCOMPARE(table->selectionModel()->selectedRows().size(),1);
         QCOMPARE(table->item(0,1)->text(),second->networkPolicyStatus());
     }
+    void guardRechecksThumbnailsForEveryCommandWithoutReopening() {
+        IsolatedSchoolMaster master;const auto first=client(),second=client("192.0.2.26");
+        master.clients={first,second};SchoolFeatures features(nullptr,false);
+        QVERIFY(features.startFeature(master,features.featureList().first(),master.clients));
+        auto table=features.m_guardDialog->findChild<QTableWidget*>();QVERIFY(table);
+        auto button=[&](const char* text) -> QPushButton* {for(auto b:features.m_guardDialog->findChildren<QPushButton*>()) if(b->text()==NetLinkUi::text(text)) return b;return nullptr;};
+        const auto block=button("Block Internet"),release=button("Unblock"),query=button("Check status");QVERIFY(block);QVERIFY(release);QVERIFY(query);
+        master.clients={second};
+        first->setNetworkPolicyStatus("untouched");second->setNetworkPolicyStatus("untouched");block->click();
+        QCOMPARE(table->rowCount(),1);QCOMPARE(first->networkPolicyStatus(),QString("untouched"));QCOMPARE(second->networkPolicyStatus(),NetLinkUi::text("not connected"));
+        master.clients={first};
+        first->setNetworkPolicyStatus("untouched");second->setNetworkPolicyStatus("untouched");
+        features.m_guardTargets={{first.data(),{},0},{second.data(),{},0}};release->click();
+        QCOMPARE(features.m_guardTargets.size(),1);QCOMPARE(features.m_guardTargets.first().control.data(),second.data());
+        QCOMPARE(second->networkPolicyStatus(),QString("untouched"));
+        master.clients={second};first->setNetworkPolicyStatus("untouched");query->click();QCOMPARE(first->networkPolicyStatus(),QString("untouched"));
+        master.clients.clear();second->setNetworkPolicyStatus("untouched");block->click();
+        QCOMPARE(table->rowCount(),0);QCOMPARE(second->networkPolicyStatus(),QString("untouched"));QVERIFY(!block->isEnabled());
+        master.clients={first,second};QTRY_COMPARE(table->rowCount(),2);QCOMPARE(table->selectionModel()->selectedRows().size(),2);
+        table->selectRow(1);QTest::qWait(350);QCOMPARE(table->selectionModel()->selectedRows().size(),1);
+        // Panel selection remains an additional restriction, never an extension
+        // of the currently selected thumbnails.
+        first->setNetworkPolicyStatus("untouched");block->click();QCOMPARE(first->networkPolicyStatus(),QString("untouched"));
+    }
     void partialUnblockPreservesOtherPendingClients() {
         const auto first=client(),second=client("192.0.2.26");FakeDns dns;SchoolFeatures features(nullptr,false);
         auto resolver=new SchoolPolicyResolver({"one.invalid"},{},&features,dns.lookup(),dns.abort(),500);

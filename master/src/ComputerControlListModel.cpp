@@ -115,6 +115,8 @@ QVariant ComputerControlListModel::data( const QModelIndex& index, int role ) co
 
 	case AttendancePreloadedRole:
 		return computerControl->studentName().isEmpty() && !computerControl->expectedStudentName().isEmpty();
+	case InternetGuardActiveRole:
+		return ComputerCaptionDelegate::webLocked(*computerControl);
 
 	case FramebufferRole:
 		return computerControl->framebuffer();
@@ -287,7 +289,7 @@ void ComputerControlListModel::updateActiveFeatures( const QModelIndex& index )
 void ComputerControlListModel::updateUser( const QModelIndex& index )
 {
 	Q_EMIT dataChanged( index, index, { Qt::DisplayRole, Qt::ToolTipRole, Qt::InitialSortOrderRole,
-		UserLoginNameRole, AttendanceNameRole, AttendancePreloadedRole } );
+		UserLoginNameRole, AttendanceNameRole, AttendancePreloadedRole, InternetGuardActiveRole } );
 
 	auto controlInterface = computerControlInterface( index );
 	if( controlInterface.isNull() == false )

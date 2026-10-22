@@ -39,6 +39,10 @@
 #include "MonitoringMode.h"
 #include "UserConfig.h"
 #include "PluginManager.h"
+#include "SelectedFeatureControl.h"
+#include "NetLinkUi.h"
+#include <QMessageBox>
+#include <QInputDialog>
 
 
 VeyonMaster::VeyonMaster( QObject* parent ) :
@@ -208,7 +212,50 @@ void VeyonMaster::showClassProfiles(const QString& operation)
 
 void VeyonMaster::runFeature( const Feature& feature )
 {
-	const auto computerControlInterfaces = filteredComputerControlInterfaces();
+	const auto computerControlInterfaces = SelectedFeatureControl::applies(feature) ?
+		SelectedFeatureControl::targets(selectedComputerControlInterfaces()) : filteredComputerControlInterfaces();
+	if(SelectedFeatureControl::applies(feature) && computerControlInterfaces.isEmpty()) {
+		auto notice=new QMessageBox(QMessageBox::Information,feature.displayName(),
+			NetLinkUi::text("Select at least one computer thumbnail before sending this command."),QMessageBox::Ok,mainWindow());
+		notice->setAttribute(Qt::WA_DeleteOnClose);notice->open();return;
+	}
+	if(SelectedFeatureControl::isMode(feature)) {
+		auto& manager=VeyonCore::featureManager();
+		FeatureUidList family;
+		for(const auto& related:manager.relatedFeatures(feature.uid())) family.append(related.uid());
+		if(!family.contains(feature.uid())) family.append(feature.uid());
+		auto plan=SelectedFeatureControl::plan(feature,computerControlInterfaces,family,allFeatures());
+		if(plan.start && (feature.name()==QStringLiteral("ShareUserScreenWindow") || feature.name()==QStringLiteral("ShareUserScreenFullScreen"))) {
+			if(plan.clients.size()<2) {
+				auto notice=new QMessageBox(QMessageBox::Information,feature.displayName(),
+					NetLinkUi::text("Select the source computer and at least one recipient thumbnail before sharing a student's screen."),QMessageBox::Ok,mainWindow());
+				notice->setAttribute(Qt::WA_DeleteOnClose);notice->open();return;
+			}
+			QStringList choices;
+			for(int i=0;i<plan.clients.size();++i) choices.append(QStringLiteral("%1. %2 (%3)").arg(i+1)
+				.arg(plan.clients[i]->computer().name(),plan.clients[i]->computer().hostAddress()));
+			bool accepted=false;
+			const auto source=QInputDialog::getItem(mainWindow(),feature.displayName(),NetLinkUi::text("Choose the source screen. Only the other selected computers will receive it."),choices,0,false,&accepted);
+			// Cancelling does not stop an existing mode. Reject a changed selection
+			// rather than sending commands to a stale group after the dialog.
+			if(!accepted || computerControlInterfaces!=SelectedFeatureControl::targets(selectedComputerControlInterfaces())) return;
+			const auto index=choices.indexOf(source);if(index<0) return;
+			plan.clients.prepend(plan.clients.takeAt(index));
+		}
+		if(plan.start && (feature.name().startsWith(QStringLiteral("ShareOwnScreen")) || feature.name().startsWith(QStringLiteral("ShareUserScreen")))) {
+			const auto origin=feature.name().startsWith(QStringLiteral("ShareOwnScreen")) ? QStringLiteral("local") : plan.clients.first()->computer().networkObjectUid().toString();
+			if(SelectedFeatureControl::conflictingDemoSource(allComputerControlInterfaces(),plan.clients,origin)) {
+				auto notice=new QMessageBox(QMessageBox::Information,feature.displayName(),
+					NetLinkUi::text("Other computers are receiving a different demonstration. Stop that demonstration before changing its source; no commands were sent."),QMessageBox::Ok,mainWindow());
+				notice->setAttribute(Qt::WA_DeleteOnClose);notice->open();return;
+			}
+		}
+		for(const auto& mode:plan.stop) manager.stopFeature(*this,mode,plan.clients);
+		const auto& next=plan.start ? feature : VeyonCore::builtinFeatures().monitoringMode().feature();
+		manager.startFeature(*this,next,plan.clients);
+		m_currentMode=next.uid();
+		return;
+	}
 
 	if( feature.testFlag( Feature::Flag::Mode ) )
 	{

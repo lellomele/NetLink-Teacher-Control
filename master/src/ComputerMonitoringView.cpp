@@ -30,6 +30,7 @@
 #include "FeatureManager.h"
 #include "VeyonConfiguration.h"
 #include "UserConfig.h"
+#include "SelectedFeatureControl.h"
 
 
 ComputerMonitoringView::ComputerMonitoringView() :
@@ -175,6 +176,9 @@ void ComputerMonitoringView::initiateIconSizeAutoAdjust()
 
 void ComputerMonitoringView::runFeature( const Feature& feature )
 {
+	if(SelectedFeatureControl::applies(feature)) {
+		m_master->runFeature(feature);return;
+	}
 	auto computerControlInterfaces = selectedComputerControlInterfaces();
 	if( computerControlInterfaces.isEmpty() )
 	{
@@ -214,6 +218,11 @@ bool ComputerMonitoringView::isFeatureOrRelatedFeatureActive( const ComputerCont
 															 Feature::Uid featureUid ) const
 {
 	const auto& relatedFeatures = VeyonCore::featureManager().relatedFeatures( featureUid );
+	if(SelectedFeatureControl::isMode(VeyonCore::featureManager().feature(featureUid))) {
+		FeatureUidList family{featureUid};
+		for(const auto& related:relatedFeatures) if(!family.contains(related.uid())) family.append(related.uid());
+		return SelectedFeatureControl::allActive(computerControlInterfaces,family);
+	}
 
 	for( const auto& controlInterface : computerControlInterfaces )
 	{

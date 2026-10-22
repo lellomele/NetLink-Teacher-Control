@@ -41,6 +41,20 @@ La barra remota segue il set della Console. In contrasto elevato la puntina
 non si attenua. La lingua si sceglie nel Configurator: applicare e riavviare
 le applicazioni. I dialoghi di Windows possono usare la lingua del sistema.
 
+I pulsanti dei pannelli, compresi i profili classe–aula, mostrano un effetto
+temporaneo di pressione con mouse e barra spaziatrice. Al rilascio tornano allo
+stato normale/selezionato, senza ritardi di animazione o comandi aggiuntivi.
+In alto contrasto si mantiene il disegno accessibile nativo di Windows.
+
+**Lock e Demo** rileggono le miniature selezionate a ogni richiesta, sia dalla
+barra strumenti sia dal menu contestuale. Selezionare almeno una postazione:
+nessuna selezione non significa tutti i PC. Una selezione mista avvia la modalità
+sul gruppo; se tutti i selezionati hanno già quella modalità, il pulsante la
+ferma solo per loro. Gli altri destinatari continuano a ricevere Demo. Per
+condividere lo schermo di uno studente, selezionare sorgente e destinatari,
+poi scegliere la sorgente tra questi PC. Il cambio sorgente è rifiutato se
+PC non selezionati stanno ricevendo una Demo diversa.
+
 ## Configurator
 
 - **Facile:** accesso, chiavi, impostazioni essenziali del servizio, gruppi/PC
@@ -61,11 +75,17 @@ Una prova che richiede una privata non valida la sola pubblica di un client.
 1. Selezionare i client nella Console e aprire InternetGuard: tutte le righe sono
    inizialmente selezionate. Ctrl-clic/Maiusc-clic modificano la selezione;
    **Blocca Internet**, **Sblocca** e **Verifica stato** agiscono solo sulle righe
-   evidenziate. Senza selezione i comandi sono disabilitati. Riaprendo il pannello
-   si aggiorna l'elenco dalla selezione attuale della Console.
+   evidenziate. Senza selezione i comandi sono disabilitati. Il pannello segue
+   le miniature selezionate nella Console e le ricontrolla prima di ogni comando,
+   anche se già aperto. Le righe possono restringere ulteriormente i destinatari,
+   mai aggiungere miniature non selezionate.
 2. Leggere il feedback per ciascun client: conferma, errore o nessuna risposta.
 3. Per rilasciare i filtri usare **Sblocca**. Chiudere il pannello non sblocca.
 4. **Verifica stato** interroga il servizio, ma non esegue una prova di navigazione.
+
+Il filtro attivo confermato aggiunge **[web locked]** sulla miniatura, bianco su
+rosso opaco. Lo sblocco confermato rimuove l'etichetta; attese ed errori rimangono
+nel tooltip e nel pannello InternetGuard. È lo stato dei filtri, non un test web.
 
 Il Master rinnova ogni 20 secondi; la scadenza prevista è 90 secondi senza rinnovo.
 La lista autorizzata riutilizza i PC selezionati e l'indirizzo effettivo del Master.

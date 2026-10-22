@@ -6,9 +6,9 @@ NetLink is a Windows classroom-management suite based on **Veyon 4.7.5**.
 It integrates remote control, WFP InternetGuard, student names, class–room profiles,
 automatic client discovery and Companion diagnostics, without external plugins.
 
-**Pre-release 1.0.0-alpha.29: use with awareness of its limitations.**
+**Pre-release 1.0.0-alpha.30: use with awareness of its limitations.**
 
-**[Download Windows x64 installer — latest release (alpha.29)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.29/NetLink-1.0.0-alpha.29-win64-setup.exe)**
+**[Download Windows x64 installer — latest release (alpha.30)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.30/NetLink-1.0.0-alpha.30-win64-setup.exe)**
 
 ## Features
 
@@ -18,10 +18,13 @@ automatic client discovery and Companion diagnostics, without external plugins.
   The compact remote toolbar keeps the desktop visible, with a persistent pin,
   an option to keep controls open and right-click edge rotation.
 - **Customizable appearance:** themes, colors and coordinated vector icon sets,
-  high-resolution display support and descriptive tooltips.
+  high-resolution display support, descriptive tooltips and visible button-press feedback.
 - **WFP InternetGuard:** block/release Internet on selected clients, with
   application/error feedback and filter expiry when renewal stops.
   All dialog rows are initially selected; commands affect highlighted rows only.
+  InternetGuard, Lock and Demo recheck selected thumbnails for each request;
+  an empty selection never targets the whole room. A confirmed active filter
+  is marked `[web locked]` in white on red; inactive filters add no caption label.
 - **Student names:** the student's self-declared name appears beside the Windows
   account and PC name. It does not verify identity or attendance.
 - **Class–room profiles:** editable student/workstation assignments,

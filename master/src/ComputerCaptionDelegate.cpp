@@ -11,8 +11,9 @@
 QString ComputerCaptionDelegate::captionText(const ComputerControlInterface& client,
                                             ComputerListModel::DisplayRoleContent content)
 {
-    const auto suffix = client.networkPolicyStatus().isEmpty() ? QString{} :
-        QStringLiteral(" [IG: %1]").arg(client.networkPolicyStatus());
+    // Use the machine-readable authenticated confirmation, not translated text
+    // or an outstanding request. Inactive/error/pending details stay in tooltips.
+    const auto suffix = webLocked(client) ? QStringLiteral(" [web locked]") : QString{};
     if (!client.attendanceName().isEmpty())
     {
         QStringList parts{QStringLiteral("[%1]").arg(client.attendanceName())};
@@ -37,15 +38,16 @@ void ComputerCaptionDelegate::paint(QPainter* painter, const QStyleOptionViewIte
                                     const QModelIndex& index) const
 {
     const auto attendance = index.data(ComputerListModel::AttendanceNameRole).toString();
-    if (attendance.isEmpty())
+    const bool locked = index.data(ComputerListModel::InternetGuardActiveRole).toBool();
+    if (attendance.isEmpty() && !locked)
     {
         QStyledItemDelegate::paint(painter, option, index);
         return;
     }
     QStyleOptionViewItem item(option);
     initStyleOption(&item, index);
-    const auto prefix = QStringLiteral("[%1]").arg(attendance);
-    if (!item.text.startsWith(prefix))
+    const auto prefix = attendance.isEmpty() ? QString{} : QStringLiteral("[%1]").arg(attendance);
+    if (!prefix.isEmpty() && !item.text.startsWith(prefix))
     {
         QStyledItemDelegate::paint(painter, option, index);
         return;
@@ -53,6 +55,8 @@ void ComputerCaptionDelegate::paint(QPainter* painter, const QStyleOptionViewIte
     const auto style = item.widget ? item.widget->style() : QApplication::style();
     const auto textRect = style->subElementRect(QStyle::SE_ItemViewItemText, &item, item.widget);
     auto text = item.text;
+    const auto lockedLabel = QStringLiteral("[web locked]");
+    const int lockedStart = locked && text.endsWith(lockedLabel) ? text.size() - lockedLabel.size() : -1;
     // Keep the native thumbnail, selection, focus and geometry. Render literal
     // text, never HTML received from a client or read from a class profile.
     auto chrome = item;
@@ -86,7 +90,6 @@ void ComputerCaptionDelegate::paint(QPainter* painter, const QStyleOptionViewIte
     if (!wrap) text = item.fontMetrics.elidedText(text, Qt::ElideRight, textRect.width());
     QTextLayout layout(text, item.font, painter->device());
     layout.setTextOption(textOption);
-    layout.setFormats({format});
     // Limit wrapped captions to the native text area and elide the last line,
     // so even long names cannot paint over another computer's thumbnail.
     if (wrap)
@@ -112,7 +115,18 @@ void ComputerCaptionDelegate::paint(QPainter* painter, const QStyleOptionViewIte
         layout.setText(text);
     }
     format.length = qMin(prefix.size(), text.size());
-    layout.setFormats({format});
+    QVector<QTextLayout::FormatRange> formats;
+    if (format.length > 0) formats.append(format);
+    if (lockedStart >= 0 && lockedStart < text.size()) {
+        QTextLayout::FormatRange web;
+        web.start = lockedStart;
+        web.length = qMin(lockedLabel.size(), text.size() - lockedStart);
+        web.format.setBackground(webLockedBackground());
+        web.format.setForeground(Qt::white);
+        web.format.setFontWeight(QFont::DemiBold);
+        formats.append(web);
+    }
+    layout.setFormats(formats);
     layout.beginLayout();
     qreal height = 0;
     while (true)

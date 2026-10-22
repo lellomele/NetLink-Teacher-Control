@@ -1,4 +1,8 @@
 [
+  {"source":"Other computers are receiving a different demonstration. Stop that demonstration before changing its source; no commands were sent.","it":"Altri computer stanno ricevendo una dimostrazione diversa. Interrompi quella dimostrazione prima di cambiarne la sorgente; nessun comando è stato inviato."},
+  {"source":"Select at least one computer thumbnail before sending this command.","it":"Seleziona almeno una miniatura prima di inviare questo comando."},
+  {"source":"Select the source computer and at least one recipient thumbnail before sharing a student's screen.","it":"Seleziona la miniatura del computer sorgente e almeno una miniatura destinataria prima di condividere lo schermo di uno studente."},
+  {"source":"Choose the source screen. Only the other selected computers will receive it.","it":"Scegli lo schermo sorgente. Lo riceveranno soltanto gli altri computer selezionati."},
   {"source":"Client service diagnostics","it":"Diagnostica del servizio client"},
   {"source":"VNC plugin: %1 (%2)","it":"Plugin VNC: %1 (%2)"},
   {"source":"Internal VNC port: %1","it":"Porta interna VNC: %1"},
