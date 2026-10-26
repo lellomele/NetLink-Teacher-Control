@@ -1,14 +1,14 @@
-# NetLink Teacher Control
+[Italiano](README.it.md) | [English](README.md)
 
-[English](README.md) · [Italiano](README.it.md)
+# NetLink Teacher Control
 
 Suite NetLink per la gestione delle aule Windows, basata su **Veyon 4.7.5**.
 Integra controllo remoto, InternetGuard WFP, Appello, profili classe–aula,
 ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
 
-**Versione preliminare 1.0.0-alpha.30: usare consapevolmente.**
+**Versione preliminare 1.0.0-alpha.31: usare consapevolmente.**
 
-**[Scarica l’installer Windows x64 — ultima release (alpha.30)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.30/NetLink-1.0.0-alpha.30-win64-setup.exe)**
+**[Scarica l’installer Windows x64 — ultima release (alpha.31)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.31/NetLink-1.0.0-alpha.31-win64-setup.exe)**
 
 ## Funzionalità
 
@@ -30,6 +30,8 @@ ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
 - **Profili classe–aula:** assegnazioni studente/postazione modificabili,
   salvataggio e caricamento JSON sul Master, esportazione CSV e distinzione
   fra nomi precaricati e risposte dei client.
+  Il salvataggio include tutti i PC del gruppo della riga evidenziata, anche senza spunta.
+  Il caricamento spunta i PC salvati e ripristina i nomi senza sostituire l'albero di rete.
 - **Trova client:** WS-Discovery, modalità automatica con IPv4 preferito e IPv6
   come alternativa, opzione Solo IPv4, filtro dei PC già configurati e
   accorpamento degli annunci della stessa identità.
@@ -81,7 +83,10 @@ Procedura completa: [installazione, disinstallazione e recupero](docs/INSTALLATI
 - Nella Console selezionare le postazioni e scegliere controllo remoto,
   InternetGuard oppure Appello.
 - In **Posizioni e computer → Profili classe–aula…** salvare e ricaricare le
-  assegnazioni. Il profilo non modifica gli indirizzi di rete del Configurator.
+  assegnazioni. Prima di salvare evidenziare un gruppo o uno dei suoi PC.
+  Il caricamento chiede conferma dei PC riconosciuti; segnala quelli mancanti senza crearli.
+  Prima terminare Lock, Demo e InternetGuard. Il profilo non modifica gruppi,
+  indirizzi di rete o chiavi del Configurator.
 - In **Trova client** disattivare il filtro dei PC noti per visualizzare anche
   quelli già configurati. Verificare i destinatari prima di importarli.
   Per importare occorre che la Console stessa possa scrivere la configurazione

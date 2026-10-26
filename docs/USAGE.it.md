@@ -114,15 +114,29 @@ Non sono previste conferme di presenza e il nome non è un'identità verificata.
 
 In **Posizioni e computer → Profili classe–aula…**:
 
-1. Assegnare classe, aula e studente alle postazioni. L'editor parte dai PC
-   selezionati, oppure da quelli visualizzati in assenza di selezione.
-2. **Salva JSON** conserva le assegnazioni; **Carica JSON** le ricarica.
+1. Evidenziare una riga di gruppo/aula oppure di un suo PC in **Posizioni e computer**.
+   È la riga evidenziata a scegliere il gruppo, non le spunte o le miniature selezionate.
+   **Usa gruppo evidenziato** riempie l'editor con tutti i PC configurati di quel gruppo,
+   anche senza spunta o nascosti dalla ricerca testuale. Impostare classe, aula e nomi.
+2. **Salva JSON** salva tutti i PC di quel gruppo, non gli altri gruppi spuntati.
+   **Esporta CSV** usa lo stesso criterio. Mantiene le assegnazioni modificabili già
+   presenti; per i PC non ancora assegnati usa il nome Appello corrente, se disponibile.
+   **Usa nomi dichiarati** copia esplicitamente le risposte più recenti.
+   Cancellare un nome non elimina il PC configurato.
+3. **Carica JSON** riepiloga classe, gruppo e numero di PC riconosciuti. Confermando,
+   spunta solo i PC salvati e ripristina i nomi. Gli altri PC sono deselezionati, non
+   eliminati: albero, appartenenza ai gruppi, indirizzi attuali, chiavi e autorizzazioni
+   restano invariati. I PC mancanti/nascosti sono elencati, non creati né associati
+   tramite IP o nome riutilizzato. Se nessun PC è disponibile non cambia nulla.
+   Prima del caricamento terminare Lock, Demo e InternetGuard, compresi gli sblocchi
+   non confermati. Annulla conserva il profilo attivo. I vecchi JSON classe–aula sono
+   leggibili; i nuovi file con gruppo richiedono alpha.31 o successiva.
    Non è il JSON del Configurator e non viene caricato automaticamente all'avvio.
-3. Modificare il nome assegnato oppure usare **Usa nomi dichiarati** sulle righe
+4. Modificare il nome assegnato oppure usare **Usa nomi dichiarati** sulle righe
    scelte. Le risposte non riscrivono il file: salvarlo esplicitamente.
-4. **Esporta CSV** produce una copia leggibile con assegnazioni e dichiarazioni,
+5. **Esporta CSV** produce una copia leggibile con assegnazioni e dichiarazioni,
    non ricaricabile come profilo.
-5. **Termina richieste e cancella nomi dichiarati** mantiene il profilo;
+6. **Termina richieste e cancella nomi dichiarati** mantiene il profilo;
    **Nuovo / scarica profilo** rimuove le etichette attive, non i file sul disco.
 
 I nomi precaricati sono distinti dalle dichiarazioni correnti. Alla disconnessione

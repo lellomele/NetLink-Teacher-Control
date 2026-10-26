@@ -36,6 +36,7 @@
 #include "VeyonConnection.h"
 #include "MainWindow.h"
 #include "ComputerManager.h"
+#include "ComputerSelectPanel.h"
 #include "MonitoringMode.h"
 #include "UserConfig.h"
 #include "PluginManager.h"
@@ -200,6 +201,19 @@ void VeyonMaster::showClassProfiles(const QString& operation)
 	if (!m_classProfiles)
 	{
 		m_classProfiles = new ClassProfiles(*this, this);
+		const QPointer<ComputerSelectPanel> panel=m_mainWindow->findChild<ComputerSelectPanel*>();
+		m_classProfiles->setDirectoryContext(m_computerManager->networkObjectModel(),
+			qobject_cast<CheckableItemProxyModel*>(m_computerManager->computerTreeModel()),
+			[panel] {return panel?panel->highlightedProfileGroup():QUuid{};},[this] {
+				if(VeyonCore::builtinFeatures().schoolFeatures().activeInternetPolicies()>0) return false;
+				const auto monitoring=VeyonCore::builtinFeatures().monitoringMode().feature().uid();
+				for(const auto& ci:allComputerControlInterfaces()) if(ci) {
+					if(!ci->designatedModeFeature().isNull() && ci->designatedModeFeature()!=monitoring) return false;
+					for(const auto& feature:allFeatures()) if(SelectedFeatureControl::isMode(feature) && ci->activeFeatures().contains(feature.uid())) return false;
+					if(ci->property("schoolPolicyVerifiedState").toString()==QStringLiteral("blocked")) return false;
+				}
+				return true;
+			});
 		connect(m_classProfiles, &ClassProfiles::assignmentsChanged, this, [this] {
 			QHash<QUuid, QString> names;
 			for (const auto& seat : m_classProfiles->profile().assignments) names.insert(seat.computerId, seat.student);

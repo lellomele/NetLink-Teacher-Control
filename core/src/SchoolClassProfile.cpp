@@ -37,6 +37,7 @@ bool SchoolClassProfile::validate(QString* error) const {
     if(error) error->clear();
     if(!validText(className,80,false) || !validText(room,80,false)) return fail(error,"Enter a class and a room (maximum 80 characters each).");
     if(assignments.isEmpty() || assignments.size()>MaximumAssignments) return fail(error,"A profile must contain between 1 and 256 computer assignments.");
+    if((groupId.isNull() && !groupName.isEmpty()) || (!groupId.isNull() && !validText(groupName,256,false))) return fail(error,"Invalid group identifier or name in the profile.");
     QSet<QUuid> ids;
     for(const auto& seat:assignments) {
         if(seat.computerId.isNull() || ids.contains(seat.computerId)) return fail(error,"Invalid or duplicate computer identifier in the profile.");
@@ -49,8 +50,10 @@ QByteArray SchoolClassProfile::toJson() const {
     QJsonArray seats;
     for(const auto& seat:assignments) seats.append(QJsonObject{{"computerId",seat.computerId.toString(QUuid::WithoutBraces)},
         {"computerName",seat.computerName},{"hostHint",seat.hostHint},{"student",seat.student}});
-    return QJsonDocument(QJsonObject{{"format","netlink-class-room"},{"version",1},
-        {"class",className},{"room",room},{"assignments",seats}}).toJson(QJsonDocument::Indented);
+    QJsonObject root{{"format","netlink-class-room"},{"version",groupId.isNull()?1:2},
+        {"class",className},{"room",room},{"assignments",seats}};
+    if(!groupId.isNull()) {root.insert("groupId",groupId.toString(QUuid::WithoutBraces));root.insert("groupName",groupName);}
+    return QJsonDocument(root).toJson(QJsonDocument::Indented);
 }
 bool SchoolClassProfile::fromJson(const QByteArray& data,SchoolClassProfile& profile,QString* error) {
     if(error) error->clear();
@@ -58,12 +61,20 @@ bool SchoolClassProfile::fromJson(const QByteArray& data,SchoolClassProfile& pro
     QJsonParseError parse;const auto doc=QJsonDocument::fromJson(data,&parse);
     if(parse.error!=QJsonParseError::NoError || !doc.isObject()) return fail(error,"Invalid profile JSON. The active profile has not changed.");
     const auto root=doc.object();
-    if(!fields(root,{"format","version","class","room","assignments"}) || root["format"]!="netlink-class-room" ||
-       !root["version"].isDouble() || root["version"].toDouble()!=1 || !root["class"].isString() ||
+    const auto version=root["version"].toDouble();
+    const bool grouped=version==2;
+    auto allowed=QSet<QString>{"format","version","class","room","assignments"};
+    if(grouped) {allowed.insert("groupId");allowed.insert("groupName");}
+    if(!fields(root,allowed) || root["format"]!="netlink-class-room" ||
+       !root["version"].isDouble() || (version!=1 && version!=2) || !root["class"].isString() ||
        !root["room"].isString() || !root["assignments"].isArray()) return fail(error,"Unsupported profile format or version. Use a NetLink class-room JSON, not a Configurator backup.");
     const auto seats=root["assignments"].toArray();
     if(seats.size()>MaximumAssignments) return fail(error,"A profile must contain between 1 and 256 computer assignments.");
     SchoolClassProfile candidate;candidate.className=root["class"].toString();candidate.room=root["room"].toString();
+    if(grouped) {
+        if(!root["groupId"].isString() || root["groupId"].toString().size()!=36 || QUuid(root["groupId"].toString()).isNull() || !root["groupName"].isString()) return fail(error,"Invalid group identifier or name in the profile.");
+        candidate.groupId=QUuid(root["groupId"].toString());candidate.groupName=root["groupName"].toString();
+    }
     for(const auto& value:seats) {
         if(!value.isObject()) return fail(error,"Invalid assignment in the profile.");
         const auto seat=value.toObject();

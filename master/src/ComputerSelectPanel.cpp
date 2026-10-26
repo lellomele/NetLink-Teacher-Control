@@ -33,6 +33,7 @@
 #include "LocationDialog.h"
 #include "VeyonConfiguration.h"
 #include "NetLinkUi.h"
+#include "ClassProfileDirectory.h"
 
 #include "ui_ComputerSelectPanel.h"
 
@@ -55,6 +56,9 @@ ComputerSelectPanel::ComputerSelectPanel( ComputerManager& computerManager, QWid
 	ui->loadProfileButton->setText(NetLinkUi::text("Load JSON…"));
 	ui->saveProfileButton->setText(NetLinkUi::text("Save JSON…"));
 	ui->saveListButton->setText(NetLinkUi::text("Export CSV…"));
+	ui->saveProfileButton->setToolTip(NetLinkUi::text("Saves every configured PC in the highlighted row's group, including unchecked PCs. Other groups are not saved."));
+	ui->saveListButton->setToolTip(ui->saveProfileButton->toolTip());
+	ui->loadProfileButton->setToolTip(NetLinkUi::text("Loads names and checks the saved PCs. Existing groups, computers, addresses and keys are never replaced."));
 	ui->profilesButton->setToolTip(NetLinkUi::text("Edit the student assigned to each computer. Profiles do not change computer names, addresses, keys or permissions."));
 	connect(ui->profilesButton, &QPushButton::clicked, this, [this] {Q_EMIT classProfileRequested(QString{});});
 	connect(ui->loadProfileButton, &QPushButton::clicked, this, [this] {Q_EMIT classProfileRequested(QStringLiteral("load"));});
@@ -66,6 +70,7 @@ ComputerSelectPanel::ComputerSelectPanel( ComputerManager& computerManager, QWid
 
 	// set computer tree model as data model
 	ui->treeView->setModel( m_filterProxyModel );
+	ui->treeView->setSelectionBehavior(QAbstractItemView::SelectRows);
 
 	// set default sort order
 	ui->treeView->sortByColumn( 0, Qt::AscendingOrder );
@@ -84,6 +89,14 @@ ComputerSelectPanel::ComputerSelectPanel( ComputerManager& computerManager, QWid
 ComputerSelectPanel::~ComputerSelectPanel()
 {
 	delete ui;
+}
+
+QUuid ComputerSelectPanel::highlightedProfileGroup() const
+{
+	const auto selection=ui->treeView->selectionModel();
+	// Current index alone can survive a cleared selection: require a highlighted row.
+	if(!selection || !selection->hasSelection() || !selection->isRowSelected(selection->currentIndex().row(),selection->currentIndex().parent())) return {};
+	return ClassProfileDirectory::highlightedGroup(selection->currentIndex());
 }
 
 

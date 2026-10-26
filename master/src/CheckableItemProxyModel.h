@@ -27,6 +27,7 @@
 #include <QJsonArray>
 #include <QIdentityProxyModel>
 #include <QUuid>
+#include <QSet>
 
 #include "QtCompat.h"
 
@@ -48,6 +49,8 @@ public:
 
 	QJsonArray saveStates();
 	void loadStates( const QJsonArray& data );
+	// Atomic check-state update: keep the tree, indexes and expansion intact.
+	void setCheckedItems(const QSet<QUuid>& ids);
 
 private:
 	QUuid indexToUuid( const QModelIndex& index ) const;

@@ -106,15 +106,27 @@ There is no attendance-confirmation mechanism or verified identity.
 
 In **Locations & computers → Class–room profiles…**:
 
-1. Assign class, room and student to workstations. The editor starts with selected
-   PCs, or displayed PCs when none are selected.
-2. **Save JSON** preserves assignments; **Load JSON** restores them.
+1. Highlight a room/group row or one of its PC rows in **Locations & computers**.
+   The highlighted row chooses the group, not the checkboxes or thumbnail selection.
+   **Use highlighted group** fills the editor with every configured PC in that group,
+   including unchecked PCs and PCs hidden by the text search. Set class, room and names.
+2. **Save JSON** saves all PCs in that group, not other checked groups. **Export CSV**
+   uses the same scope. Existing editable assignments are kept; PCs not yet assigned
+   use their current attendance name when available. **Use declared names** copies
+   newer declarations explicitly. Clearing a name never removes the configured PC.
+3. **Load JSON** previews the class, group and number of recognized PCs. Confirm to
+   check only saved PCs and restore names. Other PCs are unchecked, not deleted:
+   the tree, group memberships, current addresses, keys and access rules are unchanged.
+   Missing/hidden PCs are listed but not created or matched by a reused IP/name.
+   If no saved PC is available, nothing changes. End Lock, Demo and InternetGuard,
+   including unconfirmed unblocks, before loading. Cancel keeps the active profile.
+   Older class–room JSON files are readable; new grouped files need alpha.31 or later.
    This is not Configurator JSON, and profiles do not load automatically at startup.
-3. Edit an assignment or **Use declared names** on selected rows.
+4. Edit an assignment or **Use declared names** on selected rows.
    Replies never rewrite the file automatically: save explicitly.
-4. **Export CSV** creates a readable copy of assignments and declarations,
+5. **Export CSV** creates a readable copy of assignments and declarations,
    not a reloadable profile.
-5. **End requests and clear declared names** keeps the profile;
+6. **End requests and clear declared names** keeps the profile;
    **New / unload profile** clears active labels, not files on disk.
 
 Preloaded names differ from current declarations. Disconnect clears declarations,

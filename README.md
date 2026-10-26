@@ -1,14 +1,14 @@
-# NetLink Teacher Control
+[Italiano](README.it.md) | [English](README.md)
 
-[English](README.md) · [Italiano](README.it.md)
+# NetLink Teacher Control
 
 NetLink is a Windows classroom-management suite based on **Veyon 4.7.5**.
 It integrates remote control, WFP InternetGuard, student names, class–room profiles,
 automatic client discovery and Companion diagnostics, without external plugins.
 
-**Pre-release 1.0.0-alpha.30: use with awareness of its limitations.**
+**Pre-release 1.0.0-alpha.31: use with awareness of its limitations.**
 
-**[Download Windows x64 installer — latest release (alpha.30)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.30/NetLink-1.0.0-alpha.30-win64-setup.exe)**
+**[Download Windows x64 installer — latest release (alpha.31)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.31/NetLink-1.0.0-alpha.31-win64-setup.exe)**
 
 ## Features
 
@@ -29,6 +29,8 @@ automatic client discovery and Companion diagnostics, without external plugins.
   account and PC name. It does not verify identity or attendance.
 - **Class–room profiles:** editable student/workstation assignments,
   Master-side JSON save/load, CSV export and separate preloaded/client-declared names.
+  Saving includes all PCs in the highlighted row's group, even unchecked ones.
+  Loading checks the saved PCs and restores names without replacing the network tree.
 - **Find clients:** WS-Discovery with IPv4-preferred automatic mode, IPv6 fallback,
   IPv4-only mode, known-computer filtering and grouping of the same discovery identity.
 - **Simplified configuration:** Easy, Standard and Advanced views;
@@ -79,7 +81,9 @@ Full procedure: [installation, uninstall and recovery](docs/INSTALLATION.md).
 - Select workstations in the Console, then choose remote control,
   InternetGuard or student-name collection.
 - In **Locations & computers → Class–room profiles…**, save/load assignments.
-  A profile does not change Configurator network addresses.
+  Highlight a group or one of its PCs before saving. Load confirms matching PCs;
+  missing PCs are reported, never created. End Lock, Demo and InternetGuard first.
+  A profile does not change Configurator groups, network addresses or keys.
 - In **Find clients**, turn off the known-computer filter to see configured PCs
   too. Verify destinations before importing them.
   Import needs system-configuration write permission in the Console itself;

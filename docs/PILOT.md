@@ -91,6 +91,14 @@ Do not share private keys, passwords or full reports without anonymization.
    automatically restore/correct addresses. Deleted/recreated PCs require reassignment.
 8. Export CSV with Unicode, quotes and values beginning with `=`.
    Distinguish assignments/declarations; check responsiveness during I/O and closing.
+9. Check two groups, highlight a PC in only one, leave another PC in that room
+   unchecked and hide it with text search: JSON/CSV must include both room PCs,
+   not the other group. Highlighting the root must give the same result.
+   No highlighted row or an empty room must warn without writing a file.
+10. Load with other groups present: confirm that only saved, available UUIDs are
+    checked and that no tree row, group membership, address or key is replaced.
+    Test Cancel, missing/recreated PCs, legacy JSON, pending Lock/Demo/InternetGuard,
+    and a directory or feature change while the confirmation is open.
 
 ## Discovery and known-PC filter
 

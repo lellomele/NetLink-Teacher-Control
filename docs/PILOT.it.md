@@ -100,6 +100,15 @@ Non condividere chiavi private, password o rapporti completi non anonimizzati.
 8. Esportare CSV con Unicode, virgolette e valori che iniziano con `=`.
    Distinguere assegnazioni e dichiarazioni; verificare reattività durante
    salvataggio/caricamento e chiusura del pannello.
+9. Spuntare due gruppi, evidenziare un PC di un solo gruppo, lasciare un altro PC
+   di quel gruppo senza spunta e nasconderlo con la ricerca: JSON/CSV devono
+   includere entrambi i PC dell'aula, non l'altro gruppo. Evidenziare la radice
+   deve dare lo stesso risultato. Nessuna riga evidenziata o aula vuota devono
+   produrre un avviso senza scrivere file.
+10. Caricare con altri gruppi presenti: verificare che siano spuntati solo gli UUID
+    salvati e disponibili, senza sostituire righe, gruppi, appartenenze, indirizzi o chiavi.
+    Provare Annulla, PC mancanti/ricreati, vecchi JSON, Lock/Demo/InternetGuard pendenti
+    e cambiamenti nell'elenco o nelle funzioni mentre è aperta la conferma.
 
 ## Discovery e filtro dei PC noti
 

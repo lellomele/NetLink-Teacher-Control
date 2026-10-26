@@ -26,6 +26,7 @@
 
 #include <QModelIndexList>
 #include <QWidget>
+#include <QUuid>
 
 class QSortFilterProxyModel;
 
@@ -43,6 +44,7 @@ public:
 	~ComputerSelectPanel() override;
 
 	bool eventFilter(QObject *watched, QEvent *event) override;
+	QUuid highlightedProfileGroup() const;
 
 Q_SIGNALS:
 	void classProfileRequested(const QString& operation);

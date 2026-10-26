@@ -24,6 +24,8 @@
 
 #include "CheckableItemProxyModel.h"
 #include "QtCompat.h"
+#include <QSignalBlocker>
+#include <functional>
 
 #if defined(QT_TESTLIB_LIB) && QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
 #include <QAbstractItemModelTester>
@@ -187,6 +189,36 @@ void CheckableItemProxyModel::loadStates( const QJsonArray& data )
 }
 
 
+
+void CheckableItemProxyModel::setCheckedItems(const QSet<QUuid>& ids)
+{
+	// Populate before blocking notifications: views must see any inserted rows.
+	std::function<void(const QModelIndex&,int)> populate = [&](const QModelIndex& parent,int depth) {
+		if(depth>64) return;
+		if(canFetchMore(parent)) fetchMore(parent);
+		for(int row=0;row<rowCount(parent);++row) populate(index(row,0,parent),depth+1);
+	};
+	populate({},0);
+	QVector<QModelIndex> parents;
+	{
+		const QSignalBlocker block(this);
+		m_checkStates.clear(); // Also forget stale/hidden checked IDs from other rooms.
+		std::function<void(const QModelIndex&,int)> apply = [&](const QModelIndex& parent,int depth) {
+			if(depth>64) return;
+			const auto rows=rowCount(parent);
+			for(int row=0;row<rows;++row) {
+				const auto child=index(row,0,parent);
+				apply(child,depth+1);
+				if(rowCount(child)==0 && ids.contains(indexToUuid(child)) && flags(child).testFlag(Qt::ItemIsUserCheckable))
+					setData(child,Qt::Checked,Qt::CheckStateRole);
+			}
+			if(rows>0) parents.append(parent);
+		};
+		apply({},0);
+	}
+	// The final selection is already complete when observers receive a signal.
+	for(const auto& parent:parents) Q_EMIT dataChanged(index(0,0,parent),index(rowCount(parent)-1,0,parent),{Qt::CheckStateRole});
+}
 
 QUuid CheckableItemProxyModel::indexToUuid( const QModelIndex& index ) const
 {

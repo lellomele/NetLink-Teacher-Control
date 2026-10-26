@@ -10,6 +10,8 @@ struct VEYON_CORE_EXPORT SchoolClassProfile {
     struct Assignment { QUuid computerId; QString computerName, hostHint, student; };
     QString className, room;
     QVector<Assignment> assignments;
+    QUuid groupId;
+    QString groupName;
     static constexpr int MaximumAssignments = 256;
     static constexpr int MaximumBytes = 1024 * 1024;
     static bool validText(const QString& text, int maximum, bool allowEmpty = true);

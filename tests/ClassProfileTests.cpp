@@ -18,9 +18,11 @@
 #include <QStandardItemModel>
 #include <QStyleFactory>
 #include <QTableWidget>
+#include <QTreeView>
 #include <QTemporaryDir>
 #include <memory>
 #include "ClassProfiles.h"
+#include "ClassProfileDirectory.h"
 #include "ComputerCaptionDelegate.h"
 #include "NetLinkAppearance.h"
 #include "NetLinkUi.h"
@@ -56,6 +58,38 @@ class ClassProfileTests : public QObject {
         if(selected.isEmpty()) qWarning()<<"File chooser did not accept"<<chooser->selectedFiles()<<chooser->isVisible();
         return invoked && selected.count()==1;
     }
+    struct DirectoryFixture {
+        QStandardItemModel model;
+        CheckableItemProxyModel checked{NetworkObjectModel::UidRole};
+        QSortFilterProxyModel search;
+        QTreeView view;
+        QUuid roomA=QUuid::createUuid(),roomB=QUuid::createUuid();
+        QUuid a=QUuid::createUuid(),b=QUuid::createUuid(),c=QUuid::createUuid();
+        QStandardItem* item(const QString& name,const QUuid& id,NetworkObject::Type type,const QString& host={}) {
+            auto result=new QStandardItem(name);result->setData(id,NetworkObjectModel::UidRole);
+            result->setData(QVariant::fromValue(type),NetworkObjectModel::TypeRole);
+            result->setData(host,NetworkObjectModel::HostAddressRole);return result;
+        }
+        DirectoryFixture() {
+            auto first=item("Room A",roomA,NetworkObject::Type::Location);
+            first->appendRow(item("PC-01",a,NetworkObject::Type::Host,"192.0.2.1"));
+            first->appendRow(item("PC-02",b,NetworkObject::Type::Host,"192.0.2.2"));
+            auto second=item("Room B",roomB,NetworkObject::Type::Location);
+            second->appendRow(item("PC-01",c,NetworkObject::Type::Host,"192.0.2.1"));
+            model.appendRow(first);model.appendRow(second);checked.setSourceModel(&model);
+            search.setSourceModel(&checked);search.setRecursiveFilteringEnabled(true);
+            view.setModel(&search);view.setSelectionBehavior(QAbstractItemView::SelectRows);
+            view.setCurrentIndex(search.index(0,0,search.index(0,0)));
+            checked.setCheckedItems({a,c});
+        }
+        QUuid group() const {
+            const auto selection=view.selectionModel();
+            return selection->hasSelection()?ClassProfileDirectory::highlightedGroup(selection->currentIndex()):QUuid{};
+        }
+        void bind(ClassProfiles& profiles,std::function<bool()> canChange=[] {return true;}) {
+            profiles.setDirectoryContext(&model,&checked,[this] {return group();},canChange);
+        }
+    };
 private Q_SLOTS:
     void initTestCase() {
         QVERIFY(directory.isValid());QLocale::setDefault(QLocale("en_US"));
@@ -240,7 +274,7 @@ private Q_SLOTS:
     void invalidJsonNeverReplacesDestination_data() {
         QTest::addColumn<QByteArray>("bytes");auto root=QJsonDocument::fromJson(sample().toJson()).object();
         QTest::newRow("broken")<<QByteArray("{broken");QTest::newRow("array")<<QByteArray("[]");
-        auto invalid=root;invalid["version"]=2;QTest::newRow("future-version")<<QJsonDocument(invalid).toJson();
+        auto invalid=root;invalid["version"]=3;QTest::newRow("future-version")<<QJsonDocument(invalid).toJson();
         invalid=root;invalid["version"]=1.5;QTest::newRow("fraction")<<QJsonDocument(invalid).toJson();
         invalid=root;invalid["class"]=true;QTest::newRow("wrong-type")<<QJsonDocument(invalid).toJson();
         invalid=root;invalid["class"]=QString(81,'a');QTest::newRow("long-class")<<QJsonDocument(invalid).toJson();
@@ -268,6 +302,131 @@ private Q_SLOTS:
         profile.className.clear();QVERIFY(!profile.save(path,&error));QFile after(path);QVERIFY(after.open(QIODevice::ReadOnly));QCOMPARE(after.readAll(),bytes);
         QVERIFY(!SchoolClassProfile::load(directory.filePath("missing.json"),read,&error));QCOMPARE(read.className,QString("3A"));
         QVERIFY(!sample().save(directory.filePath("missing-dir/file.json"),&error));
+    }
+    void groupSaveIncludesUncheckedPcsButNoOtherRoomOrSearchSubset() {
+        DirectoryFixture fixture;ProfileMaster master;
+        auto a=client(fixture.a);a->setStudentName("Declared Anna");master.clients={a};master.selected={a};
+        ClassProfiles profiles(master);fixture.bind(profiles);
+        fixture.search.setFilterFixedString("PC-01");
+        fixture.view.setCurrentIndex(fixture.search.index(0,0,fixture.search.index(0,0)));
+        SchoolClassProfile snapshot;QString error;
+        profiles.m_profile.className="3A";
+        QVERIFY2(profiles.groupSnapshot(snapshot,&error),qPrintable(error));
+        QCOMPARE(snapshot.assignments.size(),2);QCOMPARE(snapshot.groupId,fixture.roomA);
+        QCOMPARE(snapshot.groupName,QString("Room A"));QCOMPARE(snapshot.room,QString("Room A"));
+        QCOMPARE(snapshot.assignments[0].computerId,fixture.a);QCOMPARE(snapshot.assignments[0].student,QString("Declared Anna"));
+        QCOMPARE(snapshot.assignments[1].computerId,fixture.b);QVERIFY(snapshot.assignments[1].student.isEmpty());
+        QVERIFY(!snapshot.toJson().contains(fixture.c.toString(QUuid::WithoutBraces).toUtf8()));
+        // A checked other room or an unchecked root does not determine save scope.
+        fixture.checked.setCheckedItems({fixture.c});
+        QVERIFY(profiles.groupSnapshot(snapshot,&error));QCOMPARE(snapshot.assignments.size(),2);
+        fixture.view.setCurrentIndex(fixture.search.index(1,0));
+        QVERIFY(profiles.groupSnapshot(snapshot,&error));QCOMPARE(snapshot.assignments.size(),1);QCOMPARE(snapshot.groupId,fixture.roomB);
+        fixture.view.selectionModel()->clearSelection();
+        QVERIFY(!profiles.groupSnapshot(snapshot,&error));QVERIFY(!error.isEmpty());
+    }
+    void versionTwoAndLegacyProfilesRoundtripWithStrictGroupFields() {
+        DirectoryFixture fixture;auto profile=sample();
+        QVERIFY(ClassProfileDirectory::snapshot(fixture.model,fixture.roomA,profile));
+        SchoolClassProfile read;QString error;QVERIFY(SchoolClassProfile::fromJson(profile.toJson(),read,&error));
+        QCOMPARE(read.groupId,fixture.roomA);QCOMPARE(read.groupName,QString("Room A"));
+        QCOMPARE(QJsonDocument::fromJson(profile.toJson()).object()["version"].toInt(),2);
+        for(const auto& value:{QJsonValue(),QJsonValue("bad"),QJsonValue("00000000-0000-0000-0000-000000000000")}) {
+            auto root=QJsonDocument::fromJson(profile.toJson()).object();root["groupId"]=value;
+            QVERIFY(!SchoolClassProfile::fromJson(QJsonDocument(root).toJson(),read,&error));QCOMPARE(read.groupId,fixture.roomA);
+        }
+        QVERIFY(SchoolClassProfile::fromJson(sample().toJson(),read,&error));QVERIFY(read.groupId.isNull());
+    }
+    void bulkChecksPreserveTreeIndexesExpansionAndParentState() {
+        DirectoryFixture fixture;fixture.view.expandAll();
+        const QPersistentModelIndex pc=fixture.checked.index(0,0,fixture.checked.index(0,0));
+        QSignalSpy resets(&fixture.checked,&QAbstractItemModel::modelReset);
+        QSignalSpy rows(&fixture.checked,&QAbstractItemModel::rowsRemoved);
+        fixture.checked.setCheckedItems({fixture.b});
+        QVERIFY(pc.isValid());QCOMPARE(pc.data(NetworkObjectModel::UidRole).toUuid(),fixture.a);
+        QCOMPARE(resets.count(),0);QCOMPARE(rows.count(),0);QCOMPARE(fixture.model.rowCount(),2);
+        QVERIFY(fixture.view.isExpanded(fixture.search.index(0,0)));
+        QCOMPARE(pc.data(Qt::CheckStateRole).toInt(),int(Qt::Unchecked));
+        QCOMPARE(fixture.checked.index(0,0).data(Qt::CheckStateRole).toInt(),int(Qt::PartiallyChecked));
+        QCOMPARE(fixture.checked.index(1,0).data(Qt::CheckStateRole).toInt(),int(Qt::Unchecked));
+        fixture.checked.setCheckedItems({fixture.a,fixture.b});
+        QCOMPARE(fixture.checked.index(0,0).data(Qt::CheckStateRole).toInt(),int(Qt::Checked));
+    }
+    void loadChecksMatchedIdentifiersWithoutReplacingOrChangingDirectory() {
+        DirectoryFixture fixture;ProfileMaster master;auto ci=client(fixture.a,"192.0.2.99");master.clients={ci};
+        ClassProfiles profiles(master);fixture.bind(profiles);auto profile=sample();
+        QVERIFY(ClassProfileDirectory::snapshot(fixture.model,fixture.roomA,profile));profile.assignments[0].student="Anna";
+        // The stored address is only a hint. A recreated PC with identical IP/name is not matched.
+        profile.assignments.append({QUuid::createUuid(),"PC-01","192.0.2.1","Missing student"});
+        fixture.model.item(0)->child(0)->setData("192.0.2.99",NetworkObjectModel::HostAddressRole);
+        profiles.show("load");QTRY_VERIFY(profiles.m_dialog->findChild<QFileDialog*>("profileFileDialog"));
+        const auto path=directory.filePath("group-profile.json");QVERIFY(profile.save(path));QVERIFY(acceptPath(profiles.m_dialog,path));
+        QTRY_VERIFY(profiles.m_dialog->findChild<QMessageBox*>("profileLoadConfirmation"));
+        auto confirmation=profiles.m_dialog->findChild<QMessageBox*>("profileLoadConfirmation");
+        QVERIFY(confirmation->text().contains("2 of 3"));QCOMPARE(confirmation->defaultButton(),confirmation->button(QMessageBox::Cancel));
+        confirmation->button(QMessageBox::Yes)->click();
+        QTRY_COMPARE(profiles.profile().className,QString("3A"));QCOMPARE(ci->expectedStudentName(),QString("Anna"));
+        QCOMPARE(fixture.model.rowCount(),2);QCOMPARE(fixture.model.item(0)->rowCount(),2);QCOMPARE(fixture.model.item(1)->rowCount(),1);
+        QCOMPARE(fixture.model.item(0)->child(0)->data(NetworkObjectModel::HostAddressRole).toString(),QString("192.0.2.99"));
+        QCOMPARE(fixture.checked.index(1,0).data(Qt::CheckStateRole).toInt(),int(Qt::Unchecked));
+        QCOMPARE(fixture.checked.index(0,0).data(Qt::CheckStateRole).toInt(),int(Qt::Checked));
+        QCOMPARE(profiles.profile().assignments.size(),3); // Missing assignment stays visible for manual review.
+    }
+    void pendingLoadRechecksActiveFeaturesAndNeverAppliesOnCancel() {
+        DirectoryFixture fixture;ProfileMaster master;ClassProfiles profiles(master);bool safe=true;
+        fixture.bind(profiles,[&] {return safe;});profiles.activate(sample());profiles.show();
+        auto next=sample();next.className="4B";QVERIFY(ClassProfileDirectory::snapshot(fixture.model,fixture.roomA,next));
+        int finished=0;profiles.confirmLoad(next,"test.json",[&] {++finished;});
+        auto question=profiles.m_dialog->findChild<QMessageBox*>("profileLoadConfirmation");QVERIFY(question);
+        question->button(QMessageBox::Cancel)->click();QCOMPARE(finished,1);QCOMPARE(profiles.profile().className,QString("3A"));
+        QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
+        profiles.confirmLoad(next,"test.json",[&] {++finished;});question=profiles.m_dialog->findChild<QMessageBox*>("profileLoadConfirmation");QVERIFY(question);
+        safe=false;question->button(QMessageBox::Yes)->click();QCOMPARE(finished,2);QCOMPARE(profiles.profile().className,QString("3A"));
+        QCOMPARE(fixture.checked.index(1,0).data(Qt::CheckStateRole).toInt(),int(Qt::Checked));
+    }
+    void saveCapturesGroupWithoutChangingClientDeclarations() {
+        DirectoryFixture fixture;ProfileMaster master;auto ci=client(fixture.a);ci->setStudentName("Anna");master.clients={ci};
+        ClassProfiles profiles(master);fixture.bind(profiles);profiles.m_profile.className="3A";profiles.show("save");
+        QTRY_VERIFY(profiles.m_dialog->findChild<QFileDialog*>("profileFileDialog"));
+        const auto path=directory.filePath("all-group.json");QVERIFY(acceptPath(profiles.m_dialog,path));
+        QTRY_VERIFY(!profiles.m_dirty);QTRY_VERIFY(QFile::exists(path));SchoolClassProfile read;
+        QVERIFY(SchoolClassProfile::load(path,read));QCOMPARE(read.assignments.size(),2);QCOMPARE(read.groupId,fixture.roomA);
+        QCOMPARE(ci->studentName(),QString("Anna"));QCOMPARE(read.assignments[0].student,QString("Anna"));
+    }
+    void noHighlightOrNoMatchingPcLeavesTreeAndProfileUnchanged() {
+        DirectoryFixture fixture;ProfileMaster master;ClassProfiles profiles(master);fixture.bind(profiles);
+        profiles.activate(sample());profiles.show();fixture.view.clearSelection();
+        profiles.m_dialog->findChild<QPushButton*>("profileSave")->click();
+        QVERIFY(!profiles.m_dialog->findChild<QFileDialog*>("profileFileDialog"));
+        QVERIFY(profiles.m_dialog->findChild<QMessageBox*>());
+        int finished=0;profiles.confirmLoad(sample(),"missing.json",[&] {++finished;});
+        QCOMPARE(finished,1);QCOMPARE(profiles.profile().className,QString("3A"));
+        QVERIFY(!profiles.m_dialog->findChild<QMessageBox*>("profileLoadConfirmation"));
+        QCOMPARE(fixture.model.rowCount(),2);QCOMPARE(fixture.checked.index(1,0).data(Qt::CheckStateRole).toInt(),int(Qt::Checked));
+    }
+    void directoryChangeDuringConfirmationAndClosedPromptCannotApply() {
+        DirectoryFixture fixture;ProfileMaster master;ClassProfiles profiles(master);fixture.bind(profiles);
+        profiles.activate(sample());profiles.show();auto next=sample();next.className="4B";
+        QVERIFY(ClassProfileDirectory::snapshot(fixture.model,fixture.roomA,next));
+        int finished=0;profiles.confirmLoad(next,"test.json",[&] {++finished;});
+        auto question=profiles.m_dialog->findChild<QMessageBox*>("profileLoadConfirmation");QVERIFY(question);
+        fixture.model.item(0)->removeRow(1);question->button(QMessageBox::Yes)->click();
+        QCOMPARE(finished,1);QCOMPARE(profiles.profile().className,QString("3A"));
+        QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
+        profiles.confirmLoad(next,"test.json",[&] {++finished;});
+        question=profiles.m_dialog->findChild<QMessageBox*>("profileLoadConfirmation");QVERIFY(question);
+        profiles.m_dialog->hide();question->button(QMessageBox::Yes)->click();
+        QCOMPARE(finished,1);QCOMPARE(profiles.profile().className,QString("3A"));
+    }
+    void clearingAssignmentsKeepsEveryGroupPcAndDoesNotResurrectName() {
+        DirectoryFixture fixture;ProfileMaster master;auto ci=client(fixture.a);ci->setStudentName("Anna");master.clients={ci};
+        ClassProfiles profiles(master);fixture.bind(profiles);profiles.show();
+        auto table=profiles.m_dialog->findChild<QTableWidget*>("profileAssignments");QCOMPARE(table->rowCount(),2);
+        table->selectRow(0);profiles.m_dialog->findChild<QPushButton*>("profileRemove")->click();
+        QCOMPARE(table->rowCount(),2);QVERIFY(profiles.profile().assignments[0].student.isEmpty());
+        SchoolClassProfile snapshot;QString error;QVERIFY(profiles.groupSnapshot(snapshot,&error));
+        QCOMPARE(snapshot.assignments.size(),2);QVERIFY(snapshot.assignments[0].student.isEmpty());
+        QCOMPARE(ci->studentName(),QString("Anna"));
     }
     void identifiersSurviveDhcpButNeverFollowAnIpOrName() {
         ProfileMaster master;const auto profile=sample();const auto id=profile.assignments[0].computerId;

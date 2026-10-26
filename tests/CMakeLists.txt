@@ -85,6 +85,7 @@ if(WITH_TESTS)
         set_tests_properties(netlink-remote-toolbar-scale-${remote_scale} PROPERTIES TIMEOUT 60 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_SCALE_FACTOR=${scale}")
     endforeach()
     add_executable(netlink-class-profile-tests ClassProfileTests.cpp ../master/src/ClassProfiles.cpp ../master/src/ClassProfiles.h
+        ../master/src/CheckableItemProxyModel.cpp ../master/src/CheckableItemProxyModel.h
         ../master/src/ComputerCaptionDelegate.cpp ../master/src/ComputerCaptionDelegate.h)
     set_default_target_properties(netlink-class-profile-tests)
     target_include_directories(netlink-class-profile-tests PRIVATE ../master/src)
