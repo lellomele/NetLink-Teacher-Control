@@ -8,6 +8,21 @@ complete WS-Discovery compliance or production readiness.
 
 ## Communication and lifecycle
 
+- Windows service startup connects to the Service Control Manager before IPC,
+  session and input-driver initialization, and reports actual initialization
+  milestones. Startup/entry-point errors return a nonzero service exit status;
+  explicit stop/shutdown requests return success. Registration/start commands
+  propagate native failures instead of treating service presence as success.
+- Registration repairs only the expected NetLink/legacy executable in the same
+  directory. Automatic startup and bounded native recovery are read back after
+  configuration. The optional SMB client is not a startup dependency. There is
+  no external watchdog or reboot action. See Microsoft's
+  [dispatcher timing](https://learn.microsoft.com/en-us/windows/win32/api/winsvc/nf-winsvc-startservicectrldispatcherw),
+  [failure actions](https://learn.microsoft.com/en-us/windows/win32/api/winsvc/ns-winsvc-service_failure_actionsw)
+  and [non-crash failure flag](https://learn.microsoft.com/en-us/windows/win32/api/winsvc/ns-winsvc-service_failure_actions_flag).
+  The last setting takes effect after a system restart. Fake-SCM tests cover
+  registration, repair, errors, policy read-back and explicit-stop semantics;
+  they do not reproduce a physical client's boot or identify an uncollected boot failure.
 - Authentication and access control precede feature execution. The RFB adapter
   distinguishes exact blocking reads from partial asynchronous frames.
 - Frames, image dimensions, queues, commands and event batches are bounded.

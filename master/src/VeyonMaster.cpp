@@ -196,15 +196,21 @@ ComputerControlInterfaceList VeyonMaster::filteredComputerControlInterfaces() co
 
 
 
+QUuid VeyonMaster::highlightedLocationUid() const
+{
+	if(!m_mainWindow) return {};
+	const auto panel=m_mainWindow->findChild<ComputerSelectPanel*>();
+	return panel?panel->highlightedProfileGroup():QUuid{};
+}
+
 void VeyonMaster::showClassProfiles(const QString& operation)
 {
 	if (!m_classProfiles)
 	{
 		m_classProfiles = new ClassProfiles(*this, this);
-		const QPointer<ComputerSelectPanel> panel=m_mainWindow->findChild<ComputerSelectPanel*>();
 		m_classProfiles->setDirectoryContext(m_computerManager->networkObjectModel(),
 			qobject_cast<CheckableItemProxyModel*>(m_computerManager->computerTreeModel()),
-			[panel] {return panel?panel->highlightedProfileGroup():QUuid{};},[this] {
+			[this] {return highlightedLocationUid();},[this] {
 				if(VeyonCore::builtinFeatures().schoolFeatures().activeInternetPolicies()>0) return false;
 				const auto monitoring=VeyonCore::builtinFeatures().monitoringMode().feature().uid();
 				for(const auto& ci:allComputerControlInterfaces()) if(ci) {

@@ -10,6 +10,8 @@ static int runCli(int argc,wchar_t** argv) {
     const auto root=fs::path(file).parent_path();
     if(!fs::exists(root/L"platforms"/L"qwindows.dll") || !fs::exists(root/L"payload.sha256")) return 3;
     if(fs::exists(root.parent_path()/L"cli-failure-fixture.txt")) return 9;
+    if(argc>=3 && std::wstring(argv[1])==L"service" && std::wstring(argv[2])==L"verify" &&
+       fs::exists(root.parent_path()/L"cli-verify-failure-fixture.txt")) return 9;
     std::wofstream log(root.parent_path()/L"cli-actions.txt",std::ios::app);
     for(int i=1;i<argc;++i) log<<argv[i]<<L' '; log<<L'\n'; return log ? 0 : 4;
 }

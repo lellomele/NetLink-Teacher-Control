@@ -6,6 +6,8 @@
 #include <QSet>
 #include <QTimer>
 #include <QThread>
+#include <QJsonArray>
+#include <functional>
 #include "FeatureProviderInterface.h"
 #include "ConfigurationPagePluginInterface.h"
 #include "CommandLinePluginInterface.h"
@@ -60,6 +62,15 @@ private:
     void attendance(VeyonMasterInterface&, const ComputerControlInterfaceList&);
     void discovery(VeyonMasterInterface&);
     void discovery(VeyonMasterInterface&, const QStringList& configuredHosts);
+    // The private isolated constructor leaves these callbacks inert. Tests can
+    // exercise the complete import flow without HKLM, services or real keys.
+    struct DiscoveryImportContext {
+        std::function<QJsonArray()> objects = [] {return QJsonArray{};};
+        std::function<int()> port = [] {return 11100;};
+        std::function<bool()> writable = [] {return false;};
+        std::function<bool(const QJsonArray&,const QJsonArray&,QString&)> save =
+            [](const QJsonArray&,const QJsonArray&,QString&) {return false;};
+    } m_discoveryImport;
     void beginPolicyResolution(const ComputerControlInterfaceList&, const QStringList& resources);
     FeatureList m_features;
     const QUuid m_guardUid, m_attendanceUid, m_discoveryUid;

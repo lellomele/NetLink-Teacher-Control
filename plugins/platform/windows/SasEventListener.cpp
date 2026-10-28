@@ -70,6 +70,7 @@ void SasEventListener::stop()
 
 void SasEventListener::run()
 {
+	if(!m_sasEvent || !m_stopEvent) {vCritical()<<"SAS event listener unavailable; Windows error"<<GetLastError();return;}
 	std::array<HANDLE, 2> eventObjects{ m_sasEvent, m_stopEvent };
 
 	while( isInterruptionRequested() == false )
@@ -89,6 +90,8 @@ void SasEventListener::run()
 		case WAIT_OBJECT_0 + 1:
 			requestInterruption();
 			break;
+		case WAIT_FAILED:
+			vCritical()<<"SAS listener wait failed; Windows error"<<GetLastError();return;
 
 		default:
 			break;

@@ -43,6 +43,7 @@ public:
 	bool setStartMode( const QString& name, StartMode startMode ) override;
 	bool runAsService( const QString& name, const ServiceEntryPoint& serviceEntryPoint ) override;
 	void manageServerInstances() override;
+	QVariantMap serviceDetails(const QString& name) override;
 
 private:
 	static int windowsServiceStartType( StartMode startMode );

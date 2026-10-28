@@ -27,6 +27,7 @@
 #include <QJsonObject>
 #include <QRegularExpression>
 #include <QSettings>
+#include <memory>
 
 #include "Configuration/LocalStore.h"
 #include "Configuration/Object.h"
@@ -163,6 +164,17 @@ void LocalStore::flush( const Object *obj )
 }
 
 
+
+bool LocalStore::writeValue(const QString& key,const QVariant& value,const QString& parentKey)
+{
+	if(key.isEmpty() || key.contains(QLatin1Char('/'))) return false;
+	const std::unique_ptr<QSettings> settings(createSettingsObject());
+	settings->setFallbacksEnabled(false);
+	if(!parentKey.isEmpty()) settings->beginGroup(parentKey);
+	saveSettingsTree(Object::DataMap{{key,value}},settings.get());
+	settings->sync();
+	return settings->status()==QSettings::NoError;
+}
 
 bool LocalStore::isWritable() const
 {

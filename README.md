@@ -6,9 +6,9 @@ NetLink is a Windows classroom-management suite based on **Veyon 4.7.5**.
 It integrates remote control, WFP InternetGuard, student names, class–room profiles,
 automatic client discovery and Companion diagnostics, without external plugins.
 
-**Pre-release 1.0.0-alpha.31: use with awareness of its limitations.**
+**Pre-release 1.0.0-alpha.32: use with awareness of its limitations.**
 
-**[Download Windows x64 installer — latest release (alpha.31)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.31/NetLink-1.0.0-alpha.31-win64-setup.exe)**
+**[Download Windows x64 installer — latest release (alpha.32)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.32/NetLink-1.0.0-alpha.32-win64-setup.exe)**
 
 ## Features
 
@@ -33,6 +33,8 @@ automatic client discovery and Companion diagnostics, without external plugins.
   Loading checks the saved PCs and restores names without replacing the network tree.
 - **Find clients:** WS-Discovery with IPv4-preferred automatic mode, IPv6 fallback,
   IPv4-only mode, known-computer filtering and grouping of the same discovery identity.
+  Conflicts list the observed names, addresses and ports. Import targets the highlighted
+  group in Locations & computers, never the first group by default.
 - **Simplified configuration:** Easy, Standard and Advanced views;
   reuse existing locations, computers, keys and access rules.
 - **Status and diagnostics:** service tray summary and Companion PC/network
@@ -44,6 +46,9 @@ automatic client discovery and Companion diagnostics, without external plugins.
   Both teacher and client need this feature; old, missing or expired replies
   are clearly marked unavailable. No additional ports are needed.
   An explicitly paired temporary channel transfers diagnostic reports.
+- **Windows service startup:** verified automatic-start configuration and bounded
+  native recovery after crashes/startup errors. Installer verification catches failures;
+  intentional manual-start settings and normal administrator stops remain supported.
 
 ## Installation and updates
 

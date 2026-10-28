@@ -91,6 +91,7 @@ public Q_SLOTS:
 	CommandLinePluginInterface::RunResult handle_stop( const QStringList& arguments );
 	CommandLinePluginInterface::RunResult handle_restart( const QStringList& arguments );
 	CommandLinePluginInterface::RunResult handle_status( const QStringList& arguments );
+	CommandLinePluginInterface::RunResult handle_verify( const QStringList& arguments );
 
 private:
 	QMap<QString, QString> m_commands;

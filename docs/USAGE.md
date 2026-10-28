@@ -144,6 +144,10 @@ This personal preference is saved on normal Console exit; it does not disable
 Windows IPv6 or perform TCP failover.
 
 One row groups observed addresses for a discovery identity; its tooltip lists them.
+If announcements disagree, the status distinguishes different names, NetLink ports
+or both. Select the row to see each observed name/address/port in the detail panel;
+hovering the row shows the same explanation. Automatic import remains blocked.
+Multiple IPv4/IPv6 addresses with matching names and ports are not a conflict.
 Metadata addresses alone are not evidence. The teacher is excluded on every adapter.
 Contradictory announcements stay visible and cannot be imported automatically.
 Cloned PCs with identical identity/metadata may be indistinguishable.
@@ -154,7 +158,13 @@ Unresolved names leave results visible; an old DHCP IP is not stable identity.
 Disable the filter to see known PCs too.
 
 Verify the destination before import. Configuration write rights and Master
-restart are required to display a new PC. Import does not alter keys/access rules.
+restart are required to display a new PC. Before importing, highlight the destination
+group or one of its PC rows in **Locations & computers**: checkboxes and selected
+thumbnails do not choose this group. Discovery shows the destination and confirms
+it together with the address and port. No highlighted row means no import; it
+never falls back to the first group or creates a group automatically. If the group
+is changed, renamed or removed while confirmation is open, retry the import.
+Import does not alter keys/access rules.
 These rights belong to the Console process: an administrator Configurator does
 not elevate it. A changed, expired or conflicting announcement must be selected again.
 A link-local address retains the teacher's receiving-interface index, applies
@@ -193,6 +203,28 @@ The internal TCP check is asynchronous and loopback-only; it does not test VNC
 authentication. An authorized control connection without a frame is not working video.
 Also check Windows hidden icons. “Listening” does not establish reachability,
 authentication, discovery or successful Internet blocking.
+
+### Windows startup and recovery
+
+Enable **Autostart service** in Configurator → Service for startup after a reboot.
+The installer preserves this setting, including an intentional manual choice;
+it does not silently override it. With autostart enabled, Windows startup is
+Automatic, not delayed. Installation verifies the running state, startup mode
+and recovery settings, and reports an incomplete installation if verification fails.
+
+Windows retries an unexpected service failure after 10, 30 and 60 seconds,
+then stops retrying until the failure count resets after a failure-free day.
+An ordinary administrator stop or Windows shutdown is not a failure. There is
+no scheduled watchdog, automatic PC reboot or guarantee against persistent
+startup errors. Restart Windows after updating to activate all recovery settings.
+
+If a client stays offline after a reboot, first check NetLink Service in Windows
+Services. If it is stopped, inspect Companion → Analyze PC: its full report
+includes the native startup mode, exit codes, dependencies and recovery status.
+Also check Event Viewer → Windows Logs → System → Service Control Manager at
+the boot time. A listening/firewall test cannot explain a stopped service.
+From an elevated terminal in the installation directory,
+`netlink-cli.exe service verify` performs the same read-only startup check.
 
 ## Companion
 

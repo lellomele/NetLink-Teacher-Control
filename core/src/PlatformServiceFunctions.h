@@ -53,5 +53,6 @@ public:
 	virtual bool setStartMode( const QString& name, StartMode startMode ) = 0;
 	virtual bool runAsService( const QString& name, const ServiceEntryPoint& serviceEntryPoint ) = 0;
 	virtual void manageServerInstances() = 0;
+	virtual QVariantMap serviceDetails(const QString& name) {Q_UNUSED(name) return {};}
 
 };

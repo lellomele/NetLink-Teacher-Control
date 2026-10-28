@@ -52,6 +52,16 @@ Do not share private keys, passwords or full reports without anonymization.
    and persist after reopening. Invalid input must not cause partial saves.
 3. Check hidden icons and HideTrayIcon. Summary/Service Status must be current,
    close without terminating the worker and not equate listening with connectivity.
+4. On an isolated client with autostart enabled, update in place and reboot
+   Windows twice: NetLink Service must be Automatic and Running without opening
+   Configurator. Confirm the thumbnail reconnects. Run `netlink-cli.exe service
+   verify` from an elevated terminal and retain its output.
+5. On a disposable test PC only, verify unexpected process failure triggers
+   bounded native recovery, while an explicit administrator stop remains stopped.
+   Restore normal operation afterwards. A deliberately manual Configurator choice
+   must survive an upgrade and must not be advertised as automatic startup.
+   Record System / Service Control Manager events if a boot fails; simulated
+   service-control tests do not establish reliability on physical client hardware.
 
 ## InternetGuard
 
@@ -121,6 +131,15 @@ Do not share private keys, passwords or full reports without anonymization.
 9. Test separate subnets/VLANs independently: configure DiscoveryMaster and allow
    TCP 3702 according to ACLs. Same-subnet tests do not validate routing/Wi-Fi isolation.
    Multicast does not independently cross VLANs; IPv6 multicast is link-local.
+10. With two groups, highlight the second group or one of its PCs and import:
+    confirm the displayed destination and parent group. With no highlighted group,
+    a removed/renamed group or changed selection during confirmation, import must
+    stop without falling back to another group or creating one. Cancel, save errors
+    and duplicate results must not add PCs or overwrite unrelated settings.
+11. Announce the same identity with different names and/or ports: the row and
+    details must identify the exact disagreement and list observed addresses.
+    Import stays blocked; matching dual-stack announcements are not a conflict.
+    Check English/Italian and 100%, 150%, 200%, including markup-like remote names.
 
 ## Input lock and events
 

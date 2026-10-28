@@ -49,6 +49,15 @@ private Q_SLOTS:
             QVERIFY(!Companion::recommendations(report,"teacher").join('\n').contains("nessun processo worker"));
         }
     }
+    void serviceStartupFailuresAndDisabledAutostartAreExplicit() {
+        auto report=fixture();auto settings=report["settings"].toObject();settings["Service/Autostart"]=true;report["settings"]=settings;
+        report["services"]=QJsonArray{QJsonObject{{"name","VeyonSchoolService"},{"state","stopped"},{"startType",4},
+            {"win32ExitCode",1068},{"serviceSpecificExitCode",0},{"recoveryPolicyVerified",false}}};
+        const auto advice=Companion::recommendations(report,"student").join('\n');
+        QVERIFY(advice.contains("avvio manuale o disabilitato"));QVERIFY(advice.contains("non applicato al servizio Windows"));
+        QVERIFY(advice.contains("1068"));QVERIFY(advice.contains("registro Sistema"));QVERIFY(advice.contains("criteri di ripristino"));
+        const auto before=QJsonDocument(report).toJson();Companion::recommendations(report,"teacher");QCOMPARE(QJsonDocument(report).toJson(),before);
+    }
     void validTargets() {
         for(const auto& value:{"PC-DOCENTE","pc.aula.local","192.0.2.10","2001:db8::1","127.0.0.1"}) QVERIFY(Companion::validTarget(value));
         for(const auto& value:{"","0.0.0.0","::","224.0.0.1","255.255.255.255","999.2.3.4","http://pc","pc:11100","192.0.2.0/24"," pc","pc;whoami","a..b","-pc","pc-"}) QVERIFY(!Companion::validTarget(value));

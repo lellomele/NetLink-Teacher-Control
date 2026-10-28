@@ -3,6 +3,9 @@
 #undef QT_NO_CAST_FROM_ASCII
 #undef QT_USE_QSTRINGBUILDER
 #include "Diagnostics.h"
+#ifdef Q_OS_WIN
+#include "../../plugins/platform/windows/WindowsServicePolicy.h"
+#endif
 #include "HealthDiagnostics.h"
 #include "NetLinkIdentity.h"
 #include <QCoreApplication>
@@ -59,6 +62,11 @@ bool safeTree(const QJsonValue& value,int depth,int& nodes) {
     return true;
 }
 QString label(const QString& key) {
+    static const QMap<QString,QString> startupLabels{
+        {"win32ExitCode","Ultimo codice di arresto Windows (0=regolare)"},{"serviceSpecificExitCode","Codice specifico del servizio"},
+        {"delayedAutoStart","Avvio automatico ritardato"},{"failureActionsOnErrors","Ripristino anche dopo errori di inizializzazione"},
+        {"recoveryPolicyVerified","Ripristino NetLink verificato (10/30/60 secondi, poi stop)"},{"dependencies","Dipendenze del servizio"}};
+    if(startupLabels.contains(key)) return startupLabels.value(key);
     static const QMap<QString,QString> labels{
         {"startedUtc","Inizio prova UTC"},{"finishedUtc","Fine prova UTC"},{"sourceRole","Ruolo sorgente"},{"target","Destinatario richiesto"},{"actualEndpoint","Collegamento effettivo"},{"tcpReachable","Porta TCP raggiungibile"},{"authenticationVerified","Autenticazione verificata"},{"multicastVerified","Multicast verificato"},{"result","Esito e indicazioni"},{"application","Applicazione"},{"Service/HideTrayIcon","Nascondi icona di notifica"},{"Service/Autostart","Avvio automatico configurato"},{"Network/FeatureWorkerManagerPort","Porta locale comunicazione worker"},
         {"os","Sistema operativo"},{"architecture","Architettura"},{"computer","Nome PC"},{"dnsDomain","Dominio DNS"},{"windowsBuild","Build Windows"},{"windowsVersion","Versione Windows"},{"companionVersion","Versione Companion"},{"uptimeSeconds","Secondi dall'avvio"},{"manufacturer","Produttore"},{"model","Modello"},{"joinType","Appartenenza"},{"joinName","Dominio / gruppo di lavoro"},
@@ -115,13 +123,8 @@ QJsonObject service(SC_HANDLE manager,const wchar_t* name) {
     QJsonObject result{{"name",QString::fromWCharArray(name)}};
     auto handle=OpenServiceW(manager,name,SERVICE_QUERY_STATUS|SERVICE_QUERY_CONFIG);
     if(!handle) {result["queryError"]=int(GetLastError());return result;}
-    SERVICE_STATUS_PROCESS status{};DWORD bytes=0;
-    if(QueryServiceStatusEx(handle,SC_STATUS_PROCESS_INFO,reinterpret_cast<LPBYTE>(&status),sizeof(status),&bytes)) {
-        result["state"]=status.dwCurrentState==SERVICE_RUNNING?"running":status.dwCurrentState==SERVICE_STOPPED?"stopped":"transition";
-        result["pid"]=int(status.dwProcessId);
-    } else result["queryError"]=int(GetLastError());
-    QueryServiceConfigW(handle,nullptr,0,&bytes);
-    if(bytes && bytes<65536) {std::vector<BYTE> buffer(bytes);auto config=reinterpret_cast<QUERY_SERVICE_CONFIGW*>(buffer.data());if(QueryServiceConfigW(handle,config,bytes,&bytes)){result["imagePath"]=QString::fromWCharArray(config->lpBinaryPathName);result["account"]=QString::fromWCharArray(config->lpServiceStartName);result["startType"]=int(config->dwStartType);}}
+    const auto details=QJsonObject::fromVariantMap(WindowsServicePolicy::details(handle));
+    for(auto it=details.begin();it!=details.end();++it) result[it.key()]=it.value();
     CloseServiceHandle(handle);return result;
 }
 QJsonArray interfaces(QJsonObject& report) {
@@ -350,7 +353,17 @@ QStringList recommendations(const QJsonObject& report,const QString& role) {
         for(const auto& value:report["processes"].toArray()) {const auto process=value.toObject();if(process["sessionId"].toInt(-2)!=currentSession) continue;const auto name=process["application"].toString();if(NetLinkIdentity::matchesDiagnosticName(name,NetLinkIdentity::Application::Server)) server=true;if(NetLinkIdentity::matchesDiagnosticName(name,NetLinkIdentity::Application::Worker)) worker=true;}
         if(server && !worker) result<<"Nella sessione attuale è presente il server ma nessun processo worker per l'icona. Dalla nuova alpha il servizio ritenta automaticamente dopo un avvio incompleto: attendere circa 30 secondi e ripetere l'analisi. Un worker presente può appartenere ad altre funzioni: non prova da solo che l'icona sia visibile. Controllare anche le icone nascoste di Windows.";
     }
-    for(const auto& value:services) {const auto service=value.toObject();if(service["name"]=="VeyonSchoolService" && service["startType"].toInt()==3) result<<"Il servizio NetLink è configurato con avvio manuale: dopo un riavvio potrebbe non partire da solo. Verificare Avvio automatico nel Configurator; non viene cambiato da Companion.";}
+    for(const auto& value:services) {
+        const auto service=value.toObject();if(service["name"]!="VeyonSchoolService") continue;
+        const auto mode=service["startType"].toInt(-1);
+        if(mode==3 || mode==4) result<<"ATTENZIONE: il servizio NetLink ha avvio manuale o disabilitato in Windows: dopo il riavvio non parte automaticamente. Verificare Servizio → Avvio automatico nel Configurator; Companion non modifica questa scelta.";
+        if(settings.contains("Service/Autostart") && settings["Service/Autostart"].toBool() && mode>=0 && mode!=2)
+            result<<"Avvio automatico richiesto nella configurazione ma non applicato al servizio Windows. Eseguire il nuovo installer come amministratore e verificare di nuovo dopo il riavvio.";
+        if(service.contains("recoveryPolicyVerified") && !service["recoveryPolicyVerified"].toBool())
+            result<<"I criteri di ripristino NetLink non corrispondono a quelli previsti oppure non sono leggibili. Il nuovo installer li configura e verifica; non si tratta di un test di rete o della chiave.";
+        if(service["state"]=="stopped" && service["win32ExitCode"].toInt()>0)
+            result<<QString("Il servizio è fermo con codice Windows %1 (specifico %2). Conservare il rapporto e controllare gli eventi Service Control Manager nel registro Sistema all'orario dell'avvio: il firewall da solo non spiega un servizio fermo.").arg(service["win32ExitCode"].toInt()).arg(service["serviceSpecificExitCode"].toInt());
+    }
     if(running(services,"VeyonSchoolService") && running(services,"VeyonService")) result<<"Sono attivi sia NetLink sia Veyon originale: possibile conflitto di porte. Non fermarli automaticamente durante una lezione.";
     if(!running(services,"BFE")) result<<"Il servizio motore di filtraggio Windows (BFE) non risulta attivo o non è verificabile: controllarlo prima del collaudo InternetGuard.";
     if(settings["Network/LocalConnectOnly"].toBool()) result<<"L'accesso è limitato al computer locale: i collegamenti da altri PC possono essere rifiutati.";

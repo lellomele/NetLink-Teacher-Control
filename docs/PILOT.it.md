@@ -56,6 +56,18 @@ Non condividere chiavi private, password o rapporti completi non anonimizzati.
 3. Controllare anche le icone nascoste e l'impostazione HideTrayIcon.
    Il riepilogo e Stato del servizio devono essere aggiornati, chiudibili
    senza terminare il worker e non presentare “in ascolto” come prova di rete.
+4. Su un client isolato con avvio automatico abilitato, aggiornare sul posto e
+   riavviare Windows due volte: NetLink Service deve essere Automatico e In
+   esecuzione senza aprire Configurator. Verificare il ritorno della miniatura.
+   Eseguire `netlink-cli.exe service verify` da terminale amministrativo e
+   conservarne il risultato.
+5. Solo su un PC di prova sacrificabile, verificare il ripristino nativo limitato
+   dopo un errore imprevisto del processo, e che un arresto amministrativo esplicito
+   rimanga tale. Ripristinare poi il normale funzionamento. Una scelta manuale
+   intenzionale nel Configurator deve superare l'upgrade senza essere presentata
+   come avvio automatico. In caso di avvio fallito annotare gli eventi Sistema /
+   Service Control Manager: i test simulati del controllo servizi non dimostrano
+   l'affidabilità all'avvio sull'hardware fisico dei client.
 
 ## InternetGuard
 
@@ -138,6 +150,15 @@ Non condividere chiavi private, password o rapporti completi non anonimizzati.
    e consentire TCP 3702 secondo le ACL. Una prova nella stessa subnet
    non verifica routing o isolamento Wi-Fi. Il multicast non attraversa
    autonomamente le VLAN; quello IPv6 è locale al collegamento.
+10. Con due gruppi, evidenziare il secondo gruppo o un suo PC e importare:
+    verificare la destinazione mostrata e il gruppo padre. Nessun gruppo evidenziato,
+    gruppo rimosso/rinominato o selezione cambiata durante la conferma devono
+    fermare l'importazione, senza scegliere o creare un altro gruppo. Annulla,
+    errore di salvataggio e duplicati non devono aggiungere PC né riscrivere altre impostazioni.
+11. Annunciare la stessa identità con nomi e/o porte differenti: riga e dettagli
+    devono indicare la discordanza precisa e gli indirizzi osservati.
+    Importazione bloccata; annunci dual-stack coerenti non sono conflitti.
+    Verificare inglese/italiano e 100%, 150%, 200%, anche con nomi simili a markup.
 
 ## Blocco input ed eventi
 

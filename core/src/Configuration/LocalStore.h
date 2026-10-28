@@ -40,6 +40,8 @@ public:
 
 	void load( Object *obj ) override;
 	void flush( const Object *obj ) override;
+	// Update one value without clearing or rewriting unrelated configuration.
+	bool writeValue(const QString& key, const QVariant& value, const QString& parentKey = {});
 	bool isWritable() const override;
 	void clear() override;
 

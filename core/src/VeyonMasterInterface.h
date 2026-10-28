@@ -52,5 +52,7 @@ public:
 	virtual ComputerControlInterfaceList selectedComputerControlInterfaces() const = 0;
 	virtual ComputerControlInterfaceList filteredComputerControlInterfaces() const = 0;
 	virtual void showClassProfiles(const QString& operation = {}) { Q_UNUSED(operation) }
+	// Highlighted tree row, not checkbox state or selected thumbnails.
+	virtual QUuid highlightedLocationUid() const { return {}; }
 
 };

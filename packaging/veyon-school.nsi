@@ -48,8 +48,8 @@ Var StartMenuDir
  !define LOCKNAME "Global\NetLinkInstallerMaintenance"
  RequestExecutionLevel admin
 !endif
-Name "NetLink 1.0.0 alpha.31${NETLINK_BUILD_SUFFIX}"
-OutFile "${OUTPUT}\NetLink-1.0.0-alpha.31${NETLINK_BUILD_SUFFIX}-win64-setup.exe"
+Name "NetLink 1.0.0 alpha.32${NETLINK_BUILD_SUFFIX}"
+OutFile "${OUTPUT}\NetLink-1.0.0-alpha.32${NETLINK_BUILD_SUFFIX}-win64-setup.exe"
 InstallDir "$PROGRAMFILES64\Veyon School"
 SetCompressor /SOLID lzma
 AllowSkipFiles off
@@ -70,10 +70,10 @@ Page custom RolePageCreate RolePageLeave
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "Italian"
-VIProductVersion "1.0.0.31"
+VIProductVersion "1.0.0.32"
 VIAddVersionKey /LANG=1040 "ProductName" "NetLink"
 VIAddVersionKey /LANG=1040 "FileDescription" "NetLink installer (pre-release)"
-VIAddVersionKey /LANG=1040 "FileVersion" "1.0.0-alpha.31${NETLINK_BUILD_SUFFIX}"
+VIAddVersionKey /LANG=1040 "FileVersion" "1.0.0-alpha.32${NETLINK_BUILD_SUFFIX}"
 VIAddVersionKey /LANG=1040 "LegalCopyright" "Copyright (c) 2025-26 prof. Ing. Raffaele Mele; Veyon e contributori"
 Function .onInit
  System::Call 'kernel32::CreateMutexW(p 0, i 0, w "${LOCKNAME}") p .r0 ?e'
@@ -416,6 +416,14 @@ Section "-NetLink installation"
    MessageBox MB_ICONSTOP "Avvio servizio non riuscito. Verifica nel Configurator." /SD IDOK
    Abort
  ${EndIf}
+ ClearErrors
+ ExecWait '"$INSTDIR\netlink-wcli.exe" service verify' $0
+ !insertmacro TraceFixtureCli "service verify"
+ ${If} ${Errors}
+ ${OrIf} $0 != 0
+   MessageBox MB_ICONSTOP "Verifica avvio servizio non riuscita. Controlla Avvio automatico nel Configurator e lo stato del servizio; configurazione e chiavi sono conservate. Installazione incompleta." /SD IDOK
+   Abort
+ ${EndIf}
  ; New registration/start succeeded. Retire only the seven known old filenames;
  ; an in-use legacy EXE is removed on reboot, never by killing a user process.
  !insertmacro NetLinkRetireLegacyExecutables
@@ -450,8 +458,8 @@ Section "-NetLink installation"
  Delete "$SMPROGRAMS\Veyon School\Configurator.lnk"
  RMDir "$SMPROGRAMS\Veyon School"
  !endif
- WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayName" "NetLink 1.0.0 alpha.31${NETLINK_BUILD_SUFFIX}"
- WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayVersion" "1.0.0-alpha.31${NETLINK_BUILD_SUFFIX}"
+ WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayName" "NetLink 1.0.0 alpha.32${NETLINK_BUILD_SUFFIX}"
+ WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayVersion" "1.0.0-alpha.32${NETLINK_BUILD_SUFFIX}"
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "InstallationRole" "$InstallationRole"
  WriteRegDWORD ${APPREGROOT} "${APPREGKEY}" "InstallCompanion" $InstallCompanion
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'

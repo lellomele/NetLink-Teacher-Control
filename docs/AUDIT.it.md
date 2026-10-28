@@ -8,6 +8,22 @@ la conformità completa WS-Discovery o l'impiego in produzione.
 
 ## Comunicazione e ciclo di vita
 
+- L'avvio del servizio Windows contatta Service Control Manager prima di
+  inizializzare IPC, sessioni e driver di input, segnalando progressi effettivi.
+  Errori di avvio o del punto d'ingresso producono un codice di uscita non nullo;
+  arresti/spegnimenti espliciti restituiscono successo. Registrazione e avvio
+  propagano gli errori nativi: la sola presenza del servizio non è un successo.
+- La registrazione ripara solo l'eseguibile NetLink/precedente atteso nella stessa
+  cartella. Avvio automatico e ripristino nativo limitato sono riletti dopo la
+  configurazione. Il client SMB facoltativo non è una dipendenza d'avvio.
+  Nessun watchdog esterno o riavvio del PC. Riferimenti Microsoft:
+  [tempi del dispatcher](https://learn.microsoft.com/en-us/windows/win32/api/winsvc/nf-winsvc-startservicectrldispatcherw),
+  [azioni di ripristino](https://learn.microsoft.com/en-us/windows/win32/api/winsvc/ns-winsvc-service_failure_actionsw)
+  e [errori senza crash](https://learn.microsoft.com/en-us/windows/win32/api/winsvc/ns-winsvc-service_failure_actions_flag).
+  Quest'ultima opzione diventa effettiva dopo il riavvio del sistema. I test con
+  SCM simulato coprono registrazione, riparazione, errori, rilettura e arresto
+  esplicito, ma non riproducono l'avvio di un client fisico né identificano la
+  causa di un errore d'avvio di cui non sono stati raccolti i dati.
 - Autenticazione e controllo degli accessi precedono l'esecuzione delle funzioni.
   L'adattatore RFB distingue letture bloccanti esatte da frame asincroni parziali.
 - Frame, dimensioni delle immagini, code, comandi e lotti di eventi hanno limiti.

@@ -25,6 +25,8 @@
 #pragma once
 
 #include <windows.h>
+#include <QMutex>
+#include <memory>
 
 #include "PlatformServiceFunctions.h"
 #include "PlatformSessionManager.h"
@@ -34,7 +36,7 @@ class WindowsServiceCore
 {
 public:
 	WindowsServiceCore( const QString& name, const PlatformServiceFunctions::ServiceEntryPoint& serviceEntryPoint );
-	~WindowsServiceCore() = default;
+	~WindowsServiceCore();
 
 	static WindowsServiceCore* instance();
 
@@ -52,6 +54,7 @@ private:
 	void serviceMain();
 	DWORD serviceCtrl( DWORD ctrlCode, DWORD eventType, LPVOID eventData, LPVOID context );
 	bool reportStatus( DWORD state, DWORD exitCode, DWORD waitHint );
+	void closeControlEvents();
 
 	QSharedPointer<wchar_t> m_name;
 	const PlatformServiceFunctions::ServiceEntryPoint& m_serviceEntryPoint;
@@ -64,12 +67,16 @@ private:
 	HANDLE m_serverShutdownEvent{nullptr};
 	QAtomicInt m_serviceStopRequested{0};
 	QAtomicInt m_sessionChanged{0};
+	QAtomicInteger<quint32> m_serviceError{0};
+	QMutex m_statusMutex, m_eventMutex;
+	DWORD m_checkpoint=0;
+	bool m_terminalStatus=false;
 
-	ServiceDataManager m_dataManager{};
+	std::unique_ptr<ServiceDataManager> m_dataManager;
 	PlatformSessionManager m_sessionManager{};
 
 	static constexpr auto SessionPollingInterval = 5000;
 	static constexpr auto MinimumServerUptimeTime = 10000;
-	static constexpr auto ServiceStartTimeout = 15000;
+	static constexpr auto ServiceStartTimeout = 45000;
 
 } ;

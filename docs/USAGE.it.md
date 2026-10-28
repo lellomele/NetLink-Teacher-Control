@@ -155,6 +155,11 @@ soltanto IPv6. La preferenza è personale e viene salvata chiudendo la Console;
 non disabilita IPv6 in Windows e non esegue failover TCP.
 
 Una riga raggruppa gli indirizzi osservati della stessa identità discovery.
+Se gli annunci discordano, lo stato distingue nomi differenti, porte NetLink
+differenti oppure entrambi. Selezionare la riga per vedere ciascun nome, indirizzo
+e porta nel pannello dei dettagli; il tooltip mostra la stessa spiegazione.
+L'importazione automatica resta bloccata. Più indirizzi IPv4/IPv6 con nomi e porte
+coerenti non costituiscono un conflitto.
 Il tooltip li elenca; gli indirizzi semplicemente dichiarati nei metadati
 non vengono usati come prova. Il docente è escluso su tutte le schede.
 Annunci contraddittori restano visibili e non sono importabili automaticamente;
@@ -168,6 +173,12 @@ Disattivare il filtro per vedere anche i PC già noti.
 
 Verificare il destinatario prima dell'importazione. Servono diritti di scrittura
 sulla configurazione e riavvio del Master per visualizzare il nuovo PC.
+Prima di importare, evidenziare il gruppo di destinazione o la riga di uno dei
+suoi PC in **Posizioni e computer**. Le spunte e le miniature selezionate non
+scelgono il gruppo. Discovery mostra la destinazione e chiede conferma con
+indirizzo e porta. Nessuna selezione significa nessuna importazione: non sceglie
+il primo gruppo e non crea gruppi automaticamente. Se il gruppo viene cambiato,
+rinominato o eliminato durante la conferma, occorre ripetere l'importazione.
 L'importazione non modifica chiavi o autorizzazioni.
 I permessi devono appartenere al processo Console: un Configurator amministratore
 non la eleva. Un annuncio cambiato, scaduto o in conflitto va selezionato nuovamente.
@@ -207,6 +218,31 @@ Il controllo TCP interno è asincrono e solo locale: non verifica l'autenticazio
 Una connessione autorizzata senza fotogrammi non dimostra che il video funzioni.
 Controllare anche le icone nascoste di Windows. “In ascolto” non certifica
 raggiungibilità, autenticazione, discovery o blocco Internet.
+
+### Avvio e ripristino su Windows
+
+Abilitare **Avvio automatico del servizio** nel Configurator → Servizio per
+l'avvio dopo un riavvio. L'installer conserva questa scelta, compresa un'eventuale
+impostazione manuale intenzionale; non la sovrascrive silenziosamente.
+Con l'opzione abilitata l'avvio Windows è Automatico, non ritardato.
+L'installazione verifica servizio in esecuzione, modalità di avvio e ripristino;
+se il controllo fallisce segnala un'installazione incompleta.
+
+Windows ritenta dopo un errore imprevisto del servizio a distanza di 10, 30 e
+60 secondi, poi interrompe i tentativi fino all'azzeramento del conteggio dopo
+un giorno senza errori. Un normale arresto amministrativo o lo spegnimento di
+Windows non è un errore. Non ci sono attività di sorveglianza pianificate,
+riavvii automatici del PC o garanzie contro errori persistenti di avvio.
+Riavviare Windows dopo l'aggiornamento per attivare tutte le opzioni di ripristino.
+
+Se un client rimane offline dopo il riavvio, controllare prima NetLink Service
+nei Servizi di Windows. Se è arrestato, usare Companion → Analizza PC: il rapporto
+completo include modalità di avvio effettiva, codici di uscita, dipendenze e stato
+del ripristino. Controllare anche Visualizzatore eventi → Registri di Windows →
+Sistema → Service Control Manager, all'ora dell'avvio. Una prova di ascolto o
+firewall non spiega un servizio arrestato. Da terminale amministrativo nella
+cartella di installazione, `netlink-cli.exe service verify` esegue lo stesso
+controllo dell'avvio senza modificare impostazioni.
 
 ## Companion
 

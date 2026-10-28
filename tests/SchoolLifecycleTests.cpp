@@ -13,6 +13,12 @@
 #include <QProcess>
 #include <QTcpServer>
 #include <QTableWidget>
+#include <QPlainTextEdit>
+#include <QSettings>
+#include <QTemporaryDir>
+#include <QFile>
+#include "Configuration/LocalStore.h"
+#include "NetworkObject.h"
 #include "SchoolFeatures.h"
 #include "NetLinkUi.h"
 #include "SchoolPolicyResolver.h"
@@ -31,10 +37,12 @@ public:
     const ComputerControlInterfaceList& allComputerControlInterfaces() const override { return clients; }
     ComputerControlInterfaceList selectedComputerControlInterfaces() const override { return clients; }
     ComputerControlInterfaceList filteredComputerControlInterfaces() const override { return clients; }
+    QUuid highlightedLocationUid() const override {return highlightedGroup;}
     QWidget window;
     ComputerControlInterface local;
     ComputerControlInterfaceList clients;
     Configuration::Object preferences;
+    QUuid highlightedGroup;
 };
 class IsolatedSchoolWorker : public QObject, public VeyonWorkerInterface {
 public:
@@ -94,6 +102,41 @@ private:
         SchoolDiscovery::Message message;message.action=action;message.id=id.isEmpty()?"urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces):id;message.instance=123;message.sequence=sequence;
         SchoolDiscovery::Record record;record.endpoint=endpoint;record.name="PC di prova";record.address="198.51.100.99";record.port=11100;record.client=true;message.records.append(record);return message;
     }
+    struct ImportFixture {
+        IsolatedSchoolMaster master;
+        SchoolFeatures features{nullptr,false};
+        const QUuid first=QUuid::createUuid(),second=QUuid::createUuid();
+        QJsonArray objects;
+        int saves=0,port=11100;
+        bool writable=true,failSave=false;
+        SchoolDiscovery::Record peer;
+        ImportFixture() {
+            objects={NetworkObject(NetworkObject::Type::Location,"Room A",{},{},{},first).toJson(),
+                     NetworkObject(NetworkObject::Type::Location,"Room B",{},{},{},second).toJson(),
+                     NetworkObject(NetworkObject::Type::Host,"Existing PC","192.0.2.10",{},{},QUuid::createUuid(),first).toJson()};
+            master.highlightedGroup=second;
+            features.m_discoveryImport.objects=[this] {return objects;};
+            features.m_discoveryImport.port=[this] {return port;};
+            features.m_discoveryImport.writable=[this] {return writable;};
+            features.m_discoveryImport.save=[this](const QJsonArray& before,const QJsonArray& after,QString& error) {
+                if(failSave || before!=objects) {error="Simulated save failure";return false;}
+                objects=after;++saves;return true;
+            };
+            features.m_discovery=new SchoolDiscovery::Agent(true,{},11100,&features,false);
+            peer.endpoint="urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces);
+            peer.name="Discovered PC";peer.address="192.0.2.25";peer.port=11100;
+            features.m_discovery->m_records.insert(peer.endpoint,peer);
+        }
+        void show() {features.discovery(master,{});}
+        QDialog* dialog() const {return features.m_discoveryDialog;}
+        QTableWidget* table() const {return dialog()->findChild<QTableWidget*>();}
+        QPushButton* importButton() const {
+            const auto buttons=dialog()->findChild<QDialogButtonBox*>();
+            for(auto button:buttons->buttons()) if(buttons->buttonRole(button)==QDialogButtonBox::ActionRole) return qobject_cast<QPushButton*>(button);
+            return nullptr;
+        }
+        QMessageBox* ask() {table()->selectRow(0);importButton()->click();return dialog()->findChild<QMessageBox*>("schoolDiscoveryImportConfirmation");}
+    };
 private Q_SLOTS:
     void selectedLanguageChangesLabelsNotFeatureIdentifiers() {
         struct Restore {QLocale value;~Restore(){QLocale::setDefault(value);}} restore{QLocale()};
@@ -674,7 +717,146 @@ private Q_SLOTS:
         auto buttons=dialog->findChild<QDialogButtonBox*>();for(auto button:buttons->buttons()) if(buttons->buttonRole(button)==QDialogButtonBox::ActionRole) button->click();
         auto notice=dialog->findChild<QMessageBox*>();QVERIFY(notice);
         const auto record=agent.records().first();
-        QCOMPARE(notice->text(),NetLinkUi::text("The announcement for %1 (%2:%3) expired, changed, or contains conflicting data. Refresh discovery and select the computer again. No computer was imported.").arg(record.name,record.address,QString::number(record.port)));
+        QCOMPARE(notice->text(),SchoolDiscovery::conflictDetails(record));
+        QVERIFY(notice->text().contains("192.0.2.25"));QVERIFY(notice->text().contains("2001:db8::25"));
+        QVERIFY(notice->text().contains("11100"));QVERIFY(notice->text().contains("11101"));
+        QVERIFY(notice->text().contains("Different claimed PC"));
+        const auto details=dialog->findChild<QPlainTextEdit*>("schoolDiscoveryConflictDetails");QVERIFY(details);
+        QCOMPARE(details->toPlainText(),SchoolDiscovery::conflictDetails(record));
+    }
+    void discoveryConflictReasonsAndDetailsAreSpecific_data() {
+        QTest::addColumn<bool>("nameConflict");QTest::addColumn<bool>("portConflict");QTest::addColumn<QString>("summary");QTest::addColumn<QString>("locale");
+        for(const auto& locale:QStringList{"en_US","it_IT"}) {
+            QTest::newRow(qPrintable(locale+"-names"))<<true<<false<<QString("Different computer names — import blocked")<<locale;
+            QTest::newRow(qPrintable(locale+"-ports"))<<false<<true<<QString("Different NetLink ports — import blocked")<<locale;
+            QTest::newRow(qPrintable(locale+"-both"))<<true<<true<<QString("Different names and NetLink ports — import blocked")<<locale;
+        }
+    }
+    void discoveryConflictReasonsAndDetailsAreSpecific() {
+        QFETCH(bool,nameConflict);QFETCH(bool,portConflict);QFETCH(QString,summary);QFETCH(QString,locale);
+        struct Restore {QLocale value;~Restore(){QLocale::setDefault(value);}} restore{QLocale()};QLocale::setDefault(QLocale(locale));
+        IsolatedSchoolMaster master;SchoolFeatures features(nullptr,false);
+        features.m_discovery=new SchoolDiscovery::Agent(true,{},11100,&features,false);auto& agent=*features.m_discovery;
+        auto packet=discoveryPacket("Hello","urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces));
+        packet.records.first().name="Original PC";agent.process(SchoolDiscovery::encode(packet),QHostAddress("192.0.2.25"),false);
+        packet.id=QUuid::createUuid().toString();packet.records.first().name=nameConflict?"<b>Other PC":"Original PC";
+        packet.records.first().port=portConflict?11102:11100;
+        agent.process(SchoolDiscovery::encode(packet),QHostAddress("2001:db8::25"),false);
+        const auto record=agent.records().first();QVERIFY(record.conflict);QCOMPARE(record.observations.size(),2);
+        QCOMPARE(SchoolDiscovery::conflictSummary(record),NetLinkUi::text(summary.toUtf8().constData()));
+        features.discovery(master,{});auto table=features.m_discoveryDialog->findChild<QTableWidget*>();table->selectRow(0);
+        QCOMPARE(table->item(0,3)->text(),NetLinkUi::text(summary.toUtf8().constData()));
+        QVERIFY(table->item(0,3)->toolTip().contains("192.0.2.25"));
+        if(nameConflict) {
+            QVERIFY(table->item(0,3)->toolTip().contains("&lt;b&gt;"));
+            QVERIFY(!table->item(0,3)->toolTip().contains("<b>Other PC"));
+        }
+        const auto details=features.m_discoveryDialog->findChild<QPlainTextEdit*>("schoolDiscoveryConflictDetails");
+        QCOMPARE(details->toPlainText(),SchoolDiscovery::conflictDetails(record));
+        const auto output=qEnvironmentVariable("NETLINK_DISCOVERY_SCREENSHOTS");
+        if(!output.isEmpty() && nameConflict && portConflict) {
+            QCoreApplication::processEvents();QVERIFY(QDir().mkpath(output));
+            QVERIFY(features.m_discoveryDialog->grab().save(QDir(output).filePath(QString("discovery-conflict-%1-scale-%2.png").arg(locale,qEnvironmentVariable("QT_SCALE_FACTOR","1")))));
+        }
+        // Even when the chosen IPv4/name/port and conflict flag stay the same,
+        // details must refresh if another observed announcement changes.
+        if(nameConflict) {
+            agent.m_records[record.endpoint+QChar(0)+"2001:db8::25"].name="Updated conflicting PC";
+            features.m_discoveryDialog->findChild<QTimer*>("schoolDiscoveryRefresh")->start(10);
+            QTRY_VERIFY_WITH_TIMEOUT(details->toPlainText().contains("Updated conflicting PC"),1000);
+            QCOMPARE(table->currentRow(),0);
+        }
+        QVERIFY(!SchoolDiscovery::encode(packet).contains("observations"));
+        // Expiring the contradictory observation restores a normal single identity.
+        agent.m_records[record.endpoint+QChar(0)+"2001:db8::25"].seen=-96000;
+        const auto fresh=agent.records().first();QVERIFY(!fresh.conflict);QVERIFY(SchoolDiscovery::conflictDetails(fresh).isEmpty());
+    }
+    void discoveryImportsIntoHighlightedGroupNotFirstGroup_data() {
+        QTest::addColumn<QString>("locale");
+        QTest::newRow("English")<<QString("en_US");QTest::newRow("Italian")<<QString("it_IT");
+    }
+    void discoveryImportsIntoHighlightedGroupNotFirstGroup() {
+        QFETCH(QString,locale);struct Restore {QLocale value;~Restore(){QLocale::setDefault(value);}} restore{QLocale()};QLocale::setDefault(QLocale(locale));
+        ImportFixture fixture;const auto before=fixture.objects;fixture.show();
+        QVERIFY(fixture.dialog()->findChild<QLabel*>("schoolDiscoveryDestination")->text().contains("Room B"));
+        const auto question=fixture.ask();QVERIFY(question);QVERIFY(question->text().contains("Room B"));
+        QCOMPARE(question->textFormat(),Qt::PlainText);QCOMPARE(question->defaultButton(),question->button(QMessageBox::No));
+        question->button(QMessageBox::Yes)->click();QCOMPARE(fixture.saves,1);QCOMPARE(fixture.objects.size(),before.size()+1);
+        for(int i=0;i<before.size();++i) QCOMPARE(fixture.objects[i],before[i]);
+        const NetworkObject imported(fixture.objects.last().toObject());
+        QCOMPARE(imported.type(),NetworkObject::Type::Host);QCOMPARE(imported.parentUid(),fixture.second);
+        QCOMPARE(imported.hostAddress(),fixture.peer.address);QCOMPARE(imported.name(),fixture.peer.name);
+    }
+    void discoveryRequiresARealHighlightedGroup_data() {
+        QTest::addColumn<QString>("choice");
+        for(const auto name:{"none","unknown","host","duplicate-group","empty-directory"}) QTest::newRow(name)<<QString(name);
+    }
+    void discoveryRequiresARealHighlightedGroup() {
+        QFETCH(QString,choice);ImportFixture fixture;
+        if(choice=="none") fixture.master.highlightedGroup=QUuid{};
+        if(choice=="unknown") fixture.master.highlightedGroup=QUuid::createUuid();
+        if(choice=="host") fixture.master.highlightedGroup=NetworkObject(fixture.objects.last().toObject()).uid();
+        if(choice=="duplicate-group") fixture.objects.append(fixture.objects[1]);
+        if(choice=="empty-directory") fixture.objects={};
+        const auto before=fixture.objects;fixture.show();QVERIFY(!fixture.ask());QCOMPARE(fixture.saves,0);QCOMPARE(fixture.objects,before);
+        auto notice=fixture.dialog()->findChild<QMessageBox*>();QVERIFY(notice);
+        QCOMPARE(notice->text(),NetLinkUi::text("Highlight a configured group or one of its PCs in Locations & computers, then import again. No computer was imported and no group was created."));
+    }
+    void discoveryImportRevalidatesDestinationAndPendingConfirmation_data() {
+        QTest::addColumn<QString>("change");
+        for(const auto name:{"selection","removed","renamed","port","permission","duplicate","conflict","cancel","closed","save-failure"}) QTest::newRow(name)<<QString(name);
+    }
+    void discoveryImportRevalidatesDestinationAndPendingConfirmation() {
+        QFETCH(QString,change);ImportFixture fixture;fixture.show();const auto question=fixture.ask();QVERIFY(question);
+        if(change=="selection") fixture.master.highlightedGroup=fixture.first;
+        if(change=="removed") fixture.objects.removeAt(1);
+        if(change=="renamed") fixture.objects[1]=NetworkObject(NetworkObject::Type::Location,"Renamed room",{},{},{},fixture.second).toJson();
+        if(change=="port") fixture.port=11102;
+        if(change=="permission") fixture.writable=false;
+        if(change=="duplicate") fixture.objects.append(NetworkObject(NetworkObject::Type::Host,"Duplicate",fixture.peer.address,{},{},QUuid::createUuid(),fixture.first).toJson());
+        if(change=="conflict") {
+            auto other=fixture.peer;other.address="2001:db8::25";other.name="Conflicting name";
+            fixture.features.m_discovery->m_records.insert(other.endpoint+"-other",other);
+        }
+        if(change=="closed") fixture.dialog()->hide();
+        if(change=="save-failure") fixture.failSave=true;
+        const auto before=fixture.objects;
+        question->button(change=="cancel"?QMessageBox::No:QMessageBox::Yes)->click();
+        QCOMPARE(fixture.saves,0);QCOMPARE(fixture.objects,before);
+        QVERIFY(!fixture.dialog()->findChild<SchoolDiscoveryKnownHosts*>()->contains(fixture.peer.address));
+    }
+    void discoveryImportPreservesUnrelatedObjectsAddedWhileConfirming() {
+        ImportFixture fixture;fixture.show();const auto question=fixture.ask();QVERIFY(question);
+        fixture.objects.append(NetworkObject(NetworkObject::Type::Location,"New unrelated room",{},{},{},QUuid::createUuid()).toJson());
+        const auto before=fixture.objects;question->button(QMessageBox::Yes)->click();
+        QCOMPARE(fixture.saves,1);QCOMPARE(fixture.objects.size(),before.size()+1);
+        for(int i=0;i<before.size();++i) QCOMPARE(fixture.objects[i],before[i]);
+        QCOMPARE(NetworkObject(fixture.objects.last().toObject()).parentUid(),fixture.second);
+    }
+    void discoverySingleValuePersistencePreservesOtherSettingsAndDetectsErrors() {
+        class FileStore : public Configuration::LocalStore {
+        public:
+            explicit FileStore(QString path):LocalStore(Configuration::Store::System),m_path(std::move(path)) {}
+            QSettings* createSettingsObject() const override {return new QSettings(m_path,QSettings::IniFormat);}
+        private:QString m_path;
+        };
+        QTemporaryDir directory;QVERIFY(directory.isValid());FileStore store(directory.filePath("settings.ini"));
+        Configuration::Object configuration;
+        configuration.setValue("NetworkObjects",QJsonArray{},"BuiltinDirectory");
+        configuration.setValue("VeyonServerPort",11123,"Network");
+        configuration.setValue("PrivateKeyPath","inert-test-private-key-path","Authentication");
+        configuration.setValue("PublicKeyPath","inert-test-public-key-path","Authentication");
+        configuration.setValue("Language","it_IT","UI");store.flush(&configuration);
+        Configuration::Object before(&store);auto expected=before.data();
+        const QJsonArray objects{NetworkObject(NetworkObject::Type::Location,"Aula — studenti 学生",{},{},{},QUuid::createUuid()).toJson()};
+        QVERIFY(store.writeValue("NetworkObjects",objects,"BuiltinDirectory"));
+        Configuration::Object after(&store);QCOMPARE(after.value("NetworkObjects","BuiltinDirectory",{}).toJsonArray(),objects);
+        after.setValue("NetworkObjects",QJsonArray{},"BuiltinDirectory");QCOMPARE(after.data(),expected);
+        QVERIFY(!store.writeValue("",objects,"BuiltinDirectory"));
+        QVERIFY(!store.writeValue("invalid/key",objects,"BuiltinDirectory"));
+        QFile obstruction(directory.filePath("not-a-directory"));QVERIFY(obstruction.open(QIODevice::WriteOnly));obstruction.write("fixture");obstruction.close();
+        FileStore invalid(directory.filePath("not-a-directory/settings.ini"));
+        QVERIFY(!invalid.writeValue("NetworkObjects",objects,"BuiltinDirectory"));
     }
     void discoveryBoundsObservationsAndDoesNotMergeByClaimedName() {
         SchoolDiscovery::Agent agent(true,{},11100,nullptr,false);const auto endpoint="urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces);

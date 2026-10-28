@@ -37,6 +37,7 @@ build_veyon_plugin(windows-platform
 	WindowsKeyboardShortcutTrapper.h
 	WindowsNetworkFunctions.h
 	WindowsServiceControl.h
+	WindowsServicePolicy.h
 	WindowsServiceCore.h
 	WindowsServiceFunctions.h
 	WindowsSessionFunctions.h

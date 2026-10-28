@@ -2,6 +2,13 @@ if(WITH_FUZZERS)
 	add_subdirectory(libfuzzer)
 endif()
 if(WITH_TESTS)
+    if(WIN32)
+        add_executable(netlink-service-startup-tests WindowsServiceStartupTests.cpp ../plugins/platform/windows/WindowsServiceControl.h)
+        set_default_target_properties(netlink-service-startup-tests)
+        target_link_libraries(netlink-service-startup-tests PRIVATE veyon-core Qt${QT_MAJOR_VERSION}::Test advapi32)
+        add_test(NAME netlink-service-startup-tests COMMAND netlink-service-startup-tests -o "${CMAKE_CURRENT_BINARY_DIR}/netlink-service-startup-results.txt,txt")
+        set_tests_properties(netlink-service-startup-tests PROPERTIES TIMEOUT 30)
+    endif()
     add_executable(netlink-demo-selection-tests DemoSelectionTests.cpp
         ../plugins/demo/DemoFeaturePlugin.cpp ../plugins/demo/DemoFeaturePlugin.h
         ../plugins/demo/DemoConfigurationPage.cpp ../plugins/demo/DemoConfigurationPage.h ../plugins/demo/DemoConfigurationPage.ui

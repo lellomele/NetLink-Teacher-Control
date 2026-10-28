@@ -2,6 +2,7 @@
 #undef QT_NO_CAST_FROM_ASCII
 #undef QT_USE_QSTRINGBUILDER
 #include "SchoolDiscovery.h"
+#include "NetLinkUi.h"
 #include <QCryptographicHash>
 #include <QHostInfo>
 #include <QNetworkDatagram>
@@ -290,14 +291,43 @@ QList<Record> Agent::records(AddressMode mode) const {
             return a.address<b.address;
         });
         if(mode==AddressMode::Ipv4Only && rank(observations.first())!=0) continue;
-        auto record=observations.first();record.addresses.clear();record.conflict=false;
+        auto record=observations.first();record.addresses.clear();record.observations.clear();record.conflict=false;
         for(const auto& observation:observations) {
             if(!record.addresses.contains(observation.address)) record.addresses.append(observation.address);
+            record.observations.append({observation.address,observation.name,observation.port});
             if(observation.port!=record.port || observation.name.compare(record.name,Qt::CaseInsensitive)!=0) record.conflict=true;
         }
         result.append(record);
     }
     return result;
+}
+QString conflictSummary(const Record& record) {
+    if(!record.conflict) return {};
+    bool names=false,ports=false;
+    for(const auto& observation:record.observations) {
+        names|=observation.name.compare(record.name,Qt::CaseInsensitive)!=0;
+        ports|=observation.port!=record.port;
+    }
+    return NetLinkUi::text(names && ports?"Different names and NetLink ports — import blocked":
+        names?"Different computer names — import blocked":ports?"Different NetLink ports — import blocked":
+        "Conflicting discovery identity — import blocked");
+}
+QString conflictDetails(const Record& record) {
+    if(!record.conflict) return {};
+    auto safe=[](const QString& value) {
+        QString result;
+        for(const auto c:value.left(256)) result+=c.category()==QChar::Other_Control || c.category()==QChar::Other_Format?QChar('?'):c;
+        return result;
+    };
+    QStringList lines{conflictSummary(record),NetLinkUi::text("Discovery identity: %1").arg(safe(record.endpoint)),
+        NetLinkUi::text("Observed announcements for this identity:")};
+    for(const auto& observation:record.observations.mid(0,16)) {
+        const auto address=observation.address.contains(':')?'['+observation.address+']':observation.address;
+        lines.append(NetLinkUi::text("Name: %1 | Address: %2 | NetLink port: %3").arg(safe(observation.name),safe(address),QString::number(observation.port)));
+    }
+    lines.append(NetLinkUi::text("Automatic import is blocked because these announcements disagree. Multiple IPv4/IPv6 addresses alone are normal. This is not an authentication or TCP test."));
+    lines.append(NetLinkUi::text("Check the computer name and NetLink service port. A recent configuration change or cloned Windows identity can cause this. Old announcements expire after about 95 seconds without renewal. Repeat discovery, or add the verified address manually in Configurator."));
+    return lines.join('\n');
 }
 bool Agent::isCurrent(const Record& selected,AddressMode mode) const {
     for(const auto& record:records(mode))

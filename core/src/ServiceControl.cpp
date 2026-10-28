@@ -59,27 +59,27 @@ bool ServiceControl::isServiceRunning()
 
 
 
-void ServiceControl::startService()
+bool ServiceControl::startService()
 {
-	serviceControl( tr( "Starting service %1" ).arg( m_name ),
-					QtConcurrent::run( [=]() { VeyonCore::platform().serviceFunctions().start( m_name ); } ) );
+	return serviceControl( tr( "Starting service %1" ).arg( m_name ),
+					QtConcurrent::run( [=]() { return VeyonCore::platform().serviceFunctions().start( m_name ); } ) );
 }
 
 
 
 
-void ServiceControl::stopService()
+bool ServiceControl::stopService()
 {
-	serviceControl( tr( "Stopping service %1" ).arg( m_name ),
-					QtConcurrent::run( [=]() { VeyonCore::platform().serviceFunctions().stop( m_name ); } ) );
+	return serviceControl( tr( "Stopping service %1" ).arg( m_name ),
+					QtConcurrent::run( [=]() { return VeyonCore::platform().serviceFunctions().stop( m_name ); } ) );
 }
 
 
 
-void ServiceControl::registerService()
+bool ServiceControl::registerService()
 {
-	serviceControl( tr( "Registering service %1" ).arg( m_name ),
-					QtConcurrent::run( [=]() { VeyonCore::platform().serviceFunctions().install( m_name,
+	return serviceControl( tr( "Registering service %1" ).arg( m_name ),
+					QtConcurrent::run( [=]() { return VeyonCore::platform().serviceFunctions().install( m_name,
 																								 m_filePath,
 																								 PlatformServiceFunctions::StartMode::Auto,
 																								 m_displayName ); } ) );
@@ -87,16 +87,16 @@ void ServiceControl::registerService()
 
 
 
-void ServiceControl::unregisterService()
+bool ServiceControl::unregisterService()
 {
-	serviceControl( tr( "Unregistering service %1" ).arg( m_name ),
-					QtConcurrent::run( [=]() { VeyonCore::platform().serviceFunctions().uninstall( m_name ); } ) );
+	return serviceControl( tr( "Unregistering service %1" ).arg( m_name ),
+					QtConcurrent::run( [=]() { return VeyonCore::platform().serviceFunctions().uninstall( m_name ); } ) );
 
 }
 
 
 
-void ServiceControl::serviceControl( const QString& title, const Operation& operation )
+bool ServiceControl::serviceControl( const QString& title, const Operation& operation )
 {
 	if( m_parent )
 	{
@@ -106,6 +106,7 @@ void ServiceControl::serviceControl( const QString& title, const Operation& oper
 	{
 		textFeedback( title, operation );
 	}
+	return operation.result();
 }
 
 

@@ -20,6 +20,11 @@ enum class AddressMode { Automatic, Ipv4Only };
 // the remote peer's advertised zone number is never used for reception.
 VEYON_CORE_EXPORT QString addressKey(const QHostAddress& address, uint interfaceIndex = 0);
 struct Record {
+    struct Observation {
+        QString address, name;
+        int port = 11100;
+        bool operator==(const Observation& other) const {return address==other.address && name==other.name && port==other.port;}
+    };
     QString endpoint, name, address;
     QStringList addresses;
     int port = 11100;
@@ -28,7 +33,11 @@ struct Record {
     bool client = false;
     bool proxy = false;
     bool conflict = false;
+    // Local observations only: never serialized into discovery announcements.
+    QList<Observation> observations;
 };
+VEYON_CORE_EXPORT QString conflictSummary(const Record&);
+VEYON_CORE_EXPORT QString conflictDetails(const Record&);
 struct Message {
     QString action, id, relatesTo, to, types, scopes, matchBy;
     QList<Record> records;

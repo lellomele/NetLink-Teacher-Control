@@ -42,18 +42,18 @@ public:
 					QWidget* parent );
 
 	bool isServiceRegistered();
-	void registerService();
-	void unregisterService();
+	bool registerService();
+	bool unregisterService();
 
 	bool isServiceRunning();
 
-	void startService();
-	void stopService();
+	bool startService();
+	bool stopService();
 
 
 private:
-	using Operation = QFuture<void>;
-	void serviceControl( const QString& title, const Operation& operation );
+	using Operation = QFuture<bool>;
+	bool serviceControl( const QString& title, const Operation& operation );
 	void graphicalFeedback( const QString &title, const Operation& operation );
 	void textFeedback( const QString &title, const Operation& operation );
 

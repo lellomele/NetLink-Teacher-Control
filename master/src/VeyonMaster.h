@@ -95,6 +95,7 @@ public:
 
 	ComputerControlInterfaceList filteredComputerControlInterfaces() const override;
 	void showClassProfiles(const QString& operation = {}) override;
+	QUuid highlightedLocationUid() const override;
 
 public Q_SLOTS:
 	void runFeature( const Feature& feature );

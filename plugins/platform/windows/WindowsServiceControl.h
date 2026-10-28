@@ -32,7 +32,7 @@ class WindowsServiceControl : public QObject
 {
 	Q_OBJECT
 public:
-	WindowsServiceControl( const QString& name );
+	WindowsServiceControl( const QString& name, bool readOnly = false );
 	~WindowsServiceControl() override;
 
 	bool isRegistered();
@@ -42,15 +42,15 @@ public:
 	bool install( const QString& filePath, const QString& displayName );
 	bool uninstall();
 	bool setStartType( int startType );
+	QVariantMap details() const;
 
 private:
 	bool checkService() const;
 
-	static constexpr auto ServiceActionDelay = 10000;
-	static constexpr auto ServiceWaitSleepInterval = 1000;
 
 	const QString m_name;
 	SC_HANDLE m_serviceManager;
 	SC_HANDLE m_serviceHandle;
+	DWORD m_openError=ERROR_SERVICE_DOES_NOT_EXIST;
 
 } ;

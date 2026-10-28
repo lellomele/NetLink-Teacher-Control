@@ -6,9 +6,9 @@ Suite NetLink per la gestione delle aule Windows, basata su **Veyon 4.7.5**.
 Integra controllo remoto, InternetGuard WFP, Appello, profili classe–aula,
 ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
 
-**Versione preliminare 1.0.0-alpha.31: usare consapevolmente.**
+**Versione preliminare 1.0.0-alpha.32: usare consapevolmente.**
 
-**[Scarica l’installer Windows x64 — ultima release (alpha.31)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.31/NetLink-1.0.0-alpha.31-win64-setup.exe)**
+**[Scarica l’installer Windows x64 — ultima release (alpha.32)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.32/NetLink-1.0.0-alpha.32-win64-setup.exe)**
 
 ## Funzionalità
 
@@ -35,6 +35,8 @@ ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
 - **Trova client:** WS-Discovery, modalità automatica con IPv4 preferito e IPv6
   come alternativa, opzione Solo IPv4, filtro dei PC già configurati e
   accorpamento degli annunci della stessa identità.
+  I conflitti mostrano nomi, indirizzi e porte osservati. L'importazione usa il
+  gruppo evidenziato in Posizioni e computer, non il primo gruppo per impostazione predefinita.
 - **Configurazione semplificata:** modalità Facile, Normale e Avanzata;
   riutilizzo di aule, PC, chiavi e regole di accesso già configurati.
 - **Stato e diagnostica:** icona del servizio con riepilogo locale, Companion
@@ -46,6 +48,9 @@ ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
   La funzione richiede docente e client aggiornati; risposte vecchie, mancanti
   o scadute sono indicate come non disponibili. Non servono altre porte.
   Un canale temporaneo abbinato esplicitamente consente lo scambio di rapporti.
+- **Avvio del servizio Windows:** configurazione automatica verificata e ripristino
+  nativo limitato dopo crash/errori di avvio. L'installer rileva gli errori di verifica;
+  restano supportati l'avvio manuale intenzionale e lo stop regolare dell'amministratore.
 
 ## Installazione e aggiornamento
 

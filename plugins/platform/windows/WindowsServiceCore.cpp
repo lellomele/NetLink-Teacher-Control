@@ -36,6 +36,8 @@
 #include "WindowsCoreFunctions.h"
 #include "WindowsInputDeviceFunctions.h"
 #include "WtsSessionManager.h"
+#include "WindowsServicePolicy.h"
+#include <QMutexLocker>
 
 
 // clazy:excludeall=rule-of-three
@@ -116,18 +118,11 @@ WindowsServiceCore::WindowsServiceCore( const QString& name,
 	m_serviceEntryPoint( serviceEntryPoint )
 {
 	s_instance = this;
+}
 
-	// allocate session 0 (PlatformSessionFunctions::DefaultSessionId) so we can always assign it to the console session
-	if( m_sessionManager.mode() != PlatformSessionManager::Mode::Active ||
-		( WtsSessionManager::activeSessions().size() <= 1 &&
-		  WtsSessionManager::activeConsoleSession() != WtsSessionManager::InvalidSession ) )
-	{
-		m_sessionManager.openSession( QStringLiteral("0 (console)") );
-	}
-
-	// enable privileges required to create process with access token from other process
-	WindowsCoreFunctions::enablePrivilege( SE_ASSIGNPRIMARYTOKEN_NAME, true );
-	WindowsCoreFunctions::enablePrivilege( SE_INCREASE_QUOTA_NAME, true );
+WindowsServiceCore::~WindowsServiceCore()
+{
+	if(s_instance==this) s_instance=nullptr;
 }
 
 
@@ -151,15 +146,13 @@ bool WindowsServiceCore::runAsService()
 		{ nullptr, nullptr }
 	} } ;
 
-	WindowsInputDeviceFunctions::checkInterceptionInstallation();
-
 	if( !StartServiceCtrlDispatcher( dispatchTable.data() ) )
 	{
-		vCritical() << "StartServiceCtrlDispatcher failed.";
+		vCritical() << "StartServiceCtrlDispatcher failed; Windows error" << GetLastError();
 		return false;
 	}
 
-	return true;
+	return m_serviceError.loadAcquire()==NO_ERROR;
 }
 
 
@@ -167,6 +160,7 @@ bool WindowsServiceCore::runAsService()
 void WindowsServiceCore::manageServerInstances()
 {
 	m_serverShutdownEvent = CreateEvent( nullptr, false, false, L"Global\\SessionEventVeyonSchool" );
+	if(!m_serverShutdownEvent) {m_serviceError.storeRelease(GetLastError());vCritical()<<"Server shutdown event creation failed"<<m_serviceError.loadAcquire();return;}
 	ResetEvent( m_serverShutdownEvent );
 
 	if( m_sessionManager.mode() != PlatformSessionManager::Mode::Local )
@@ -178,7 +172,7 @@ void WindowsServiceCore::manageServerInstances()
 		manageServerForConsoleSession();
 	}
 
-	CloseHandle( m_serverShutdownEvent );
+	CloseHandle( m_serverShutdownEvent );m_serverShutdownEvent=nullptr;
 }
 
 
@@ -238,14 +232,16 @@ void WindowsServiceCore::manageServersForAllSessions()
 				}
 
 				auto serverProcess = new VeyonServerProcess;
-				serverProcess->start( wtsSessionId, m_dataManager.token() );
+				serverProcess->start( wtsSessionId, m_dataManager->token() );
 
 				serverProcesses[wtsSessionId] = serverProcess;
 			}
 		}
 
 		std::array<HANDLE, 2> events{m_sessionChangeEvent, m_stopServiceEvent};
-		WaitForMultipleObjects(events.size(), events.data(), FALSE, SessionPollingInterval);
+		if(WaitForMultipleObjects(events.size(), events.data(), FALSE, SessionPollingInterval)==WAIT_FAILED) {
+			m_serviceError.storeRelease(GetLastError());vCritical()<<"Service session wait failed"<<m_serviceError.loadAcquire();break;
+		}
 
 	} while (m_serviceStopRequested == 0);
 
@@ -292,7 +288,7 @@ void WindowsServiceCore::manageServerForConsoleSession()
 				if (m_serviceStopRequested == 0 &&
 					wtsSessionId != WtsSessionManager::InvalidSession)
 				{
-					veyonServerProcess.start( wtsSessionId, m_dataManager.token() );
+					veyonServerProcess.start( wtsSessionId, m_dataManager->token() );
 					lastServerStart.restart();
 				}
 			}
@@ -303,7 +299,7 @@ void WindowsServiceCore::manageServerForConsoleSession()
 		{
 			if (wtsSessionId != WtsSessionManager::InvalidSession)
 			{
-				veyonServerProcess.start( wtsSessionId, m_dataManager.token() );
+				veyonServerProcess.start( wtsSessionId, m_dataManager->token() );
 				lastServerStart.restart();
 			}
 
@@ -311,7 +307,9 @@ void WindowsServiceCore::manageServerForConsoleSession()
 		}
 
 		std::array<HANDLE, 2> events{m_sessionChangeEvent, m_stopServiceEvent};
-		WaitForMultipleObjects(events.size(), events.data(), FALSE, SessionPollingInterval);
+		if(WaitForMultipleObjects(events.size(), events.data(), FALSE, SessionPollingInterval)==WAIT_FAILED) {
+			m_serviceError.storeRelease(GetLastError());vCritical()<<"Service console wait failed"<<m_serviceError.loadAcquire();break;
+		}
 
 	} while (m_serviceStopRequested == 0);
 
@@ -348,42 +346,79 @@ void WindowsServiceCore::serviceMain()
 
 	if( m_statusHandle == nullptr )
 	{
-		vCritical() << "Invalid service status handle";
+		m_serviceError.storeRelease(GetLastError());vCritical() << "Invalid service status handle; Windows error"<<m_serviceError.loadAcquire();
 		return;
 	}
 
-	memset( &m_status, 0, sizeof( m_status ) );
-	m_status.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
+	{QMutexLocker lock(&m_statusMutex);m_status={};m_status.dwServiceType=SERVICE_WIN32_OWN_PROCESS;}
 
 	if( reportStatus( SERVICE_START_PENDING, NO_ERROR, ServiceStartTimeout ) == false )
 	{
-		vCritical() << "Service start timed out";
-		reportStatus( SERVICE_STOPPED, 0, 0 );
+		const auto error=GetLastError();m_serviceError.storeRelease(error?error:ERROR_SERVICE_REQUEST_TIMEOUT);
+		vCritical() << "Could not report service initialization; Windows error"<<m_serviceError.loadAcquire();
+		reportStatus( SERVICE_STOPPED, m_serviceError.loadAcquire(), 0 );
 		return;
 	}
 
 	m_stopServiceEvent = CreateEvent( nullptr, false, false, nullptr );
 	m_sessionChangeEvent = CreateEvent(nullptr, false, false, nullptr);
+	if(!m_stopServiceEvent || !m_sessionChangeEvent) {
+		const auto error=GetLastError();m_serviceError.storeRelease(error?error:ERROR_NOT_ENOUGH_MEMORY);
+		vCritical()<<"Service control event creation failed; Windows error"<<m_serviceError.loadAcquire();
+		closeControlEvents();reportStatus(SERVICE_STOPPED,m_serviceError.loadAcquire(),0);return;
+	}
+	// IPC/session initialization used to happen before connecting to the SCM.
+	// At boot it could consume the entire dispatcher deadline without reporting
+	// START_PENDING. Report real initialization milestones, never fake heartbeats.
+	QElapsedTimer startup;startup.start();
+	vInfo()<<"Service initialization started";
+	m_dataManager.reset(new ServiceDataManager);
+	if(m_sessionManager.mode()!=PlatformSessionManager::Mode::Active ||
+	   (WtsSessionManager::activeSessions().size()<=1 && WtsSessionManager::activeConsoleSession()!=WtsSessionManager::InvalidSession))
+		m_sessionManager.openSession(QStringLiteral("0 (console)"));
+	WindowsCoreFunctions::enablePrivilege(SE_ASSIGNPRIMARYTOKEN_NAME,true);
+	WindowsCoreFunctions::enablePrivilege(SE_INCREASE_QUOTA_NAME,true);
+	WindowsInputDeviceFunctions::checkInterceptionInstallation();
+	SasEventListener sasEventListener;
+	if(!reportStatus(SERVICE_START_PENDING,NO_ERROR,ServiceStartTimeout)) {
+		m_serviceError.storeRelease(GetLastError());m_dataManager.reset();closeControlEvents();
+		reportStatus(SERVICE_STOPPED,m_serviceError.loadAcquire(),0);return;
+	}
 
 	if( reportStatus( SERVICE_RUNNING, NO_ERROR, 0 ) == false )
 	{
-		vCritical() << "Could not report service as running";
+		m_serviceError.storeRelease(GetLastError());vCritical() << "Could not report service as running; Windows error"<<m_serviceError.loadAcquire();
+		m_dataManager.reset();closeControlEvents();reportStatus(SERVICE_STOPPED,m_serviceError.loadAcquire(),0);
 		return;
 	}
 
-	SasEventListener sasEventListener;
+	vInfo()<<"Service running; initialization milliseconds"<<startup.elapsed();
 	sasEventListener.start();
 
 	m_serviceEntryPoint();
 
-	CloseHandle(m_sessionChangeEvent);
-	CloseHandle( m_stopServiceEvent );
+	closeControlEvents();
 
 	sasEventListener.stop();
-	sasEventListener.wait( SasEventListener::WaitPeriod );
+	if(!sasEventListener.wait(SasEventListener::WaitPeriod)) {
+		vWarning()<<"SAS listener stop exceeded its deadline; waiting for safe cleanup";
+		sasEventListener.wait();
+	}
+	m_dataManager.reset();
 
 	// Tell the service manager that we've stopped.
-	reportStatus( SERVICE_STOPPED, 0, 0 );
+	const auto exitCode=WindowsServicePolicy::stoppedExit(m_serviceStopRequested.loadAcquire()!=0,m_serviceError.loadAcquire());
+	m_serviceError.storeRelease(exitCode);
+	if(exitCode) vCritical()<<"Service ended unexpectedly; Windows error"<<exitCode;
+	else vInfo()<<"Service stopped by explicit stop/shutdown request";
+	reportStatus( SERVICE_STOPPED, exitCode, 0 );
+}
+
+void WindowsServiceCore::closeControlEvents()
+{
+	QMutexLocker lock(&m_eventMutex);
+	if(m_sessionChangeEvent) {CloseHandle(m_sessionChangeEvent);m_sessionChangeEvent=nullptr;}
+	if(m_stopServiceEvent) {CloseHandle(m_stopServiceEvent);m_stopServiceEvent=nullptr;}
 }
 
 
@@ -428,9 +463,9 @@ DWORD WindowsServiceCore::serviceCtrl( DWORD ctrlCode, DWORD eventType, LPVOID e
 	{
 	case SERVICE_CONTROL_SHUTDOWN:
 	case SERVICE_CONTROL_STOP:
-		m_status.dwCurrentState = SERVICE_STOP_PENDING;
 		m_serviceStopRequested = 1;
-		SetEvent( m_stopServiceEvent );
+		reportStatus(SERVICE_STOP_PENDING,NO_ERROR,30000);
+		{QMutexLocker lock(&m_eventMutex);if(m_stopServiceEvent) SetEvent(m_stopServiceEvent);}
 		break;
 
 	case SERVICE_CONTROL_INTERROGATE:
@@ -453,7 +488,7 @@ DWORD WindowsServiceCore::serviceCtrl( DWORD ctrlCode, DWORD eventType, LPVOID e
 		case WTS_REMOTE_CONNECT:
 		case WTS_REMOTE_DISCONNECT:
 			m_sessionChanged = 1;
-			SetEvent(m_sessionChangeEvent);
+			{QMutexLocker lock(&m_eventMutex);if(m_sessionChangeEvent) SetEvent(m_sessionChangeEvent);}
 			break;
 		}
 		break;
@@ -464,7 +499,10 @@ DWORD WindowsServiceCore::serviceCtrl( DWORD ctrlCode, DWORD eventType, LPVOID e
 	}
 
 	// Tell the control manager what we're up to.
-	reportStatus( m_status.dwCurrentState, NO_ERROR, 0 );
+	if(ctrlCode==SERVICE_CONTROL_INTERROGATE) {
+		QMutexLocker lock(&m_statusMutex);
+		if(!m_terminalStatus) SetServiceStatus(m_statusHandle,&m_status);
+	}
 
 	return NO_ERROR;
 }
@@ -474,19 +512,14 @@ DWORD WindowsServiceCore::serviceCtrl( DWORD ctrlCode, DWORD eventType, LPVOID e
 // Service manager status reporting
 bool WindowsServiceCore::reportStatus( DWORD state, DWORD exitCode, DWORD waitHint )
 {
-	static DWORD checkpoint = 1;
+	QMutexLocker lock(&m_statusMutex);
+	if(m_terminalStatus) return state==SERVICE_STOPPED;
+	if(state==SERVICE_RUNNING && m_serviceStopRequested.loadAcquire()) {SetLastError(ERROR_OPERATION_ABORTED);return false;}
 	bool result = true;
 
 	// If we're in the start state then we don't want the control manager
 	// sending us control messages because they'll confuse us.
-	if( state == SERVICE_START_PENDING )
-	{
-		m_status.dwControlsAccepted = 0;
-	}
-	else
-	{
-		m_status.dwControlsAccepted = SERVICE_ACCEPT_STOP | SERVICE_ACCEPT_SHUTDOWN | SERVICE_ACCEPT_SESSIONCHANGE;
-	}
+	m_status.dwControlsAccepted = WindowsServicePolicy::acceptedControls(state);
 
 	// Save the new status we've been given
 	m_status.dwCurrentState = state;
@@ -501,14 +534,15 @@ bool WindowsServiceCore::reportStatus( DWORD state, DWORD exitCode, DWORD waitHi
 	}
 	else
 	{
-		m_status.dwCheckPoint = checkpoint++;
+		m_status.dwCheckPoint = ++m_checkpoint;
 	}
 
 	// Tell the SCM our new status
 	if( !( result = SetServiceStatus( m_statusHandle, &m_status ) ) )
 	{
-		vCritical() << "SetServiceStatus failed.";
+		const auto error=GetLastError();vCritical() << "SetServiceStatus failed; state"<<state<<"Windows error"<<error;SetLastError(error);
 	}
+	else if(state==SERVICE_STOPPED) m_terminalStatus=true;
 
 	return result;
 }

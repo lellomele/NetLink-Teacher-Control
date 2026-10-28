@@ -25,6 +25,10 @@
 #include "CommandLineIO.h"
 #include "ServiceControlCommands.h"
 #include "VeyonServiceControl.h"
+#include "PlatformServiceFunctions.h"
+#include "VeyonConfiguration.h"
+#include <QJsonDocument>
+#include <QJsonObject>
 
 ServiceControlCommands::ServiceControlCommands( QObject* parent ) :
 	QObject( parent ),
@@ -35,6 +39,7 @@ ServiceControlCommands::ServiceControlCommands( QObject* parent ) :
 { QStringLiteral("stop"), tr( "Stop Veyon Service" ) },
 { QStringLiteral("restart"), tr( "Restart Veyon Service" ) },
 { QStringLiteral("status"), tr( "Query status of Veyon Service" ) },
+{ QStringLiteral("verify"), tr( "Verify service startup mode, recovery policy and running state" ) },
 				} )
 {
 }
@@ -46,9 +51,7 @@ CommandLinePluginInterface::RunResult ServiceControlCommands::handle_register( c
 	Q_UNUSED(arguments)
 
 	VeyonServiceControl serviceControl;
-	serviceControl.registerService();
-
-	return serviceControl.isServiceRegistered() ? Successful : Failed;
+	return serviceControl.registerService() && serviceControl.isServiceRegistered() ? Successful : Failed;
 }
 
 
@@ -57,9 +60,7 @@ CommandLinePluginInterface::RunResult ServiceControlCommands::handle_unregister(
 {
 	Q_UNUSED(arguments)
 	VeyonServiceControl serviceControl;
-	serviceControl.unregisterService();
-
-	return serviceControl.isServiceRegistered() ? Failed : Successful;
+	return serviceControl.unregisterService() && !serviceControl.isServiceRegistered() ? Successful : Failed;
 }
 
 
@@ -69,9 +70,7 @@ CommandLinePluginInterface::RunResult ServiceControlCommands::handle_start( cons
 	Q_UNUSED(arguments)
 
 	VeyonServiceControl serviceControl;
-	serviceControl.startService();
-
-	return serviceControl.isServiceRunning() ? Successful : Failed;
+	return serviceControl.startService() && serviceControl.isServiceRunning() ? Successful : Failed;
 }
 
 
@@ -81,16 +80,14 @@ CommandLinePluginInterface::RunResult ServiceControlCommands::handle_stop( const
 	Q_UNUSED(arguments)
 
 	VeyonServiceControl serviceControl;
-	serviceControl.stopService();
-
-	return serviceControl.isServiceRunning() ? Failed : Successful;
+	return serviceControl.stopService() && !serviceControl.isServiceRunning() ? Successful : Failed;
 }
 
 
 
 CommandLinePluginInterface::RunResult ServiceControlCommands::handle_restart( const QStringList& arguments )
 {
-	handle_stop( arguments );
+	if(handle_stop(arguments)!=Successful) return Failed;
 	return handle_start( arguments );
 }
 
@@ -110,4 +107,20 @@ CommandLinePluginInterface::RunResult ServiceControlCommands::handle_status( con
 	}
 
 	return NoResult;
+}
+
+CommandLinePluginInterface::RunResult ServiceControlCommands::handle_verify(const QStringList& arguments)
+{
+	Q_UNUSED(arguments)
+	const auto details=VeyonCore::platform().serviceFunctions().serviceDetails(VeyonServiceControl::name());
+	CommandLineIO::print(QString::fromUtf8(QJsonDocument(QJsonObject::fromVariantMap(details)).toJson(QJsonDocument::Compact)));
+#ifdef Q_OS_WIN
+	const auto automatic=VeyonCore::config().autostartService();
+	const auto expected=automatic?2:3; // SERVICE_AUTO_START / SERVICE_DEMAND_START.
+	if(!automatic) CommandLineIO::print(QStringLiteral("WARNING: automatic startup is disabled in the preserved configuration. Enable Service/Autostart in Configurator to start after reboot."));
+	return !details.contains(QStringLiteral("queryError")) && details.value(QStringLiteral("state")).toString()==QStringLiteral("running") &&
+		details.value(QStringLiteral("startType")).toInt()==expected && details.value(QStringLiteral("recoveryPolicyVerified")).toBool()?Successful:Failed;
+#else
+	return VeyonServiceControl().isServiceRunning()?Successful:Failed;
+#endif
 }

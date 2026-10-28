@@ -36,14 +36,14 @@ QString WindowsServiceFunctions::veyonServiceName() const
 
 bool WindowsServiceFunctions::isRegistered( const QString& name )
 {
-	return WindowsServiceControl( name ).isRegistered();
+	return WindowsServiceControl( name, true ).isRegistered();
 }
 
 
 
 bool WindowsServiceFunctions::isRunning( const QString& name )
 {
-	return WindowsServiceControl( name ).isRunning();
+	return WindowsServiceControl( name, true ).isRunning();
 }
 
 
@@ -110,4 +110,9 @@ int WindowsServiceFunctions::windowsServiceStartType( PlatformServiceFunctions::
 	}
 
 	return SERVICE_DISABLED;
+}
+
+QVariantMap WindowsServiceFunctions::serviceDetails(const QString& name)
+{
+	return WindowsServiceControl(name,true).details();
 }
