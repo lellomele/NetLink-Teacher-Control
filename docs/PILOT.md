@@ -112,6 +112,13 @@ Do not share private keys, passwords or full reports without anonymization.
 
 ## Discovery and known-PC filter
 
+Test bulk import with Ctrl/Shift, Select all and Clear selection. Confirm only
+the selected PCs appear in the intended group after one save. During confirmation,
+introduce an expired/conflicting/duplicate row or change the destination: no PC
+may be imported. Refresh must retain selected identities without selecting new
+arrivals; hidden/expired rows must drop from the visible selection. Test Cancel,
+an empty selection with a current row, wrong ports, permission loss and save errors.
+
 1. Automatic: one row for a dual-stack client, preferably IPv4; no teacher row
    on any adapter. Tooltips must show observed addresses.
    With three cloned system IDs and different names, expect three rows, each

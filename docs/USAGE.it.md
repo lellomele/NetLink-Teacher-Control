@@ -195,6 +195,16 @@ indirizzo e porta. Nessuna selezione significa nessuna importazione: non sceglie
 il primo gruppo e non crea gruppi automaticamente. Se il gruppo viene cambiato,
 rinominato o eliminato durante la conferma, occorre ripetere l'importazione.
 L'importazione non modifica chiavi o autorizzazioni.
+Selezionare più righe della discovery con **Ctrl** o **Maiusc**, oppure usare
+**Seleziona tutti**; **Deseleziona** azzera la selezione. **Importa PC selezionati**
+presenta una sola conferma con numero, gruppo ed elenco completo in Mostra dettagli.
+Importa soltanto la selezione confermata, con un unico salvataggio; nuove righe
+trovate nel frattempo non vengono aggiunte automaticamente. Dopo la conferma
+ricontrolla tutte le righe: se una è già configurata, scaduta, in conflitto, usa
+una porta diversa o condivide un indirizzo rilevato con un'altra riga selezionata,
+non aggiunge alcun PC. Risolvere/deselezionare la riga interessata e riprovare.
+La selezione sopravvive agli aggiornamenti per identità discovery; le righe
+nascoste o scadute vengono rimosse dalla selezione visibile.
 I permessi devono appartenere al processo Console: un Configurator amministratore
 non la eleva. Un annuncio cambiato, scaduto o in conflitto va selezionato nuovamente.
 Un link-local conserva il numero della scheda del docente: vale su quel

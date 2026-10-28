@@ -105,7 +105,7 @@ foreach($component in $components) {
     $records+=[pscustomobject]@{package=$package;version=$version;recipeCommit=$matched;recipeSha256=$expected;sourceUrl=$sourceUrl;sourceSha256=$sourceHash}
     $records | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $outputRoot 'runtime-source-manifest.json') -Encoding UTF8
 }
-$destination=Join-Path $repoRoot 'dist/NetLink-1.0.0-alpha.33-runtime-sources.tar.gz'
+$destination=Join-Path $repoRoot 'dist/NetLink-1.0.0-alpha.34-runtime-sources.tar.gz'
 & $env:SystemRoot/System32/tar.exe -czf $destination -C $outputRoot @($components | ForEach-Object {'mingw-w64-'+$_[1]}) runtime-source-manifest.json
 if($LASTEXITCODE-ne0){throw 'Runtime-source archive creation failed'}
 Write-Output $destination

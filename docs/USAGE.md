@@ -179,6 +179,15 @@ it together with the address and port. No highlighted row means no import; it
 never falls back to the first group or creates a group automatically. If the group
 is changed, renamed or removed while confirmation is open, retry the import.
 Import does not alter keys/access rules.
+Select multiple discovery rows with **Ctrl** or **Shift**, or use **Select all**;
+**Clear selection** selects none. **Import selected computers** presents one
+confirmation with the count, destination and full list under Show Details.
+Only that confirmed selection is imported, in one save; newly discovered rows
+are never added automatically. All selected rows are checked again after confirmation.
+If any is already configured, expired, conflicting, on the wrong control port,
+or shares an observed address with another selected row, no PCs are added.
+Resolve/deselect the affected row and retry. Selection survives refresh by
+discovery identity; hidden/expired rows are removed from the visible selection.
 These rights belong to the Console process: an administrator Configurator does
 not elevate it. A changed, expired or conflicting announcement must be selected again.
 A link-local address retains the teacher's receiving-interface index, applies

@@ -124,6 +124,14 @@ Non condividere chiavi private, password o rapporti completi non anonimizzati.
 
 ## Discovery e filtro dei PC noti
 
+Provare l'importazione multipla con Ctrl/Maiusc, Seleziona tutti e Deseleziona.
+Confermare che solo i PC scelti compaiano nel gruppo previsto con un salvataggio.
+Durante la conferma introdurre una riga scaduta/in conflitto/duplicata o cambiare
+destinazione: nessun PC deve essere importato. L'aggiornamento conserva le identità
+selezionate senza aggiungere nuovi arrivi; righe nascoste/scadute escono dalla
+selezione visibile. Provare Annulla, selezione vuota con riga corrente, porte
+diverse, perdita dei permessi ed errori di salvataggio.
+
 1. In Automatico, un client dual-stack deve produrre una sola riga,
    preferibilmente IPv4; il docente non deve comparire su alcuna scheda.
    Il tooltip deve mostrare gli indirizzi osservati.

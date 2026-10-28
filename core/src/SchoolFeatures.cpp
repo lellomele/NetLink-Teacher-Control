@@ -38,6 +38,7 @@
 #include <QPushButton>
 #include <QPlainTextEdit>
 #include <QSaveFile>
+#include <QSignalBlocker>
 #include <QTableWidget>
 #include <QTextEdit>
 #include <QTextDocument>
@@ -555,14 +556,20 @@ void SchoolFeatures::discovery(VeyonMasterInterface& master,const QStringList& c
         return group;
     };
     auto target=new QLabel(dialog);target->setObjectName("schoolDiscoveryDestination");target->setWordWrap(true);target->setTextFormat(Qt::PlainText);layout->addWidget(target);
-    auto table=new QTableWidget(dialog);table->setColumnCount(4);table->setHorizontalHeaderLabels({NetLinkUi::text("Name reported by computer"),NetLinkUi::text("Detected address"),NetLinkUi::text("Port"),NetLinkUi::text("Locations & computers")});table->setSelectionBehavior(QAbstractItemView::SelectRows);table->setSelectionMode(QAbstractItemView::SingleSelection);table->setEditTriggers(QAbstractItemView::NoEditTriggers);table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);layout->addWidget(table);
+    auto selectionControls=new QHBoxLayout;layout->addLayout(selectionControls);
+    auto selectionHint=new QLabel(NetLinkUi::text("Select multiple rows with Ctrl or Shift, or select all."),dialog);selectionHint->setWordWrap(true);selectionControls->addWidget(selectionHint,1);
+    auto selectAll=new QPushButton(NetLinkUi::text("Select all"),dialog);selectAll->setObjectName("schoolDiscoverySelectAll");selectionControls->addWidget(selectAll);
+    auto clearSelection=new QPushButton(NetLinkUi::text("Clear selection"),dialog);clearSelection->setObjectName("schoolDiscoveryClearSelection");selectionControls->addWidget(clearSelection);
+    auto table=new QTableWidget(dialog);table->setColumnCount(4);table->setHorizontalHeaderLabels({NetLinkUi::text("Name reported by computer"),NetLinkUi::text("Detected address"),NetLinkUi::text("Port"),NetLinkUi::text("Locations & computers")});table->setSelectionBehavior(QAbstractItemView::SelectRows);table->setSelectionMode(QAbstractItemView::ExtendedSelection);table->setEditTriggers(QAbstractItemView::NoEditTriggers);table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);layout->addWidget(table);
+    connect(selectAll,&QPushButton::clicked,table,&QTableWidget::selectAll);
+    connect(clearSelection,&QPushButton::clicked,table,&QTableWidget::clearSelection);
     auto details=new QPlainTextEdit(dialog);details->setObjectName("schoolDiscoveryConflictDetails");details->setReadOnly(true);details->setMinimumHeight(100);details->setMaximumHeight(170);details->setMaximumBlockCount(40);details->hide();layout->addWidget(details);
     auto known=new SchoolDiscoveryKnownHosts(configuredHosts,dialog);
     auto records=QSharedPointer<QList<SchoolDiscovery::Record>>::create();
     auto knownRows=QSharedPointer<QList<bool>>::create();
     auto updateDetails=[table,records,details] {
         const int row=table->currentRow();
-        const bool conflict=row>=0 && row<records->size() && !table->selectedItems().isEmpty() && (*records)[row].conflict;
+        const bool conflict=row>=0 && row<records->size() && table->selectionModel()->isRowSelected(row,QModelIndex{}) && (*records)[row].conflict;
         if(conflict) details->setPlainText(SchoolDiscovery::conflictDetails((*records)[row]));
         details->setVisible(conflict);
     };
@@ -587,7 +594,10 @@ void SchoolFeatures::discovery(VeyonMasterInterface& master,const QStringList& c
             if(a.endpoint!=b.endpoint || a.name!=b.name || a.address!=b.address || a.addresses!=b.addresses || a.observations!=b.observations || a.conflict!=b.conflict || a.port!=b.port || updatedKnown[i]!=knownRows->value(i)) {changed=true;break;}
         }
         if(!changed) return;
-        const int selected=table->currentRow();const auto endpoint=selected>=0 && selected<records->size() ? (*records)[selected].endpoint : QString{};
+        QSet<QString> selectedEndpoints;
+        for(const auto& index:table->selectionModel()->selectedRows()) if(index.row()<records->size()) selectedEndpoints.insert((*records)[index.row()].endpoint);
+        const int current=table->currentRow();const auto endpoint=current>=0 && current<records->size()?(*records)[current].endpoint:QString{};
+        const QSignalBlocker blockSelection(table);
         *records=updated;*knownRows=updatedKnown;table->setUpdatesEnabled(false);table->clearSelection();table->setCurrentItem(nullptr);table->setRowCount(records->size());
         for(int i=0;i<records->size();++i) {
             const auto& record=(*records)[i];table->setItem(i,0,new QTableWidgetItem(record.name));
@@ -599,7 +609,9 @@ void SchoolFeatures::discovery(VeyonMasterInterface& master,const QStringList& c
                 for(int column=0;column<3;++column) table->item(i,column)->setToolTip(tooltip);
                 status->setToolTip(tooltip);
             }
-            table->setItem(i,3,status);if(record.endpoint==endpoint) table->selectRow(i);
+            table->setItem(i,3,status);
+            if(selectedEndpoints.contains(record.endpoint)) table->selectionModel()->select(table->model()->index(i,0),QItemSelectionModel::Select|QItemSelectionModel::Rows);
+            if(record.endpoint==endpoint) table->setCurrentCell(i,0,QItemSelectionModel::NoUpdate);
         }
         updateDetails();table->setUpdatesEnabled(true);
     };
@@ -611,21 +623,44 @@ void SchoolFeatures::discovery(VeyonMasterInterface& master,const QStringList& c
     });
     QTimer::singleShot(0,known,&SchoolDiscoveryKnownHosts::start);
     auto buttons=new QDialogButtonBox(QDialogButtonBox::Close,dialog);layout->addWidget(buttons);
-    auto import=buttons->addButton(NetLinkUi::text("Import selected computer"),QDialogButtonBox::ActionRole);
-    auto announcementError=[this,mode](const SchoolDiscovery::Record& selected) {
-        const auto addressMode=mode->currentIndex()==1?SchoolDiscovery::AddressMode::Ipv4Only:SchoolDiscovery::AddressMode::Automatic;
-        for(const auto& live:m_discovery->records(addressMode)) if(live.endpoint==selected.endpoint && live.conflict)
-            return SchoolDiscovery::conflictDetails(live);
-        if(m_discovery->isCurrent(selected,addressMode)) return QString{};
-        return NetLinkUi::text("The announcement for %1 (%2:%3) expired, changed, or contains conflicting data. Refresh discovery and select the computer again. No computer was imported.").arg(selected.name,selected.address,QString::number(selected.port));
+    auto import=buttons->addButton(NetLinkUi::text("Import selected computers"),QDialogButtonBox::ActionRole);
+    auto batchError=[this,known,mode](const QList<SchoolDiscovery::Record>& selected,QList<SchoolDiscovery::Record>& current) {
+        current.clear();QSet<QString> addresses;
+        // One fresh snapshot per validation, not repeated full discovery scans
+        // for every selected PC in a large classroom.
+        QHash<QString,SchoolDiscovery::Record> live;
+        for(const auto& peer:m_discovery->records(mode->currentIndex()==1?SchoolDiscovery::AddressMode::Ipv4Only:SchoolDiscovery::AddressMode::Automatic)) live.insert(peer.endpoint,peer);
+        for(auto record:selected) {
+            QString error;const auto peer=live.constFind(record.endpoint);
+            if(peer!=live.cend() && peer->conflict) error=SchoolDiscovery::conflictDetails(*peer);
+            else if(peer==live.cend() || peer->name!=record.name || peer->address!=record.address || peer->port!=record.port)
+                error=NetLinkUi::text("The announcement for %1 (%2:%3) expired, changed, or contains conflicting data. Refresh discovery and select the computer again. No computer was imported.").arg(record.name,record.address,QString::number(record.port));
+            // Retain the confirmed identity/name/preferred address, but check all
+            // current aliases too, including those received while confirming.
+            if(error.isEmpty()) record=*peer;
+            if(error.isEmpty() && known->contains(record)) error=NetLinkUi::text("Computer already configured.");
+            if(error.isEmpty() && record.port!=m_discoveryImport.port()) error=NetLinkUi::text("Port differs from the configured port: add the computer manually.");
+            QSet<QString> aliases;
+            for(const auto& address:QStringList{record.address}+record.addresses) {
+                const auto key=SchoolDiscovery::addressKey(QHostAddress(address));
+                if(!key.isEmpty()) aliases.insert(key);
+            }
+            if(error.isEmpty()) for(const auto& address:aliases) if(addresses.contains(address)) {
+                error=NetLinkUi::text("Two selected rows share an observed address. Select only one verified row for this computer.");break;
+            }
+            if(!error.isEmpty()) return selected.size()==1?error:
+                NetLinkUi::text("No computers were imported. Check selected row: %1 (%2).\n\n%3\n\nDeselect or resolve the affected row, then repeat the import.").arg(record.name,record.address,error);
+            addresses.unite(aliases);current.append(record);
+        }
+        return QString{};
     };
-    connect(import,&QPushButton::clicked,dialog,[this,dialog,table,records,import,known,announcementError,destination] {
-        const int row=table->currentRow();if(row<0 || row>=records->size()) return;
-        const auto record=(*records)[row];
-        if(known->contains(record)) {notify(dialog,QMessageBox::Information,"Discovery",NetLinkUi::text("Computer already configured."));return;}
-        const auto error=announcementError(record);
+    connect(import,&QPushButton::clicked,dialog,[this,dialog,table,records,import,known,batchError,destination] {
+        auto rows=table->selectionModel()->selectedRows();std::sort(rows.begin(),rows.end(),[](const QModelIndex& a,const QModelIndex& b){return a.row()<b.row();});
+        QList<SchoolDiscovery::Record> selected;
+        for(const auto& row:rows) if(row.row()>=0 && row.row()<records->size()) selected.append((*records)[row.row()]);
+        if(selected.isEmpty()) {notify(dialog,QMessageBox::Information,"Discovery",NetLinkUi::text("Select at least one discovery row. No computer was imported."));return;}
+        QList<SchoolDiscovery::Record> candidates;const auto error=batchError(selected,candidates);
         if(!error.isEmpty()) {notify(dialog,QMessageBox::Warning,"Discovery",error);return;}
-        if(record.port!=m_discoveryImport.port()) {notify(dialog,QMessageBox::Warning,"Discovery",NetLinkUi::text("Port differs from the configured port: add the computer manually."));return;}
         const auto group=destination();
         if(!group.isValid()) {
             notify(dialog,QMessageBox::Information,"Discovery",NetLinkUi::text("Highlight a configured group or one of its PCs in Locations & computers, then import again. No computer was imported and no group was created."));return;
@@ -633,19 +668,23 @@ void SchoolFeatures::discovery(VeyonMasterInterface& master,const QStringList& c
         if(!m_discoveryImport.writable()) {
             notify(dialog,QMessageBox::Warning,"Discovery",NetLinkUi::text("Import changes the system computer list. Close the Console and run NetLink Master as administrator, or add this address in NetLink Configurator. An elevated Configurator does not elevate the Console."));return;
         }
-        auto prompt=NetLinkUi::text("Computer: %1\nAddress: %2\nNetLink port: %3\nDestination group: %4\n\nConfirm that this computer belongs to the school and should be added to this group?").arg(record.name,record.address,QString::number(record.port),group.name());
-        if(QHostAddress(record.address).isLinkLocal()) prompt+=NetLinkUi::text("\nThis IPv6 link-local address is tied to this Master's network interface. For InternetGuard use a routable IP address or a resolvable hostname instead.");
-        auto confirmation=new QMessageBox(QMessageBox::Question,NetLinkUi::text("Import computer"),prompt,QMessageBox::Yes|QMessageBox::No,dialog);
+        const auto& first=candidates.first();
+        auto prompt=candidates.size()==1?NetLinkUi::text("Computer: %1\nAddress: %2\nNetLink port: %3\nDestination group: %4\n\nConfirm that this computer belongs to the school and should be added to this group?").arg(first.name,first.address,QString::number(first.port),group.name()):
+            NetLinkUi::text("Add %1 selected computers to group %2?\n\nOnly the rows selected when Import was pressed will be added. Check the complete list in Show Details. If any row fails validation, no computers will be imported.").arg(candidates.size()).arg(group.name());
+        QStringList descriptions;bool linkLocal=false;
+        for(const auto& record:candidates) {descriptions.append(NetLinkUi::text("Computer: %1 | Address: %2 | NetLink port: %3").arg(record.name,record.address,QString::number(record.port)));linkLocal|=QHostAddress(record.address).isLinkLocal();}
+        if(linkLocal) prompt+=NetLinkUi::text("\nThis IPv6 link-local address is tied to this Master's network interface. For InternetGuard use a routable IP address or a resolvable hostname instead.");
+        auto confirmation=new QMessageBox(QMessageBox::Question,NetLinkUi::text("Import computers"),prompt,QMessageBox::Yes|QMessageBox::No,dialog);
+        if(candidates.size()>1) confirmation->setDetailedText(descriptions.join('\n'));
         confirmation->setObjectName("schoolDiscoveryImportConfirmation");confirmation->setDefaultButton(QMessageBox::No);
         confirmation->setTextFormat(Qt::PlainText);confirmation->setAttribute(Qt::WA_DeleteOnClose);import->setEnabled(false);
-        connect(confirmation,&QMessageBox::finished,dialog,[this,dialog,record,group,import,known,announcementError,destination](int answer) {
+        connect(confirmation,&QMessageBox::finished,dialog,[this,dialog,candidates,group,import,known,batchError,destination](int answer) {
         import->setEnabled(true);if(answer!=QMessageBox::Yes) return;
         if(m_discoveryDialog!=dialog || !dialog->isVisible()) return;
-        if(known->contains(record)) {notify(dialog,QMessageBox::Information,"Discovery",NetLinkUi::text("Computer already configured."));return;}
-        const auto error=announcementError(record);
+        QList<SchoolDiscovery::Record> current;const auto error=batchError(candidates,current);
         if(!error.isEmpty()) {notify(dialog,QMessageBox::Warning,"Discovery",error);return;}
         const auto latestGroup=destination();
-        if(!latestGroup.isValid() || latestGroup.uid()!=group.uid() || latestGroup.name()!=group.name() || record.port!=m_discoveryImport.port()) {
+        if(!latestGroup.isValid() || latestGroup.uid()!=group.uid() || latestGroup.name()!=group.name()) {
             notify(dialog,QMessageBox::Warning,"Discovery",NetLinkUi::text("The destination group or control port changed. Select the group again and repeat the import. No computer was imported."));return;
         }
         if(!m_discoveryImport.writable()) {
@@ -653,13 +692,25 @@ void SchoolFeatures::discovery(VeyonMasterInterface& master,const QStringList& c
         }
         const auto previousObjects=m_discoveryImport.objects();
         auto objects=previousObjects;
-        for(const auto& value:objects) {const NetworkObject object(value.toObject());if(object.type()==NetworkObject::Type::Host && object.hostAddress()==record.address) {notify(dialog,QMessageBox::Information,"Discovery",NetLinkUi::text("Computer already configured."));return;}}
-        objects.append(NetworkObject(NetworkObject::Type::Host,record.name.left(120),record.address,{},{},QUuid::createUuid(),group.uid()).toJson());
+        QSet<QString> configuredAddresses;
+        for(const auto& value:previousObjects) {
+            const NetworkObject object(value.toObject());if(object.type()!=NetworkObject::Type::Host) continue;
+            configuredAddresses.insert(object.hostAddress());
+            const auto key=SchoolDiscovery::addressKey(QHostAddress(object.hostAddress()));if(!key.isEmpty()) configuredAddresses.insert(key);
+        }
+        for(const auto& record:current) {
+            for(const auto& address:QStringList{record.address}+record.addresses) {
+                if(configuredAddresses.contains(address)) {
+                    notify(dialog,QMessageBox::Information,"Discovery",NetLinkUi::text("Computer already configured."));return;
+                }
+            }
+            objects.append(NetworkObject(NetworkObject::Type::Host,record.name.left(120),record.address,{},{},QUuid::createUuid(),group.uid()).toJson());
+        }
         QString saveError;
         if(!m_discoveryImport.save(previousObjects,objects,saveError)) {notify(dialog,QMessageBox::Warning,"Discovery",saveError.isEmpty()?NetLinkUi::text("Could not save the computer list. No computer was imported."):saveError);return;}
-        known->rememberAddress(record.address);
-        for(const auto& address:record.addresses) known->rememberAddress(address);
-        notify(dialog,QMessageBox::Information,"Discovery",NetLinkUi::text("Computer imported into group %1. Restart the Master to display it; key authentication is still required.").arg(group.name()));
+        for(const auto& record:current) {known->rememberAddress(record.address);for(const auto& address:record.addresses) known->rememberAddress(address);}
+        notify(dialog,QMessageBox::Information,"Discovery",current.size()==1?NetLinkUi::text("Computer imported into group %1. Restart the Master to display it; key authentication is still required.").arg(group.name()):
+            NetLinkUi::text("%1 computers imported into group %2. Restart the Master to display them; key authentication is still required.").arg(current.size()).arg(group.name()));
         });confirmation->open();
     });
     connect(buttons,&QDialogButtonBox::rejected,dialog,&QDialog::reject);dialog->show();

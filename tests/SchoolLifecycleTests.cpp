@@ -127,7 +127,7 @@ private:
             peer.name="Discovered PC";peer.address="192.0.2.25";peer.port=11100;
             features.m_discovery->m_records.insert(peer.endpoint,peer);
         }
-        void show() {features.discovery(master,{});}
+        void show(const QStringList& configuredHosts={}) {features.discovery(master,configuredHosts);}
         QDialog* dialog() const {return features.m_discoveryDialog;}
         QTableWidget* table() const {return dialog()->findChild<QTableWidget*>();}
         QPushButton* importButton() const {
@@ -135,7 +135,7 @@ private:
             for(auto button:buttons->buttons()) if(buttons->buttonRole(button)==QDialogButtonBox::ActionRole) return qobject_cast<QPushButton*>(button);
             return nullptr;
         }
-        QMessageBox* ask() {table()->selectRow(0);importButton()->click();return dialog()->findChild<QMessageBox*>("schoolDiscoveryImportConfirmation");}
+        QMessageBox* ask() {table()->setCurrentCell(0,0,QItemSelectionModel::ClearAndSelect|QItemSelectionModel::Rows);importButton()->click();return dialog()->findChild<QMessageBox*>("schoolDiscoveryImportConfirmation");}
     };
 private Q_SLOTS:
     void selectedLanguageChangesLabelsNotFeatureIdentifiers() {
@@ -860,6 +860,113 @@ private Q_SLOTS:
         const NetworkObject imported(fixture.objects.last().toObject());
         QCOMPARE(imported.type(),NetworkObject::Type::Host);QCOMPARE(imported.parentUid(),fixture.second);
         QCOMPARE(imported.hostAddress(),fixture.peer.address);QCOMPARE(imported.name(),fixture.peer.name);
+    }
+    void discoveryBatchImportsSelectedRowsOnceIntoHighlightedGroup_data() {
+        QTest::addColumn<QString>("locale");
+        QTest::newRow("English")<<QString("en_US");QTest::newRow("Italian")<<QString("it_IT");
+    }
+    void discoveryBatchImportsSelectedRowsOnceIntoHighlightedGroup() {
+        QFETCH(QString,locale);struct Restore {QLocale value;~Restore(){QLocale::setDefault(value);}} restore{QLocale()};QLocale::setDefault(QLocale(locale));
+        ImportFixture fixture;
+        auto second=fixture.peer;second.endpoint="urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces);second.name="Second PC";second.address="192.0.2.26";
+        auto third=second;third.endpoint="urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces);third.name="Not selected";third.address="192.0.2.27";
+        fixture.features.m_discovery->m_records.insert(second.endpoint,second);fixture.features.m_discovery->m_records.insert(third.endpoint,third);
+        const auto before=fixture.objects;fixture.show();QCOMPARE(fixture.table()->selectionMode(),QAbstractItemView::ExtendedSelection);
+        for(int row=0;row<fixture.table()->rowCount();++row) if(fixture.table()->item(row,1)->text()!=third.address)
+            fixture.table()->selectionModel()->select(fixture.table()->model()->index(row,0),QItemSelectionModel::Select|QItemSelectionModel::Rows);
+        QCOMPARE(fixture.table()->selectionModel()->selectedRows().size(),2);fixture.importButton()->click();
+        auto question=fixture.dialog()->findChild<QMessageBox*>("schoolDiscoveryImportConfirmation");QVERIFY(question);
+        QVERIFY(question->text().contains("Room B"));QVERIFY(question->text().contains("2"));
+        QVERIFY(question->detailedText().contains(fixture.peer.address));QVERIFY(question->detailedText().contains(second.address));
+        QVERIFY(!question->detailedText().contains(third.address));QCOMPARE(question->defaultButton(),question->button(QMessageBox::No));
+        // Even if the selection changes, import the exact list that was confirmed.
+        fixture.table()->selectAll();question->button(QMessageBox::Yes)->click();
+        QCOMPARE(fixture.saves,1);QCOMPARE(fixture.objects.size(),before.size()+2);
+        QSet<QString> added;QSet<QUuid> ids;
+        for(int i=before.size();i<fixture.objects.size();++i) {
+            const NetworkObject host(fixture.objects[i].toObject());QCOMPARE(host.parentUid(),fixture.second);
+            added.insert(host.hostAddress());QVERIFY(!host.uid().isNull());ids.insert(host.uid());
+        }
+        QCOMPARE(ids.size(),2);QCOMPARE(added,QSet<QString>({fixture.peer.address,second.address}));
+        for(int i=0;i<before.size();++i) QCOMPARE(fixture.objects[i],before[i]);
+        auto known=fixture.dialog()->findChild<SchoolDiscoveryKnownHosts*>();QVERIFY(known->contains(second.address));QVERIFY(!known->contains(third.address));
+        QCOMPARE(fixture.table()->rowCount(),1);QCOMPARE(fixture.table()->item(0,1)->text(),third.address);
+    }
+    void discoveryBatchRejectsInvalidRowsWithoutPartialImports_data() {
+        QTest::addColumn<QString>("change");
+        for(const auto value:{"conflict","port","same-address","same-alias","expired","known-alias","cancel","closed","late-conflict","late-port","late-expired","late-duplicate","late-alias","late-stable-alias","late-group","late-permission","save-failure"})
+            QTest::newRow(value)<<QString(value);
+    }
+    void discoveryBatchRejectsInvalidRowsWithoutPartialImports() {
+        QFETCH(QString,change);ImportFixture fixture;
+        auto second=fixture.peer;second.endpoint="urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces);second.name="Second PC";second.address="192.0.2.26";
+        if(change=="same-address") second.address=fixture.peer.address;
+        fixture.features.m_discovery->m_records.insert(second.endpoint,second);
+        if(change=="same-alias") {auto alias=second;alias.address=fixture.peer.address;fixture.features.m_discovery->m_records.insert(second.endpoint+"alias",alias);}
+        if(change=="known-alias") {auto alias=second;alias.address="192.0.2.10";fixture.features.m_discovery->m_records.insert(second.endpoint+"alias",alias);}
+        if(change=="conflict") {auto other=second;other.address="2001:db8::26";other.name="Conflicting name";fixture.features.m_discovery->m_records.insert(second.endpoint+"conflict",other);}
+        if(change=="port") fixture.features.m_discovery->m_records[second.endpoint].port=11102;
+        if(change=="late-stable-alias") {auto alias=fixture.peer;alias.address="2001:db8::25";fixture.features.m_discovery->m_records.insert(fixture.peer.endpoint+"alias",alias);}
+        fixture.show(change=="known-alias"?QStringList{"192.0.2.10"}:QStringList{});fixture.table()->selectAll();
+        if(change=="known-alias") fixture.dialog()->findChild<QCheckBox*>("schoolDiscoveryHideKnown")->setChecked(false);
+        fixture.table()->selectAll();
+        if(change=="expired") fixture.features.m_discovery->m_records[second.endpoint].seen=-96000;
+        fixture.importButton()->click();auto question=fixture.dialog()->findChild<QMessageBox*>("schoolDiscoveryImportConfirmation");
+        if(change=="conflict" || change=="port" || change=="same-address" || change=="same-alias" || change=="expired" || change=="known-alias") QVERIFY(!question);
+        else {
+            QVERIFY(question);
+            if(change=="late-conflict") {auto other=second;other.address="2001:db8::26";other.name="Conflicting name";fixture.features.m_discovery->m_records.insert(second.endpoint+"conflict",other);}
+            if(change=="late-port") fixture.port=11102;
+            if(change=="late-expired") fixture.features.m_discovery->m_records[second.endpoint].seen=-96000;
+            if(change=="late-duplicate") fixture.objects.append(NetworkObject(NetworkObject::Type::Host,"Duplicate",second.address,{},{},QUuid::createUuid(),fixture.first).toJson());
+            if(change=="late-alias") {auto alias=second;alias.address=fixture.peer.address;fixture.features.m_discovery->m_records.insert(second.endpoint+"alias",alias);}
+            if(change=="late-stable-alias") {auto alias=second;alias.address="2001:db8::25";fixture.features.m_discovery->m_records.insert(second.endpoint+"alias",alias);}
+            if(change=="late-group") fixture.master.highlightedGroup=fixture.first;
+            if(change=="late-permission") fixture.writable=false;
+            if(change=="save-failure") fixture.failSave=true;
+            if(change=="closed") fixture.dialog()->hide();
+            const auto before=fixture.objects;question->button(change=="cancel"?QMessageBox::No:QMessageBox::Yes)->click();QCOMPARE(fixture.objects,before);
+        }
+        QCOMPARE(fixture.saves,0);auto known=fixture.dialog()->findChild<SchoolDiscoveryKnownHosts*>();
+        QVERIFY(!known->contains(second.address));QVERIFY(!known->contains(fixture.peer.address));
+    }
+    void discoveryBatchSelectionSurvivesRefreshAndClearDoesNotImportCurrentRow() {
+        ImportFixture fixture;
+        auto second=fixture.peer;second.endpoint="urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces);second.name="Second PC";second.address="192.0.2.26";
+        fixture.features.m_discovery->m_records.insert(second.endpoint,second);fixture.show();
+        fixture.dialog()->findChild<QPushButton*>("schoolDiscoverySelectAll")->click();QCOMPARE(fixture.table()->selectionModel()->selectedRows().size(),2);
+        fixture.features.m_discovery->m_records[second.endpoint].name="Updated name";
+        fixture.dialog()->findChild<QTimer*>("schoolDiscoveryRefresh")->start(10);
+        QTRY_VERIFY_WITH_TIMEOUT(fixture.table()->findItems("Updated name",Qt::MatchExactly).size()==1,1000);
+        QCOMPARE(fixture.table()->selectionModel()->selectedRows().size(),2);
+        auto third=second;third.endpoint="urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces);third.address="192.0.2.27";third.name="New arrival";
+        fixture.features.m_discovery->m_records.insert(third.endpoint,third);
+        QTRY_COMPARE_WITH_TIMEOUT(fixture.table()->rowCount(),3,1000);
+        QCOMPARE(fixture.table()->selectionModel()->selectedRows().size(),2);
+        for(const auto& row:fixture.table()->selectionModel()->selectedRows()) QVERIFY(fixture.table()->item(row.row(),1)->text()!=third.address);
+        fixture.features.m_discovery->m_records[second.endpoint].seen=-96000;
+        QTRY_COMPARE_WITH_TIMEOUT(fixture.table()->rowCount(),2,1000);QCOMPARE(fixture.table()->selectionModel()->selectedRows().size(),1);
+        fixture.table()->setCurrentCell(0,0,QItemSelectionModel::NoUpdate);
+        fixture.dialog()->findChild<QPushButton*>("schoolDiscoveryClearSelection")->click();QVERIFY(fixture.table()->selectionModel()->selectedRows().isEmpty());
+        fixture.importButton()->click();QVERIFY(!fixture.dialog()->findChild<QMessageBox*>("schoolDiscoveryImportConfirmation"));QCOMPARE(fixture.saves,0);
+        QCOMPARE(fixture.dialog()->findChild<QMessageBox*>()->text(),NetLinkUi::text("Select at least one discovery row. No computer was imported."));
+    }
+    void discoveryBatchMouseSelectionSupportsCtrlAndShift() {
+        ImportFixture fixture;
+        for(int i=1;i<=3;++i) {
+            auto peer=fixture.peer;peer.endpoint="urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces);
+            peer.name=QString("PC %1").arg(i);peer.address=QString("192.0.2.%1").arg(25+i);
+            fixture.features.m_discovery->m_records.insert(peer.endpoint,peer);
+        }
+        fixture.show();QCoreApplication::processEvents();auto table=fixture.table();
+        const auto click=[table](int row,Qt::KeyboardModifiers modifiers) {QTest::mouseClick(table->viewport(),Qt::LeftButton,modifiers,table->visualItemRect(table->item(row,0)).center());};
+        click(0,Qt::NoModifier);click(2,Qt::ControlModifier);
+        QCOMPARE(table->selectionModel()->selectedRows().size(),2);
+        QVERIFY(table->selectionModel()->isRowSelected(0,{}));QVERIFY(table->selectionModel()->isRowSelected(2,{}));
+        click(3,Qt::ShiftModifier);QVERIFY(table->selectionModel()->isRowSelected(2,{}));QVERIFY(table->selectionModel()->isRowSelected(3,{}));
+        // Synthetic mouse modifiers otherwise remain cached by the offscreen
+        // platform and influence programmatic row selection in later tests.
+        click(0,Qt::NoModifier);QCOMPARE(QGuiApplication::keyboardModifiers(),Qt::KeyboardModifiers(Qt::NoModifier));
     }
     void discoveryRequiresARealHighlightedGroup_data() {
         QTest::addColumn<QString>("choice");
