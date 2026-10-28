@@ -1,4 +1,5 @@
 [
+  {"source":"If different computers share this identity, update NetLink on each affected client: newer identities combine the system ID, computer name and available permanent physical-adapter MACs. Updating only the Master cannot change old client announcements. Discovery is not authentication.","it":"Se computer diversi condividono questa identità, aggiorna NetLink su ciascun client interessato: le nuove identità combinano ID del sistema, nome del PC e MAC permanenti disponibili delle schede fisiche. Aggiornare soltanto il Master non modifica gli annunci dei vecchi client. La discovery non è autenticazione."},
   {"source":"The saved computer list changed in Configurator. Restart the Console and select the destination group again. Nothing was imported.","it":"L’elenco salvato dei PC è cambiato nel Configurator. Riavvia la Console e seleziona nuovamente il gruppo di destinazione. Nessun PC è stato importato."},
   {"source":"Different names and NetLink ports — import blocked","it":"Nomi e porte NetLink differenti — importazione bloccata"},
   {"source":"Different computer names — import blocked","it":"Nomi dei computer differenti — importazione bloccata"},

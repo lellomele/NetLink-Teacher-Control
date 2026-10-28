@@ -127,6 +127,14 @@ Non condividere chiavi private, password o rapporti completi non anonimizzati.
 1. In Automatico, un client dual-stack deve produrre una sola riga,
    preferibilmente IPv4; il docente non deve comparire su alcuna scheda.
    Il tooltip deve mostrare gli indirizzi osservati.
+   Con tre ID Windows clonati e nomi diversi, attendersi tre righe, ciascuna con
+   i propri IPv4/IPv6. Provare anche ID + nome clonati ma MAC fisici diversi e
+   PC senza MAC permanenti utilizzabili. Cambio di connessione attiva e ordine
+   delle schede non devono cambiare identità se il gruppo delle schede fisiche
+   installate rimane invariato. Schede virtuali/MAC casuali correnti non la influenzano.
+   Rimuovere hardware può cambiarla al riavvio del servizio, non cambia chiavi/profili.
+   Attendere la scadenza degli annunci precedenti all'upgrade; nomi/porte discordanti
+   con la stessa identità devono continuare a bloccare l'importazione.
 2. Con il client già configurato per IP o hostname risolvibile, attivare il
    filtro: deve sparire dai nuovi risultati. Disattivarlo: deve essere
    Già configurato e un'importazione non deve duplicarlo.

@@ -114,6 +114,14 @@ Do not share private keys, passwords or full reports without anonymization.
 
 1. Automatic: one row for a dual-stack client, preferably IPv4; no teacher row
    on any adapter. Tooltips must show observed addresses.
+   With three cloned system IDs and different names, expect three rows, each
+   grouping its IPv4/IPv6 addresses. Also test cloned system ID + name but different
+   physical MACs, and machines without usable permanent MACs. Route switches and
+   enumeration order must not change identity when the installed physical-adapter
+   set stays the same. Virtual adapters/current randomized MACs must not affect it.
+   Hardware removal can change identity after a service restart, not keys/profiles.
+   Allow stale pre-upgrade announcements to expire; contradictory names/ports
+   sharing an identity must still block import.
 2. For a client configured by IP/resolvable hostname, enable filtering: it must
    disappear from new results. Disable it: mark Already Configured, prevent duplicate import.
 3. Test a client configured only by an IPv6 alias of the same identity, even if

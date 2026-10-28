@@ -19,6 +19,13 @@ enum class AddressMode { Automatic, Ipv4Only };
 // Canonical unicast destination. Link-local IPv6 requires a local interface;
 // the remote peer's advertised zone number is never used for reception.
 VEYON_CORE_EXPORT QString addressKey(const QHostAddress& address, uint interfaceIndex = 0);
+// Local identity inputs only; never serialized as MAC addresses or credentials.
+struct IdentityInterface {
+    QByteArray permanentAddress;
+    bool hardware = false, ethernetOrWifi = false, filter = false;
+};
+VEYON_CORE_EXPORT QString endpointIdentity(const QByteArray& systemId, const QString& hostname,
+    bool master, const QList<IdentityInterface>& interfaces = {});
 struct Record {
     struct Observation {
         QString address, name;
@@ -59,6 +66,7 @@ private:
     friend class ::SchoolLifecycleTests;
     friend class ::SchoolTests;
     Agent(bool master, const QString& bootstrap, int port, QObject* parent, bool initializeSockets);
+    static QList<IdentityInterface> identityInterfaces();
     Message announcement(const QString& action) const;
     void refreshInterfaces();
     bool isLocalIpv4(const QHostAddress& address) const;

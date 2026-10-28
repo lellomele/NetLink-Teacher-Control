@@ -14,6 +14,14 @@
 #include <QXmlStreamReader>
 #include <QXmlStreamWriter>
 #include <algorithm>
+#ifdef Q_OS_WIN
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <iphlpapi.h>
+#include <netioapi.h>
+#include <memory>
+#undef interface
+#endif
 
 namespace SchoolDiscovery {
 static const QString Soap = "http://www.w3.org/2003/05/soap-envelope";
@@ -22,6 +30,49 @@ static const QString Discovery = "http://docs.oasis-open.org/ws-dd/ns/discovery/
 static const QString School = "urn:veyon-school:discovery:1";
 static const QString Target = "urn:docs-oasis-open-org:ws-dd:ns:discovery:2009:01";
 static QString identifier() { return "urn:uuid:" + QUuid::createUuid().toString(QUuid::WithoutBraces); }
+QString endpointIdentity(const QByteArray& systemId,const QString& hostname,bool master,const QList<IdentityInterface>& interfaces) {
+    auto name=hostname.trimmed().normalized(QString::NormalizationForm_C).toCaseFolded();
+    if(name.endsWith('.')) name.chop(1); // DNS absolute/relative spelling of the same name.
+    QList<QByteArray> macs;
+    for(const auto& interface:interfaces) {
+        const auto& mac=interface.permanentAddress;
+        if(!interface.hardware || !interface.ethernetOrWifi || interface.filter || mac.size()!=6 ||
+           (quint8(mac[0])&1) || mac==QByteArray(6,'\0')) continue;
+        if(!macs.contains(mac)) macs.append(mac);
+    }
+    std::sort(macs.begin(),macs.end()); // Stable across adapter enumeration and link state changes.
+    QByteArray input("netlink-ws-discovery-identity-v2\n");
+    const auto append=[&input](const QByteArray& value) {input+=QByteArray::number(value.size())+':'+value;};
+    append(systemId);append(name.toUtf8());append(master?QByteArray("proxy"):QByteArray("client"));
+    for(const auto& mac:macs) append(mac);
+    // No MAC, machine ID or hostname is recoverably embedded in the UUID.
+    // Hashing is not authentication and does not make a guessable MAC secret.
+    return "urn:uuid:"+QUuid::fromRfc4122(QCryptographicHash::hash(input,QCryptographicHash::Sha256).left(16)).toString(QUuid::WithoutBraces);
+}
+QList<IdentityInterface> Agent::identityInterfaces() {
+    QList<IdentityInterface> result;
+#ifdef Q_OS_WIN
+    PMIB_IF_TABLE2 table=nullptr;
+    const auto status=GetIfTable2(&table);
+    if(status!=NO_ERROR || !table) {
+        if(table) FreeMibTable(table);
+        qWarning("NetLink discovery: permanent adapter identity unavailable (Windows %lu); using system ID and computer name",static_cast<unsigned long>(status));
+        return result;
+    }
+    const std::unique_ptr<MIB_IF_TABLE2,decltype(&FreeMibTable)> cleanup(table,&FreeMibTable);
+    // Includes disconnected installed adapters: never select the currently active
+    // route, current/randomized MAC, IP address, interface index or a virtual NIC.
+    for(ULONG i=0;i<table->NumEntries;++i) {
+        const auto& row=table->Table[i];
+        if(row.PhysicalAddressLength!=6) continue;
+        result.append({QByteArray(reinterpret_cast<const char*>(row.PermanentPhysicalAddress),6),
+            bool(row.InterfaceAndOperStatusFlags.HardwareInterface),
+            row.Type==IF_TYPE_ETHERNET_CSMACD || row.Type==IF_TYPE_IEEE80211,
+            bool(row.InterfaceAndOperStatusFlags.FilterInterface)});
+    }
+#endif
+    return result;
+}
 static bool normalizedIpv4(const QHostAddress& input,QHostAddress& output) {
     if(input.protocol()==QAbstractSocket::IPv4Protocol) {output=input;return true;}
     if(input.protocol()!=QAbstractSocket::IPv6Protocol) return false;
@@ -184,10 +235,8 @@ Agent::Agent(bool master, const QString& bootstrap, int port, QObject* parent, b
       m_udp4(this), m_udp6(this), m_probe4(this), m_probe6(this), m_http(this), m_network(this), m_timer(this),
       m_instance(quint64(QDateTime::currentSecsSinceEpoch())) {
     m_clock.start();
-    auto identity = QSysInfo::machineUniqueId();
-    if (identity.isEmpty()) identity = QHostInfo::localHostName().toUtf8();
-    identity+=master ? ":discovery-proxy" : ":client";
-    m_endpoint = "urn:uuid:" + QUuid::fromRfc4122(QCryptographicHash::hash(identity,QCryptographicHash::Sha256).left(16)).toString(QUuid::WithoutBraces);
+    m_endpoint=endpointIdentity(QSysInfo::machineUniqueId(),QHostInfo::localHostName(),master,
+        initializeSockets?identityInterfaces():QList<IdentityInterface>{});
     if(!initializeSockets) return;
     refreshInterfaces();
     const auto flags = QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint;
@@ -327,6 +376,7 @@ QString conflictDetails(const Record& record) {
     }
     lines.append(NetLinkUi::text("Automatic import is blocked because these announcements disagree. Multiple IPv4/IPv6 addresses alone are normal. This is not an authentication or TCP test."));
     lines.append(NetLinkUi::text("Check the computer name and NetLink service port. A recent configuration change or cloned Windows identity can cause this. Old announcements expire after about 95 seconds without renewal. Repeat discovery, or add the verified address manually in Configurator."));
+    lines.append(NetLinkUi::text("If different computers share this identity, update NetLink on each affected client: newer identities combine the system ID, computer name and available permanent physical-adapter MACs. Updating only the Master cannot change old client announcements. Discovery is not authentication."));
     return lines.join('\n');
 }
 bool Agent::isCurrent(const Record& selected,AddressMode mode) const {

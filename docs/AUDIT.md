@@ -93,7 +93,17 @@ metadata aliases; no remote URL is followed.
 
 Announcements sharing an EPR produce one row. Conflicting names/ports remain
 visible and cannot be imported automatically. Cloned images with identical
-identity/data cannot be distinguished without authentication.
+identity/data cannot be distinguished by these unauthenticated announcements.
+New local EPRs hash length-framed system ID, normalized hostname, role and sorted,
+deduplicated permanent physical Ethernet/Wi-Fi MACs. There is no network lookup,
+new port or settings write. Missing MACs fall back to system ID + name, never a
+random identity per announcement. Hardware/OS/name changes can change the EPR;
+configured workstation/profile UUIDs and authentication are separate and unchanged.
+Windows uses [GetIfTable2](https://learn.microsoft.com/en-us/windows/win32/api/netioapi/nf-netioapi-getiftable2)
+and the permanent address/hardware flags in
+[MIB_IF_ROW2](https://learn.microsoft.com/en-us/windows/win32/api/netioapi/ns-netioapi-mib_if_row2),
+not the active/randomized MAC or interface index. These driver-reported properties
+are not cryptographic proof of identity. Hashing does not make a guessable MAC secret.
 The teacher is excluded using addresses on all adapters, not its name.
 
 Link-local addresses use the receiving interface index, never the remote index.

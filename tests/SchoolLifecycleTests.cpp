@@ -659,6 +659,80 @@ private Q_SLOTS:
         QVERIFY(addressKey(QHostAddress("fe80::25")).isEmpty());
         for(const auto& value:{"0.0.0.0","::","::1","127.0.0.1","ff02::c","224.0.0.1","255.255.255.255","::192.0.2.25"}) QVERIFY(addressKey(QHostAddress(value)).isEmpty());
     }
+    void discoveryReadsNativePermanentInterfaceTableWithoutOpeningSockets() {
+        // Read-only OS query. No discovery sockets, service, config or key writes.
+        const auto interfaces=SchoolDiscovery::Agent::identityInterfaces();
+        for(const auto& nic:interfaces) QCOMPARE(nic.permanentAddress.size(),6);
+        auto reversed=interfaces;std::reverse(reversed.begin(),reversed.end());
+        QCOMPARE(SchoolDiscovery::endpointIdentity("fixture-system","PC",false,interfaces),
+                 SchoolDiscovery::endpointIdentity("fixture-system","PC",false,reversed));
+    }
+    void discoveryIdentityCombinesSystemNameRoleAndPermanentPhysicalMacs() {
+        using namespace SchoolDiscovery;
+        const auto ethernet=IdentityInterface{QByteArray::fromHex("001122334455"),true,true,false};
+        const auto wifi=IdentityInterface{QByteArray::fromHex("aabbccddeeff"),true,true,false};
+        const QByteArray clonedSystem="cloned-windows-system-id";
+        const auto base=endpointIdentity(clonedSystem,"ALUNNO-9",false,{ethernet,wifi});
+        QVERIFY(base.startsWith("urn:uuid:"));QVERIFY(!QUuid(base.mid(9)).isNull());
+        QCOMPARE(base,endpointIdentity(clonedSystem," alunno-9. ",false,{wifi,ethernet,wifi}));
+        QVERIFY(base!=endpointIdentity(clonedSystem,"ALUNNO-12",false,{ethernet,wifi}));
+        QVERIFY(base!=endpointIdentity("another-system","ALUNNO-9",false,{ethernet,wifi}));
+        QVERIFY(base!=endpointIdentity(clonedSystem,"ALUNNO-9",true,{ethernet,wifi}));
+        auto replaced=ethernet;replaced.permanentAddress=QByteArray::fromHex("001122334466");
+        QVERIFY(base!=endpointIdentity(clonedSystem,"ALUNNO-9",false,{replaced,wifi}));
+        // Cloned system AND name can still be distinguished by physical hardware.
+        QVERIFY(endpointIdentity(clonedSystem,"ALUNNO-9",false,{ethernet})!=endpointIdentity(clonedSystem,"ALUNNO-9",false,{replaced}));
+        // Length framing prevents input-boundary ambiguities.
+        QVERIFY(endpointIdentity("ab","c",false)!=endpointIdentity("a","bc",false));
+        QVERIFY(!base.contains("001122334455"));QVERIFY(!base.contains("ALUNNO-9"));
+        // Case and canonical Unicode spelling do not change the normalized name.
+        QCOMPARE(endpointIdentity({},QString::fromUtf8("\xc3\x89-PC"),false),endpointIdentity({},QString::fromUtf8("E\xcc\x81-pc"),false));
+    }
+    void discoveryIdentityRejectsVirtualFilterAndUnavailableMacsWithoutRandomFallback() {
+        using namespace SchoolDiscovery;
+        const auto valid=IdentityInterface{QByteArray::fromHex("001122334455"),true,true,false};
+        auto virtualNic=valid;virtualNic.hardware=false;
+        auto tunnel=valid;tunnel.ethernetOrWifi=false;
+        auto filter=valid;filter.filter=true;
+        auto missing=valid;missing.permanentAddress.clear();
+        auto zero=valid;zero.permanentAddress=QByteArray(6,'\0');
+        auto multicast=valid;multicast.permanentAddress=QByteArray::fromHex("011122334455");
+        auto broadcast=valid;broadcast.permanentAddress=QByteArray(6,char(0xff));
+        auto shortMac=valid;shortMac.permanentAddress=QByteArray::fromHex("001122");
+        const auto base=endpointIdentity("system","PC",false);
+        QCOMPARE(base,endpointIdentity("system","PC",false,{virtualNic,tunnel,filter,missing,zero,multicast,broadcast,shortMac}));
+        QCOMPARE(base,endpointIdentity("system","PC",false)); // No random UUID on restart.
+        QVERIFY(endpointIdentity({},"ALUNNO-9",false)!=endpointIdentity({},"ALUNNO-12",false));
+        QVERIFY(base!=endpointIdentity("system","PC",false,{valid,virtualNic}));
+        QCOMPARE(endpointIdentity("system","PC",false,{valid}),endpointIdentity("system","PC",false,{virtualNic,valid,filter}));
+    }
+    void discoveryClonedClassroomProducesThreeDualStackRowsAndKnownFilterStillWorks() {
+        using namespace SchoolDiscovery;
+        for(bool ipv6First:{false,true}) {
+            Agent agent(true,{},11100,nullptr,false);
+            const QStringList names{"ALUNNO-9","ALUNNO-12","ALUNNO-14"};
+            const QStringList ips{"192.0.2.44","192.0.2.86","192.0.2.64"};
+            const QStringList ipv6{"2001:db8::44","2001:db8::86","2001:db8::64"};
+            const QByteArray copied="same-cloned-system";
+            for(int i=0;i<names.size();++i) {
+                const auto id=endpointIdentity(copied,names[i],false);
+                auto packet=discoveryPacket("Hello",id);packet.records.first().name=names[i];
+                const auto data=encode(packet);
+                for(const auto& ip:ipv6First?QStringList{ipv6[i],ips[i]}:QStringList{ips[i],ipv6[i]}) {
+                    agent.process(data,QHostAddress(ip),false);agent.process(data,QHostAddress(ip),false);
+                }
+            }
+            QCOMPARE(agent.m_records.size(),6);QCOMPARE(agent.records().size(),3);
+            QCOMPARE(agent.records(AddressMode::Ipv4Only).size(),3);
+            SchoolDiscoveryKnownHosts known(ips,nullptr);known.start();
+            for(const auto& row:agent.records()) {
+                const auto i=names.indexOf(row.name);QVERIFY(i>=0);
+                QVERIFY(!row.conflict);QCOMPARE(row.address,ips[i]);QCOMPARE(row.addresses.size(),2);
+                QVERIFY(row.addresses.contains(ipv6[i]));QVERIFY(known.contains(row));
+                QVERIFY(agent.isCurrent(row,AddressMode::Automatic));
+            }
+        }
+    }
     void discoveryAutomaticDeduplicatesBothFamiliesRegardlessOfArrivalOrder() {
         for(bool ipv6First:{false,true}) {
             SchoolDiscovery::Agent agent(true,{},11100,nullptr,false);

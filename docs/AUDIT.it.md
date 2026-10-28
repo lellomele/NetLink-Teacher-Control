@@ -99,7 +99,18 @@ non alias arbitrari dichiarati nei metadati; nessun URL remoto viene seguito.
 
 Gli annunci della stessa EPR producono una riga. Nomi/porte contraddittori
 restano visibili e non importabili automaticamente. Identità e dati identici
-su immagini clonate non sono distinguibili senza autenticazione.
+su immagini clonate non sono distinguibili da questi annunci non autenticati.
+Le nuove EPR locali calcolano un hash da campi con lunghezza esplicita: ID del
+sistema, nome normalizzato, ruolo e MAC permanenti ordinati e deduplicati delle
+schede fisiche Ethernet/Wi-Fi. Nessuna ricerca in rete, nuova porta o scrittura
+di impostazioni. Senza MAC si usa ID del sistema + nome, mai un'identità casuale
+per ogni annuncio. Modifiche a hardware, sistema o nome possono cambiare EPR;
+UUID delle postazioni/profili e autenticazione sono separati e non cambiano.
+Windows usa [GetIfTable2](https://learn.microsoft.com/en-us/windows/win32/api/netioapi/nf-netioapi-getiftable2)
+e indirizzo permanente/flag hardware di
+[MIB_IF_ROW2](https://learn.microsoft.com/en-us/windows/win32/api/netioapi/ns-netioapi-mib_if_row2),
+non MAC attivo/casuale o indice di interfaccia. Questi dati del driver non sono
+prove crittografiche; un hash non rende segreto un MAC indovinabile.
 Il docente è escluso mediante i suoi indirizzi su tutte le schede, non per nome.
 
 I link-local usano l'indice dell'interfaccia ricevente, mai il numero remoto.

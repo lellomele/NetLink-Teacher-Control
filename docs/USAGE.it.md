@@ -163,7 +163,22 @@ coerenti non costituiscono un conflitto.
 Il tooltip li elenca; gli indirizzi semplicemente dichiarati nei metadati
 non vengono usati come prova. Il docente è escluso su tutte le schede.
 Annunci contraddittori restano visibili e non sono importabili automaticamente;
-PC clonati con identità e dati uguali possono essere indistinguibili.
+L'identità discovery combina ID del sistema, nome del computer normalizzato e,
+su Windows, MAC permanenti disponibili delle schede fisiche Ethernet/Wi-Fi.
+Sono incluse le schede installate anche se scollegate; interfacce virtuali/filtro
+e MAC inutilizzabili sono ignorati. Non dipende da connessione attiva, indirizzo IP
+o MAC corrente/casuale. I MAC entrano nel calcolo locale dell'hash, non sono aggiunti
+in chiaro agli annunci. Se non disponibili, ID del sistema + nome distinguono
+comunque i PC clonati con nomi diversi. Non è autenticazione: input identici o
+contraffatti possono ancora coincidere.
+
+Rinominare un PC, reinstallare Windows o aggiungere/rimuovere/sostituire una scheda
+inclusa può cambiare l'identità discovery. Non cambia chiavi di autenticazione,
+UUID delle postazioni già configurate o profili classe. L'identità resta fissa
+per ciascun agente discovery in esecuzione: dopo tali modifiche riavviare il servizio.
+Aggiornare i client interessati, non soltanto il Master. I vecchi client mantengono
+i precedenti annunci; dopo l'upgrade attendere circa 95 secondi per la scadenza
+dei dati obsoleti. Nessun identificatore Windows o parametro delle schede è modificato.
 
 **Nascondi i computer già presenti in Posizioni e computer** confronta gli
 indirizzi osservati con IP configurati e risposte DNS A/AAAA degli hostname.

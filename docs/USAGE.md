@@ -150,7 +150,21 @@ hovering the row shows the same explanation. Automatic import remains blocked.
 Multiple IPv4/IPv6 addresses with matching names and ports are not a conflict.
 Metadata addresses alone are not evidence. The teacher is excluded on every adapter.
 Contradictory announcements stay visible and cannot be imported automatically.
-Cloned PCs with identical identity/metadata may be indistinguishable.
+Discovery identities combine the system ID, normalized computer name and, on
+Windows, available permanent MACs of physical Ethernet/Wi-Fi adapters.
+Installed disconnected adapters are included; virtual/filter interfaces and
+unusable MACs are ignored. The active route, IP address and current/randomized
+MAC are not identity inputs. MACs are hashed locally, not added to announcements
+in cleartext. Without usable MACs, system ID + name still distinguish cloned PCs
+with different names. This is not authentication: identical/spoofed inputs can collide.
+
+Renaming a PC, reinstalling Windows or adding/removing/replacing an included
+adapter can change its discovery identity. This does not change authentication
+keys, configured workstation UUIDs or class profiles. Identity is fixed for each
+running discovery agent; restart the service after such changes.
+Update affected clients, not just the Master. Older clients keep their former
+announcements; allow about 95 seconds for stale records to expire after upgrading.
+No Windows machine identifier or adapter setting is modified.
 
 **Hide computers already in Locations & computers** matches observed addresses
 against configured IPs and DNS A/AAAA answers across all locations.
