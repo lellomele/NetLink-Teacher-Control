@@ -55,7 +55,7 @@ function RunInstaller([string]$file,[string]$arguments,[int]$expectedExit=0) {
     if(Test-Path -LiteralPath $errorFile){Remove-Item -LiteralPath $errorFile}
     $process=Start-Process -FilePath $file -ArgumentList $arguments -WindowStyle Hidden -PassThru
     try {if(!$process.WaitForExit(60000)){$process.Kill();throw "Installer fixture deadline exceeded: $file $arguments"}; if($process.ExitCode-ne$expectedExit){$detail=if(Test-Path -LiteralPath $errorFile){Get-Content -LiteralPath $errorFile -Raw}else{'no helper error'}; $trace=Join-Path $root 'installer-cli-trace.txt'; if(Test-Path -LiteralPath $trace){$detail+="`n"+((Get-Content -LiteralPath $trace | Select-Object -Last 12)-join"`n")}; throw "Installer fixture failed after $script:successfulInstalls successful installs: exit $($process.ExitCode), expected $expectedExit; command '$file $arguments'; $detail"}}finally{$process.Dispose()}
-    if($expectedExit-eq0 -and (Split-Path $file -Leaf)-eq'NetLink-1.0.0-alpha.34-win64-setup.exe'){$script:successfulInstalls++}
+    if($expectedExit-eq0 -and (Split-Path $file -Leaf)-eq'NetLink-1.0.0-alpha.35-win64-setup.exe'){$script:successfulInstalls++}
 }
 function WaitRemoval {
     $deadline=[DateTime]::UtcNow.AddSeconds(20)
@@ -113,7 +113,7 @@ function CheckComponents([string]$role,[bool]$companion=$false) {
 try {
     & (Join-Path $Toolchain 'bin/makensis.exe') '/INPUTCHARSET' 'UTF8' "/DNETLINK_INSTALLER_FIXTURE" "/DFIXTURE_ID=$id" "/DFIXTURE_ROOT=$root" "/DFIXTURE_REGKEY=$registry" "/DREPOROOT=$repoRoot" "/DOUTPUT=$root" "/DPAYLOAD=$payload" (Join-Path $repoRoot 'packaging/veyon-school.nsi') | Out-Null
     if($LASTEXITCODE-ne0){throw 'Full installer fixture compilation failed'}
-    $installer=Join-Path $root 'NetLink-1.0.0-alpha.34-win64-setup.exe'
+    $installer=Join-Path $root 'NetLink-1.0.0-alpha.35-win64-setup.exe'
     $oldHashes=@{};Get-ChildItem -LiteralPath $app -File | ForEach-Object {$oldHashes[$_.Name]=(Get-FileHash -LiteralPath $_.FullName).Hash}
     $loaded=Start-Process -FilePath $Helper -ArgumentList ('hold-image "'+$app+'"') -WindowStyle Hidden -PassThru
     try {

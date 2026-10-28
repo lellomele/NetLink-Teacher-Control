@@ -232,8 +232,11 @@ QString NetLinkUi::serviceSnapshot(const ServiceSnapshot& s) {
     auto address=ServiceNetworkAddresses::preferred(s.localAddresses,{s.preferredAddress});
     if(address.isEmpty()) address=s.bindAddress;
     if(address.contains(QLatin1Char(':'))) address=QLatin1Char('[')+address+QLatin1Char(']');
-    const auto lines=QStringLiteral("\nTCP %1:%2%3\nVNC %4:%5%6\nVideo: %7")
+    auto lines=QStringLiteral("\nTCP %1:%2%3\nVNC %4:%5%6\nVideo: %7")
         .arg(address,QString::number(s.port),s.listening?QString{}:QStringLiteral(" !"),s.external?text("external"):text("built-in"),QString::number(s.backendPort),s.backendChecked && !s.backendAvailable && !s.backendReady?QStringLiteral(" !"):QString{},video);
+    const auto keyLine=s.publicKeys.size()==1?QStringLiteral("\n")+text("Key: %1").arg(s.publicKeys.first().size()>24?s.publicKeys.first().left(21)+QStringLiteral("…"):s.publicKeys.first()):
+        s.publicKeys.size()>1?QStringLiteral("\n")+text("Keys in use: %1").arg(s.publicKeys.size()):QString{};
+    if(8+lines.size()+keyLine.size()<=127) lines+=keyLine;
     QString safeHost;
     for(const auto c:s.host) if(c.category()!=QChar::Other_Control && c.category()!=QChar::Other_Format) safeHost+=c;
     const auto hostBudget=qMax(0,127-8-lines.size());
@@ -245,6 +248,9 @@ QString NetLinkUi::serviceSnapshot(const ServiceSnapshot& s) {
         <<text("Video: %1").arg(video)
         <<text("Authorized %1; other TCP %2; WS-Discovery %3").arg(s.authorized).arg(s.pending).arg(s.discovery?text("configured"):text("off"));
     if(s.frameAgeMs>=0) details<<text("Last video frame forwarded %1 seconds ago. This does not verify display on the Master.").arg(s.frameAgeMs/1000);
+    details<<(s.publicKeys.isEmpty()?text("Public key in use: none (no authorized key-based connection). This is not the list of installed keys."):
+        text("Public keys in use by authorized connections: %1").arg(s.publicKeys.join(QStringLiteral(", "))));
+    if(!s.lastPublicKey.isEmpty()) details<<text("Last authorized public key (since service start): %1").arg(s.lastPublicKey);
     if(!s.listening) details<<text("WARNING: the control listener is not active. Check the configured port, service and port conflicts.");
     if(s.backendChecked && !s.backendAvailable && !s.backendReady)
         details<<(s.external?text("WARNING: External VNC is selected but its local port is unavailable. If no separate VNC server is intended, select the built-in VNC plugin in Configurator."):text("WARNING: the local VNC backend is unavailable. Authentication alone does not provide video. Check the VNC plugin, internal port and server log."));

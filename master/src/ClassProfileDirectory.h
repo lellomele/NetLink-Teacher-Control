@@ -62,17 +62,25 @@ inline bool snapshot(QAbstractItemModel& directory,const QUuid& groupId,
 struct LoadPlan {
     QSet<QUuid> selectable;
     QStringList unavailable;
-    bool operator==(const LoadPlan& other) const {return selectable==other.selectable && unavailable==other.unavailable;}
+    QStringList moved;
+    QHash<QUuid,QUuid> currentGroups;
+    bool operator==(const LoadPlan& other) const {return selectable==other.selectable && unavailable==other.unavailable && moved==other.moved && currentGroups==other.currentGroups;}
 };
 inline LoadPlan plan(QAbstractItemModel& checked,const SchoolClassProfile& profile) {
-    QSet<QUuid> available;
+    QSet<QUuid> available;QHash<QUuid,QUuid> groups;
     visit(checked,{},[&](const QModelIndex& index) {
-        if(type(index)==NetworkObject::Type::Host && (checked.flags(index)&Qt::ItemIsUserCheckable))
+        if(type(index)==NetworkObject::Type::Host && (checked.flags(index)&Qt::ItemIsUserCheckable)) {
             available.insert(index.data(NetworkObjectModel::UidRole).toUuid());
+            groups.insert(index.data(NetworkObjectModel::UidRole).toUuid(),highlightedGroup(index));
+        }
     });
     LoadPlan result;
     for(const auto& seat:profile.assignments) {
-        if(available.contains(seat.computerId)) result.selectable.insert(seat.computerId);
+        if(available.contains(seat.computerId)) {
+            result.selectable.insert(seat.computerId);
+            result.currentGroups.insert(seat.computerId,groups.value(seat.computerId));
+            if(!profile.groupId.isNull() && groups.value(seat.computerId)!=profile.groupId) result.moved.append(seat.computerName);
+        }
         else result.unavailable.append(seat.computerName);
     }
     return result;

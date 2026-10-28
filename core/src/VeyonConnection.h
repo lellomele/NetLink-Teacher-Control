@@ -23,6 +23,7 @@
  */
 
 #pragma once
+#include <memory>
 
 #include <QPointer>
 
@@ -81,6 +82,8 @@ public:
 	}
 
 	void sendFeatureMessage(const FeatureMessage& featureMessage);
+	// Immutable owned credentials, supplied before starting the transport.
+	bool setAuthenticationCredentials(const AuthenticationCredentials& credentials);
 
 	bool handleServerMessage( rfbClient* client, uint8_t msg );
 
@@ -91,6 +94,8 @@ Q_SIGNALS:
 	void featureMessageReceived( const FeatureMessage& );
 
 private:
+	friend class ConnectionReliabilityTests;
+	VeyonConnection(VncConnection* transport, RfbVeyonAuth::Type authType, QObject* lifetimeOwner);
 	~VeyonConnection() override;
 
 
@@ -100,11 +105,12 @@ private:
 
 	AuthenticationCredentials authenticationCredentials() const;
 
-	VncConnection* m_vncConnection{new VncConnection};
+	VncConnection* m_vncConnection;
 
 	RfbVeyonAuth::Type m_veyonAuthType;
 
 	AuthenticationProxy* m_authenticationProxy{nullptr};
+	std::unique_ptr<const AuthenticationCredentials> m_credentials;
 
 	QString m_user;
 	QString m_userHomeDir;

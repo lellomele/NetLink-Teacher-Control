@@ -26,6 +26,9 @@
 #include <QFileDialog>
 #include <QInputDialog>
 #include <QMessageBox>
+#include <QComboBox>
+#include <QFormLayout>
+#include <QSignalBlocker>
 
 #include "AuthKeysConfigurationPage.h"
 #include "AuthKeysManager.h"
@@ -44,6 +47,12 @@ AuthKeysConfigurationPage::AuthKeysConfigurationPage() :
 	m_keyFilesFilter( tr( "Key files (*.pem)" ) )
 {
 	ui->setupUi(this);
+	auto masterSettings=new QGroupBox(NetLinkUi::text("Master authentication key"),this);
+	auto form=new QFormLayout(masterSettings);m_masterKey=new QComboBox(masterSettings);m_masterKey->setObjectName(QStringLiteral("masterAuthenticationKey"));
+	form->addRow(NetLinkUi::text("Default private key"),m_masterKey);
+	auto help=new QLabel(NetLinkUi::text("Master only: choose an explicit default when several private keys exist. Each laboratory can override it in Locations & computers. Clients need only the matching public key; never copy private keys to clients."),masterSettings);help->setWordWrap(true);form->addRow(help);
+	ui->verticalLayout->insertWidget(0,masterSettings);
+	connect(m_masterKey,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[this](int index){if(index>=0) VeyonCore::config().setMasterAuthenticationKey(m_masterKey->itemData(index).toString());});
 	ui->label_2->setText(NetLinkUi::text("Already working keys? Keep them: appearance changes do not require new keys. For a new configuration:"));
 	ui->label_3->setText(NetLinkUi::text("1. On the TEACHER computer, create a key pair with a recognizable name."));
 	ui->label_4->setText(NetLinkUi::text("2. On the TEACHER computer, restrict private-key read access to the authorized teachers' Windows group."));
@@ -263,6 +272,13 @@ void AuthKeysConfigurationPage::setAccessGroup()
 
 void AuthKeysConfigurationPage::reloadKeyTable()
 {
+	const QSignalBlocker blocker(m_masterKey);const auto selected=VeyonCore::config().masterAuthenticationKey();
+	m_masterKey->clear();m_masterKey->addItem(NetLinkUi::text("Automatic — first readable private key (legacy)"),QString{});
+	for(const auto& entry:AuthKeysManager().listKeys()) if(entry.endsWith(QStringLiteral("/private"))) {
+		const auto name=entry.left(entry.size()-8);m_masterKey->addItem(name,name);
+	}
+	if(!selected.isEmpty() && m_masterKey->findData(selected)<0) m_masterKey->addItem(NetLinkUi::text("Missing private key: %1").arg(selected),selected);
+	m_masterKey->setCurrentIndex(qMax(0,m_masterKey->findData(selected)));
 	m_authKeyTableModel.reload();
 	ui->keyTable->resizeColumnsToContents();
 }

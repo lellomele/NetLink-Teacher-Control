@@ -98,6 +98,7 @@ private:
 	QStringList m_failedAccessControlHosts;
 	// Main-event-thread snapshot only; never read authentication state from a timer.
 	QSet<const VncServerClient*> m_trayAuthorizedClients;
+	QString m_lastAuthorizedPublicKey;
 
 	FeatureWorkerManager m_featureWorkerManager;
 

@@ -86,6 +86,7 @@ void ClassProfiles::confirmLoad(const SchoolClassProfile& profile,const QString&
     auto detail=text("Class: %1\nRoom: %2\nSaved PCs available: %3 of %4\n\nLoad these names and check only the saved PCs? Other PCs will be unchecked, not deleted. The existing tree, addresses, configuration and keys stay unchanged.")
         .arg(profile.className,profile.groupName.isEmpty()?profile.room:profile.groupName).arg(plan.selectable.size()).arg(profile.assignments.size());
     if(!plan.unavailable.isEmpty()) detail+="\n\n"+text("Missing or hidden PCs (not created): %1").arg(plan.unavailable.mid(0,12).join(", "));
+    if(!plan.moved.isEmpty()) detail+="\n\n"+text("PCs now in another group: %1. Their current group and its authentication key will be kept; the saved profile does not move computers back.").arg(plan.moved.mid(0,12).join(", "));
     auto box=new QMessageBox(QMessageBox::Question,NetLinkUi::windowTitle(text("Load class-room profile")),detail,QMessageBox::Yes|QMessageBox::Cancel,m_dialog);
     box->setObjectName("profileLoadConfirmation");box->setDefaultButton(QMessageBox::Cancel);box->setTextFormat(Qt::PlainText);box->setAttribute(Qt::WA_DeleteOnClose);
     const QPointer<QDialog> dialog=m_dialog;

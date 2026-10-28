@@ -32,6 +32,9 @@ class BuiltinDirectoryConfigurationPage;
 }
 
 class BuiltinDirectoryConfiguration;
+class QComboBox;
+class QPushButton;
+class VeyonConfiguration;
 
 class BuiltinDirectoryConfigurationPage : public ConfigurationPage
 {
@@ -51,10 +54,12 @@ private Q_SLOTS:
 	void addComputer();
 	void updateComputer();
 	void removeComputer();
+	void moveComputers();
 
 private:
 	void populateLocations();
 	void populateComputers();
+	QString privateKeyDirectory() const;
 
 	NetworkObject currentLocationObject() const;
 	NetworkObject currentComputerObject() const;
@@ -62,5 +67,8 @@ private:
 	Ui::BuiltinDirectoryConfigurationPage *ui;
 
 	BuiltinDirectoryConfiguration& m_configuration;
+	VeyonConfiguration& m_masterConfiguration;
+	QComboBox* m_groupKey{nullptr};
+	QPushButton* m_moveComputers{nullptr};
 
 };

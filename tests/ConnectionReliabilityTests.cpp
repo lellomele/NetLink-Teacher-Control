@@ -19,10 +19,13 @@
 #include "VncEvents.h"
 #include "ComputerControlInterface.h"
 #include "HostAddress.h"
+#include "VeyonConnection.h"
+#include "AuthenticationProxy.h"
 
 class ConnectionReliabilityTests : public QObject
 {
     Q_OBJECT
+    QCA::Initializer m_cryptoInitializer;
     QTemporaryDir m_directory;
     Configuration::JsonStore m_store{Configuration::Store::System, m_directory.filePath("connection.json")};
     VeyonConfiguration m_configuration{&m_store};
@@ -38,6 +41,35 @@ class ConnectionReliabilityTests : public QObject
     };
 
 private Q_SLOTS:
+    void eachConnectionOwnsAnImmutableKeyAndProxyTokensStillTakePriority() {
+        QObject lifetime;
+        auto first=new VeyonConnection(new VncConnection(m_configuration),RfbVeyonAuth::KeyFile,&lifetime);
+        auto second=new VeyonConnection(new VncConnection(m_configuration),RfbVeyonAuth::KeyFile,&lifetime);
+        AuthenticationCredentials a,b;a.setAuthenticationKeyName("lab_a");b.setAuthenticationKeyName("lab_b");
+        CryptoCore::KeyGenerator generator;QVERIFY(a.setPrivateKey(generator.createRSA(2048)));QVERIFY(b.setPrivateKey(generator.createRSA(2048)));
+        QVERIFY(first->setAuthenticationCredentials(a));QVERIFY(second->setAuthenticationCredentials(b));
+        a.setAuthenticationKeyName("changed_after_copy");
+        QCOMPARE(first->authenticationCredentials().authenticationKeyName(),QString("lab_a"));
+        QCOMPARE(second->authenticationCredentials().authenticationKeyName(),QString("lab_b"));
+        QVERIFY(!first->setAuthenticationCredentials(b));
+        const auto challenge=CryptoCore::generateChallenge();
+        auto selectedA=first->authenticationCredentials().privateKey(),selectedB=second->authenticationCredentials().privateKey();
+        const auto signatureA=selectedA.signMessage(challenge,CryptoCore::DefaultSignatureAlgorithm),signatureB=selectedB.signMessage(challenge,CryptoCore::DefaultSignatureAlgorithm);
+        auto publicA=a.privateKey().toPublicKey(),publicB=b.privateKey().toPublicKey();
+        QVERIFY(publicA.verifyMessage(challenge,signatureA,CryptoCore::DefaultSignatureAlgorithm));QVERIFY(publicB.verifyMessage(challenge,signatureB,CryptoCore::DefaultSignatureAlgorithm));
+        QVERIFY(!publicA.verifyMessage(challenge,signatureB,CryptoCore::DefaultSignatureAlgorithm));QVERIFY(!publicB.verifyMessage(challenge,signatureA,CryptoCore::DefaultSignatureAlgorithm));
+        std::atomic<bool> isolated{true};std::thread threadA([&]{for(int i=0;i<10000;++i) if(first->authenticationCredentials().authenticationKeyName()!=QString("lab_a")) isolated=false;});
+        std::thread threadB([&]{for(int i=0;i<10000;++i) if(second->authenticationCredentials().authenticationKeyName()!=QString("lab_b")) isolated=false;});
+        threadA.join();threadB.join();QVERIFY(isolated.load());
+        class TokenProxy : public AuthenticationProxy {RfbVeyonAuth::Type initCredentials() override {return RfbVeyonAuth::Token;}};
+        auto proxy=new TokenProxy;AuthenticationCredentials token;token.setAuthenticationKeyName("proxy_credentials");proxy->setCredentials(token);
+        first->setAuthenticationProxy(proxy);QCOMPARE(first->authenticationCredentials().authenticationKeyName(),QString("proxy_credentials"));
+        auto failed=new VeyonConnection(new VncConnection(m_configuration),RfbVeyonAuth::KeyFile,&lifetime);
+        QVERIFY(failed->setAuthenticationCredentials({}));QVERIFY(failed->authenticationCredentials().authenticationKeyName().isEmpty());
+        QPointer<VeyonConnection> pointer(first);first->stopAndDeleteLater();QVERIFY(!first->setAuthenticationCredentials(b));
+        second->stopAndDeleteLater();failed->stopAndDeleteLater();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);QVERIFY(pointer.isNull());
+        QVERIFY(!VeyonCore::instance());
+    }
     void disconnectionInvalidatesCachedInternetGuardConfirmation() {
         ComputerControlInterface client(Computer({},QStringLiteral("Test PC"),QStringLiteral("192.0.2.25"),{},{}));
         client.setNetworkPolicyStatus(QStringLiteral("unblocked"));client.setProperty("schoolPolicyVerifiedState",QStringLiteral("allowed"));

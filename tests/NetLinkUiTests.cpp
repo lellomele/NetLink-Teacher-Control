@@ -5,6 +5,7 @@
 #include <QtTest>
 #include <QComboBox>
 #include <QDialog>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QGridLayout>
 #include <QGroupBox>
@@ -41,6 +42,7 @@
 #include "BuiltinDirectoryConfiguration.h"
 #include "BuiltinDirectoryConfigurationPage.h"
 #include "NetworkObject.h"
+#include "NetworkObjectModel.h"
 #include "ServiceNetworkAddresses.h"
 #include "ServiceDiagnostics.h"
 
@@ -298,6 +300,59 @@ private Q_SLOTS:
             QVERIFY(QMetaObject::invokeMethod(&page,"removeLocation",Qt::DirectConnection));
             if(!accept) QCOMPARE(directory.networkObjects(),before);else QVERIFY(directory.networkObjects().isEmpty());
         }
+    }
+    void groupKeyAndBatchMoveUseDestinationAndNeverModifyRemoteKeys_data() {
+        QTest::addColumn<QString>("action");for(const auto& action:{"accept","cancel","settings_changed"}) QTest::newRow(action)<<QString(action);
+    }
+    void laboratoryKeySettingsSurviveJsonExportAndReload() {
+        Configuration::JsonStore store(Configuration::Store::System,m_directory.filePath("key-configuration.json"));
+        VeyonConfiguration config(&store);BuiltinDirectoryConfiguration directory(&config);const auto tree=objects();directory.setNetworkObjects(tree);
+        const QJsonObject bindings{{NetworkObject(tree[0].toObject()).uid().toString(QUuid::WithoutBraces),"lab_key"}};
+        config.setMasterAuthenticationKey("default_key");config.setMasterGroupAuthenticationKeys(bindings);config.setVeyonServerPort(11109);config.flushStore();
+        VeyonConfiguration restored(&store);restored.reloadFromStore();BuiltinDirectoryConfiguration restoredDirectory(&restored);
+        QCOMPARE(restored.masterAuthenticationKey(),QString("default_key"));QCOMPARE(restored.masterGroupAuthenticationKeys(),bindings);
+        QCOMPARE(restored.veyonServerPort(),11109);QCOMPARE(restoredDirectory.networkObjects(),tree);
+        const auto before=restored.data();BuiltinDirectoryConfigurationPage page(restoredDirectory);page.resetWidgets();QCOMPARE(restored.data(),before);
+        auto invalid=bindings;invalid[NetworkObject(tree[0].toObject()).uid().toString(QUuid::WithoutBraces)]=42;restored.setMasterGroupAuthenticationKeys(invalid);
+        const auto corrupted=restored.data();page.resetWidgets();QCOMPARE(restored.data(),corrupted);
+        QCOMPARE(page.findChild<QComboBox*>("groupAuthenticationKey")->currentText(),NetLinkUi::text("Invalid group key — choose a valid key"));
+        QVERIFY(!VeyonCore::instance());
+    }
+    void groupKeyAndBatchMoveUseDestinationAndNeverModifyRemoteKeys() {
+        QFETCH(QString,action);
+        Configuration::JsonStore store(Configuration::Store::System,m_directory.filePath("move-"+action+".json"));
+        VeyonConfiguration config(&store);config.setPrivateKeyBaseDir(m_directory.filePath("unused-private-directory"));
+        BuiltinDirectoryConfiguration directory(&config);auto original=objects();const auto source=NetworkObject(original[0].toObject()).uid(),destination=QUuid::createUuid();
+        original.append(NetworkObject(NetworkObject::Type::Location,"Destination",{},{},{},destination).toJson());directory.setNetworkObjects(original);
+        const QJsonObject bindings{{source.toString(QUuid::WithoutBraces),"key_source"},{destination.toString(QUuid::WithoutBraces),"key_destination"}};config.setMasterGroupAuthenticationKeys(bindings);
+        BuiltinDirectoryConfigurationPage page(directory);page.resize(1000,500);page.show();QApplication::processEvents();
+        auto combo=page.findChild<QComboBox*>("groupAuthenticationKey");QVERIFY(combo);QCOMPARE(combo->currentData().toString(),QString("key_source"));
+        auto computers=page.findChild<QTableWidget*>("computerTableWidget");auto move=page.findChild<QPushButton*>("moveComputers");QVERIFY(computers);QVERIFY(move);
+        QVERIFY(!move->isEnabled());computers->selectAll();QVERIFY(move->isEnabled());QVERIFY(!page.findChild<QPushButton*>("removeComputerButton")->isEnabled());
+        snapshot(page,"netlink-group-keys");
+        QTimer interact;interact.setInterval(5);int stage=0;
+        connect(&interact,&QTimer::timeout,&page,[&]{
+            auto modal=QApplication::activeModalWidget();if(!modal) return;
+            if(auto box=qobject_cast<QMessageBox*>(modal)) {
+                if(stage==1) {
+                    QVERIFY(box->text().contains("key_destination"));QCOMPARE(box->standardButton(box->defaultButton()),QMessageBox::No);
+                    snapshot(*box,"netlink-confirm-move");stage=2;
+                    if(action=="settings_changed") config.setMasterAuthenticationKey("changed_while_confirming");
+                    box->button(action=="cancel"?QMessageBox::No:QMessageBox::Yes)->click();
+                } else if(stage==2) {stage=3;box->accept();}
+            } else if(stage==0) {
+                auto target=modal->findChild<QComboBox*>("moveDestination");QVERIFY(target);QCOMPARE(target->count(),2);
+                auto buttons=modal->findChild<QDialogButtonBox*>();QVERIFY(buttons);QVERIFY(!buttons->button(QDialogButtonBox::Ok)->isEnabled());
+                target->setCurrentIndex(1);stage=1;buttons->button(QDialogButtonBox::Ok)->click();
+            }
+        });interact.start();move->click();interact.stop();QVERIFY(stage>=2);
+        QCOMPARE(config.masterGroupAuthenticationKeys(),bindings);
+        if(action=="accept") {
+            const auto after=directory.networkObjects();QCOMPARE(after.size(),original.size());
+            for(int i=0;i<after.size();++i) {auto expected=original[i].toObject();if(i==1 || i==2) expected["ParentUid"]=destination.toString(QUuid::WithoutBraces);QCOMPARE(after[i].toObject(),expected);}
+            QCOMPARE(computers->rowCount(),0);
+        } else QCOMPARE(directory.networkObjects(),original);
+        QVERIFY(!VeyonCore::instance());
     }
     void traySummaryIsBoundedAndDoesNotClaimReachability() {
         for(bool listening:{false,true}) for(bool local:{false,true}) for(bool keys:{false,true}) for(bool discovery:{false,true}) {

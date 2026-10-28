@@ -66,9 +66,49 @@ PC non selezionati stanno ricevendo una Demo diversa.
 
 Con autenticazione a chiave, privata leggibile soltanto dagli utenti docenti
 autorizzati e pubblica sui client. Non distribuire la privata.
-Se sono presenti più private, la scelta e i relativi permessi vanno verificati:
-`VEYON_AUTH_KEY_NAME` consente una selezione esplicita.
 Una prova che richiede una privata non valida la sola pubblica di un client.
+
+### Chiavi dei laboratori e spostamento dei PC
+
+1. Sul Master, **Chiavi di autenticazione → Chiave di autenticazione del Master**
+   permette di scegliere la privata predefinita. Resta disponibile la scelta
+   automatica per compatibilità; con più chiavi è preferibile sceglierne una esplicita.
+2. In **Posizioni e computer**, evidenziare un gruppo e scegliere **Chiave privata
+   del gruppo selezionato**, oppure mantenere **Usa la chiave predefinita del Master**.
+   Applicare e riavviare la Console dopo aver terminato Lock, Demo e InternetGuard.
+3. La chiave specifica del gruppo ha priorità. Altrimenti la variabile di avvio
+   `VEYON_AUTH_KEY_NAME` prevale sulla predefinita; in assenza di entrambe si usa
+   la prima privata leggibile, come prima. Una chiave esplicita non valida o non
+   disponibile causa un errore senza provare la chiave di un altro laboratorio.
+4. Il Master può collegarsi contemporaneamente a gruppi con chiavi diverse.
+   I client devono avere la pubblica corrispondente con lo stesso nome e i normali
+   permessi di accesso. Nessuna privata viene inviata ai client e il protocollo
+   di autenticazione non cambia.
+
+Nel Configurator selezionare una o più righe di PC (Ctrl/Maiusc), poi **Sposta
+nel gruppo…**. Scegliere la destinazione e confermarne la chiave. **Applica** salva
+la modifica; riavviare la Console quando non ci sono funzioni attive. Cambia solo
+il gruppo sul Master: UUID, nome, indirizzo e MAC rimangono. Alla successiva
+connessione della Console il PC usa la chiave di destinazione, senza ripiegare su
+quella di origine o sostituire chiavi remote. Le chiavi di destinazione mancanti
+vengono segnalate, non generate. Clic destro su **Posizioni/computer** nella Console
+offre il collegamento per aprire Configurator.
+
+I profili classe salvati mantengono i nomi associati agli UUID. Il caricamento di
+un vecchio profilo avvisa dei PC ora in altri gruppi, mantiene gruppi/chiavi attuali
+e non riporta indietro i PC né riscrive il file salvato. Un PC ricreato con un nuovo
+UUID non viene associato per nome/IP. Le chiavi dei gruppi riguardano la directory
+integrata, non i gruppi LDAP. Le connessioni remote manuali senza identità nella
+directory usano la chiave predefinita del Master.
+
+Il tooltip della miniatura mostra la chiave scelta da questo Master e gli errori
+locali di lettura: non è una prova di autorizzazione sul client. Su un client
+aggiornato, i dettagli dello stato elencano le **chiavi pubbliche in uso dalle
+connessioni autorizzate** e, separatamente, l'**ultima chiave pubblica autorizzata
+dall'avvio del servizio**. Nel tooltip breve compare nome/numero delle chiavi se
+c'è spazio. Senza connessioni autorizzate non c'è una chiave attualmente in uso,
+anche se alcune sono installate. I tentativi rifiutati non cambiano l'ultima chiave
+autorizzata. Non viene aperta nessuna porta aggiuntiva.
 
 ## InternetGuard WFP
 

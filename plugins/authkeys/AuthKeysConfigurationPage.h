@@ -30,6 +30,7 @@
 namespace Ui {
 class AuthKeysConfigurationPage;
 }
+class QComboBox;
 
 // clazy:excludeall=ctor-missing-parent-argument
 class AuthKeysConfigurationPage : public ConfigurationPage
@@ -60,5 +61,6 @@ private:
 	Ui::AuthKeysConfigurationPage *ui;
 	AuthKeysTableModel m_authKeyTableModel;
 	const QString m_keyFilesFilter;
+	QComboBox* m_masterKey{nullptr};
 
 };

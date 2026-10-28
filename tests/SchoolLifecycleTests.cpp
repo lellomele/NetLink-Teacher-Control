@@ -19,6 +19,7 @@
 #include <QFile>
 #include "Configuration/LocalStore.h"
 #include "NetworkObject.h"
+#include "SchoolDirectoryOperations.h"
 #include "SchoolFeatures.h"
 #include "NetLinkUi.h"
 #include "SchoolPolicyResolver.h"
@@ -58,6 +59,7 @@ public:
 // configuration, real keys, service, network listener or remote PC is touched.
 class SchoolLifecycleTests : public QObject {
     Q_OBJECT
+    QCA::Initializer m_cryptoInitializer;
 public:
     static int attendanceChild(quint16 port,const QString& action) {
         class Worker : public QObject,public VeyonWorkerInterface {
@@ -138,6 +140,52 @@ private:
         QMessageBox* ask() {table()->setCurrentCell(0,0,QItemSelectionModel::ClearAndSelect|QItemSelectionModel::Rows);importButton()->click();return dialog()->findChild<QMessageBox*>("schoolDiscoveryImportConfirmation");}
     };
 private Q_SLOTS:
+    void laboratoryKeysArePerComputerAndFollowDestinationWithoutFallback() {
+        using namespace SchoolDirectoryOperations;
+        const auto a=QUuid::createUuid(),b=QUuid::createUuid(),one=QUuid::createUuid(),two=QUuid::createUuid();
+        const QJsonArray objects{NetworkObject(NetworkObject::Type::Location,"A",{},{},{},a).toJson(),NetworkObject(NetworkObject::Type::Location,"B",{},{},{},b).toJson(),
+            NetworkObject(NetworkObject::Type::Host,"One","192.0.2.1",{},{},one,a).toJson(),NetworkObject(NetworkObject::Type::Host,"Two","192.0.2.2",{},{},two,b).toJson()};
+        QJsonObject bindings{{a.toString(QUuid::WithoutBraces),"key_a"},{b.toString(QUuid::WithoutBraces),"key_b"}};
+        const auto choiceA=keyChoice(objects,bindings,one,"default","environment","legacy");
+        const auto choiceB=keyChoice(objects,bindings,two,"default","environment","legacy");
+        QCOMPARE(choiceA.name,QString("key_a"));QCOMPARE(choiceB.name,QString("key_b"));QVERIFY(choiceA.explicitKey);QVERIFY(choiceB.error.isEmpty());
+        QJsonArray moved;QString error;QVERIFY(move(objects,{one},b,moved,error));
+        QCOMPARE(keyChoice(moved,bindings,one,"default","environment","legacy").name,QString("key_b"));
+        QCOMPARE(NetworkObject(moved[2].toObject()).uid(),one);
+        QCOMPARE(keyChoice(objects,{},one,"default","environment","legacy").name,QString("environment"));
+        QCOMPARE(keyChoice(objects,{},one,"default",{},"legacy").name,QString("default"));
+        QCOMPARE(keyChoice(objects,{},one,{},{},"legacy").name,QString("legacy"));
+        int loads=0;QString loaded;
+        auto loader=[&](const QString& name,AuthenticationCredentials& output){++loads;loaded=name;output.setAuthenticationKeyName("poisoned_previous_key");output.setToken(AuthenticationCredentials::Token(QByteArray(CryptoCore::ChallengeSize,'x')));return false;};
+        const auto failed=credentials(choiceB,error,loader);QCOMPARE(loads,1);QCOMPARE(loaded,QString("key_b"));QVERIFY(!error.isEmpty());
+        QVERIFY(failed.authenticationKeyName().isEmpty());QVERIFY(!failed.hasCredentials(AuthenticationCredentials::Type::PrivateKey));QVERIFY(failed.token().isEmpty());QVERIFY(!failed.hasCredentials(AuthenticationCredentials::Type::Token));
+        bindings[b.toString(QUuid::WithoutBraces)]="../invalid";
+        const auto invalid=keyChoice(objects,bindings,two,"default",{},"legacy");QVERIFY(!invalid.error.isEmpty());
+        credentials(invalid,error,loader);QCOMPARE(loads,1); // Invalid names never reach filesystem loading.
+        bindings[b.toString(QUuid::WithoutBraces)]=42;QVERIFY(!keyChoice(objects,bindings,two,"default",{},"legacy").error.isEmpty());
+        auto duplicate=objects;duplicate.append(objects[2]);QVERIFY(!keyChoice(duplicate,bindings,one,"default",{},"legacy").error.isEmpty());
+    }
+    void movingComputersPreservesIdentityAndEveryOtherField() {
+        using namespace SchoolDirectoryOperations;
+        const auto a=QUuid::createUuid(),b=QUuid::createUuid(),one=QUuid::createUuid(),two=QUuid::createUuid();
+        auto host=NetworkObject(NetworkObject::Type::Host,"One","192.0.2.1","00:11:22:33:44:55","directory",one,a).toJson();host["FutureExtension"]="preserve";
+        const QJsonArray before{NetworkObject(NetworkObject::Type::Location,"A",{},{},{},a).toJson(),NetworkObject(NetworkObject::Type::Location,"B",{},{},{},b).toJson(),host,
+            NetworkObject(NetworkObject::Type::Host,"Two","192.0.2.2",{},{},two,a).toJson()};
+        QJsonArray after;QString error;QVERIFY(move(before,{one,two},b,after,error));QCOMPARE(after.size(),before.size());
+        for(int i=0;i<before.size();++i) {auto expected=before[i].toObject();if(i>=2) expected["ParentUid"]=b.toString(QUuid::WithoutBraces);QCOMPARE(after[i].toObject(),expected);}
+        for(const auto& selection:{QSet<QUuid>{},QSet<QUuid>{QUuid{}},QSet<QUuid>{a},QSet<QUuid>{QUuid::createUuid()}}) {QVERIFY(!move(before,selection,b,after,error));QCOMPARE(after,before);}
+        QVERIFY(!move(before,{one},QUuid::createUuid(),after,error));QCOMPARE(after,before);
+        auto duplicates=before;duplicates.append(host);QVERIFY(!move(duplicates,{one},b,after,error));QCOMPARE(after,duplicates);
+    }
+    void serviceStatusShowsOnlyAuthorizedKeysAndLabelsHistoricalKeySeparately() {
+        struct Restore {QLocale value;~Restore(){QLocale::setDefault(value);}} restore{QLocale()};QLocale::setDefault(QLocale("en_US"));
+        NetLinkUi::ServiceSnapshot status;status.host="Fixture";status.preferredAddress="192.0.2.10";status.port=11100;status.backendPort=11200;status.listening=true;
+        status.publicKeys=QStringList{"key_a","key_b"};status.lastPublicKey="key_b";status.authorized=2;
+        auto text=NetLinkUi::serviceSnapshot(status);QVERIFY(text.contains("key_a"));QVERIFY(text.contains("key_b"));QVERIFY(text.contains("Last authorized public key"));QVERIFY(text.section('\n',0,4).size()<=127);
+        status.publicKeys.clear();status.authorized=0;text=NetLinkUi::serviceSnapshot(status);
+        QVERIFY(text.contains("no authorized key-based connection"));QVERIFY(text.contains("Last authorized public key"));
+        status.lastPublicKey.clear();text=NetLinkUi::serviceSnapshot(status);QVERIFY(!text.contains("key_a"));QVERIFY(!text.contains("key_b"));
+    }
     void selectedLanguageChangesLabelsNotFeatureIdentifiers() {
         struct Restore {QLocale value;~Restore(){QLocale::setDefault(value);}} restore{QLocale()};
         QLocale::setDefault(QLocale("en_US"));SchoolFeatures features(nullptr,false);

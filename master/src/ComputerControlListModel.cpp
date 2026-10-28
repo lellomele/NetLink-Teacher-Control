@@ -419,13 +419,15 @@ QString ComputerControlListModel::computerToolTipRole( const ComputerControlInte
 		.arg(controlInterface->attendanceLabel().toHtmlEscaped(),controlInterface->networkPolicyStatus().toHtmlEscaped()) +
 		NetLinkUi::text("<br>Assigned name: %1").arg(controlInterface->expectedStudentName().toHtmlEscaped()) +
 		controlInterface->serviceDiagnosticsToolTip();
+	const QString authentication=(controlInterface->authenticationKeyName().isEmpty()?QString{}:NetLinkUi::text("<br>Master authentication key: %1").arg(controlInterface->authenticationKeyName().toHtmlEscaped()))+
+		(controlInterface->authenticationKeyError().isEmpty()?QString{}:QStringLiteral("<br>")+controlInterface->authenticationKeyError().toHtmlEscaped());
 
 	if( user.isEmpty() )
 	{
-		return QStringLiteral("<b>%1</b><br>%2<br>%3<br>%4<br>%5").arg(state, name, location, host.toHtmlEscaped(), features)+school;
+		return QStringLiteral("<b>%1</b><br>%2<br>%3<br>%4<br>%5").arg(state, name, location, host.toHtmlEscaped(), features)+school+authentication;
 	}
 
-	return QStringLiteral("<b>%1</b><br>%2<br>%3<br>%4<br>%5<br>%6").arg(state, name, location, host.toHtmlEscaped(), features, user)+school;
+	return QStringLiteral("<b>%1</b><br>%2<br>%3<br>%4<br>%5<br>%6").arg(state, name, location, host.toHtmlEscaped(), features, user)+school+authentication;
 }
 
 

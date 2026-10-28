@@ -75,6 +75,8 @@ public:
 
 	void start( QSize scaledFramebufferSize = {}, UpdateMode updateMode = UpdateMode::Monitoring, AuthenticationProxy* authenticationProxy = nullptr );
 	void stop();
+	QString authenticationKeyName() const {return m_authenticationKeyName;}
+	QString authenticationKeyError() const {return m_authenticationKeyError;}
 
 	const Computer& computer() const
 	{
@@ -202,6 +204,7 @@ private:
 	QString m_userLoginName{};
 	QString m_userFullName{};
 	QString m_studentName, m_expectedStudentName, m_networkPolicyStatus;
+	QString m_authenticationKeyName, m_authenticationKeyError;
 	int m_userSessionId{0};
 	ScreenList m_screens;
 	FeatureUidList m_activeFeatures;

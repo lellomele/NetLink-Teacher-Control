@@ -59,9 +59,45 @@ Changing the source is refused while unselected PCs receive a different Demo.
 
 For key authentication, restrict the private key to authorized teachers and
 install the public key on clients. Never distribute the private key.
-With multiple private keys, verify selection and permissions:
-`VEYON_AUTH_KEY_NAME` permits explicit selection.
 A test requiring a private key does not validate a client's public key alone.
+
+### Laboratory keys and moving PCs
+
+1. On the Master, **Authentication keys → Master authentication key** selects
+   the default private key. Existing automatic selection remains available for
+   compatibility; with several keys, choose an explicit default.
+2. In **Locations & computers**, highlight a group and choose **Private key for
+   selected group**, or keep **Use Master default key**. Apply and restart the
+   Console after ending active Lock, Demo and InternetGuard operations.
+3. A group-specific key takes priority. Otherwise the launch override
+   `VEYON_AUTH_KEY_NAME` takes priority over the configured default; if neither
+   is set, the first readable private key is used as before. An explicit invalid
+   or unavailable key fails without trying another laboratory's key.
+4. The Master can connect to groups with different keys simultaneously. Clients
+   need the matching public key under the same name, plus existing access rights.
+   No private key is sent to a client and the authentication protocol is unchanged.
+
+Select one or more PC rows (Ctrl/Shift) in Configurator, then **Move to group…**.
+Choose the destination and confirm its key. **Apply** saves the change; restart
+the Console when no active feature remains. Only the group on the Master changes:
+UUID, name, address and MAC are preserved. The PC immediately inherits the
+destination key on its next Console connection; no source-key fallback or remote
+key replacement occurs. Missing destination keys are warned about, not generated.
+Right-click **Locations/Computers** in the Console for the Configurator shortcut.
+
+Saved class profiles retain UUID-based name assignments. Loading an older profile
+warns about PCs now in another group, keeps their current groups/keys and does not
+move them back or rewrite the saved file. A recreated PC with a new UUID is not matched
+by name/IP. Group key bindings apply to the built-in directory, not LDAP groups.
+Manual remote connections without a directory identity use the Master default.
+
+Hover a thumbnail to see the key selected by this Master and local key-load errors;
+this is not proof of client authorization. On an updated client, service status
+details list **public keys in use by authorized connections** and, separately,
+the **last authorized public key since service start**. The short tray tooltip
+includes a key name/count when space permits. No authorized connection means no
+current key in use, even when public keys are installed. Rejected attempts do not
+replace the last authorized key. No extra port is opened.
 
 ## WFP InternetGuard
 

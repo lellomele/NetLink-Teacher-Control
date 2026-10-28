@@ -99,6 +99,10 @@
 	OP( VeyonConfiguration, VeyonCore::config(), QString, userConfigurationDirectory, setUserConfigurationDirectory, "UserConfiguration", "Directories", QDir::toNativeSeparators( QStringLiteral( "%APPDATA%/Config" ) ), Configuration::Property::Flag::Standard )	\
 	OP( VeyonConfiguration, VeyonCore::config(), QString, screenshotDirectory, setScreenshotDirectory, "Screenshots", "Directories", QDir::toNativeSeparators( QStringLiteral( "%APPDATA%/Screenshots" ) ), Configuration::Property::Flag::Standard )	\
 
+#define FOREACH_VEYON_MASTER_KEY_CONFIG_PROPERTY(OP) \
+	OP( VeyonConfiguration, VeyonCore::config(), QString, masterAuthenticationKey, setMasterAuthenticationKey, "AuthenticationKey", "Master", QString(), Configuration::Property::Flag::Standard ) \
+	OP( VeyonConfiguration, VeyonCore::config(), QJsonObject, masterGroupAuthenticationKeys, setMasterGroupAuthenticationKeys, "GroupAuthenticationKeys", "Master", QJsonObject(), Configuration::Property::Flag::Standard )
+
 #define FOREACH_VEYON_MASTER_CONFIG_PROPERTY(OP) \
 	OP( VeyonConfiguration, VeyonCore::config(), int, computerMonitoringUpdateInterval, setComputerMonitoringUpdateInterval, "ComputerMonitoringUpdateInterval", "Master", 1000, Configuration::Property::Flag::Standard )	\
 	OP( VeyonConfiguration, VeyonCore::config(), int, computerMonitoringThumbnailSpacing, setComputerMonitoringThumbnailSpacing, "ComputerMonitoringThumbnailSpacing", "Master", 5, Configuration::Property::Flag::Standard )	\
@@ -168,6 +172,7 @@
 	FOREACH_VEYON_NETWORK_CONFIG_PROPERTY(OP)			\
 	FOREACH_VEYON_DIRECTORIES_CONFIG_PROPERTY(OP)	\
 	FOREACH_VEYON_MASTER_CONFIG_PROPERTY(OP)	\
+	FOREACH_VEYON_MASTER_KEY_CONFIG_PROPERTY(OP)	\
 	FOREACH_VEYON_AUTHENTICATION_CONFIG_PROPERTY(OP)	\
 	FOREACH_VEYON_KEY_AUTHENTICATION_CONFIG_PROPERTY(OP)	\
 	FOREACH_VEYON_ACCESS_CONTROL_CONFIG_PROPERTY(OP) \

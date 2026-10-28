@@ -38,7 +38,8 @@ VEYON_CORE_EXPORT QString traySummary(const QString& host, int port, bool listen
     bool localOnly, bool keyAuthentication, bool discovery, int authenticated, int pending);
 struct ServiceSnapshot {
     QString host, bindAddress, plugin, preferredAddress;
-    QStringList localAddresses;
+    QStringList localAddresses, publicKeys;
+    QString lastPublicKey;
     int port=0, backendPort=0, authorized=0, pending=0;
     bool listening=false, external=false, discovery=false;
     bool backendChecked=false, backendAvailable=false, backendReady=false;

@@ -248,6 +248,7 @@ void ComputerControlServer::showAccessControlMessage( VncServerClient* client )
 	{
 		vInfo() << "Access control successful for" << client->hostAddress() << client->username();
 		m_trayAuthorizedClients.insert(client);
+		if(!client->authenticationKeyName().isEmpty()) m_lastAuthorizedPublicKey=client->authenticationKeyName();
 
 		if( VeyonCore::config().remoteConnectionNotificationsEnabled() )
 		{
@@ -330,6 +331,8 @@ void ComputerControlServer::updateTrayIconToolTip()
 	snapshot.bindAddress=m_vncProxyServer.listenAddress().toString();snapshot.listening=m_vncProxyServer.isListening();
 	snapshot.plugin=m_vncServer.pluginName();snapshot.external=m_vncServer.externalBackend();snapshot.backendPort=m_vncServer.serverPort();
 	snapshot.authorized=m_trayAuthorizedClients.size();snapshot.pending=current.size()-snapshot.authorized;
+	for(const auto* client:m_trayAuthorizedClients) if(!client->authenticationKeyName().isEmpty() && !snapshot.publicKeys.contains(client->authenticationKeyName())) snapshot.publicKeys.append(client->authenticationKeyName());
+	snapshot.publicKeys.sort();snapshot.lastPublicKey=m_lastAuthorizedPublicKey;
 	snapshot.discovery=VeyonCore::config().schoolDiscoveryEnabled();
 	bool backendConnecting=false,backendConnected=false;
 	QStringList authenticatedAddresses,physicalIPv4,connectedInterfaceIPv4;

@@ -694,6 +694,7 @@ bool VeyonCore::initLogonAuthentication()
 bool VeyonCore::initKeyFileAuthentication()
 {
 	auto authKeyName = QProcessEnvironment::systemEnvironment().value( QStringLiteral("VEYON_AUTH_KEY_NAME") );
+	if(authKeyName.isEmpty()) authKeyName=config().masterAuthenticationKey();
 
 	if( authKeyName.isEmpty() == false )
 	{

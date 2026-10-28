@@ -36,13 +36,35 @@
 #include "ObjectManager.h"
 
 #include "ui_BuiltinDirectoryConfigurationPage.h"
+#include "VeyonConfiguration.h"
+#include "Filesystem.h"
+#include "SchoolDirectoryOperations.h"
+#include <QComboBox>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QFormLayout>
+#include <QDir>
+#include <QFileInfo>
+#include <QStandardItemModel>
 
 BuiltinDirectoryConfigurationPage::BuiltinDirectoryConfigurationPage( BuiltinDirectoryConfiguration& configuration, QWidget* parent ) :
 	ConfigurationPage( parent ),
 	ui(new Ui::BuiltinDirectoryConfigurationPage),
-	m_configuration( configuration )
+	m_configuration( configuration ),
+	m_masterConfiguration(*qobject_cast<VeyonConfiguration*>(configuration.object()))
 {
 	ui->setupUi(this);
+	m_moveComputers=new QPushButton(NetLinkUi::text("Move to group…"),this);m_moveComputers->setObjectName(QStringLiteral("moveComputers"));
+	ui->horizontalLayout->addWidget(m_moveComputers);connect(m_moveComputers,&QPushButton::clicked,this,&BuiltinDirectoryConfigurationPage::moveComputers);
+	auto keyRow=new QHBoxLayout;m_groupKey=new QComboBox(this);m_groupKey->setObjectName(QStringLiteral("groupAuthenticationKey"));
+	keyRow->addWidget(new QLabel(NetLinkUi::text("Private key for selected group"),this));keyRow->addWidget(m_groupKey,1);
+	ui->verticalLayout->insertLayout(0,keyRow);
+	connect(m_groupKey,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[this](int index){
+		const auto group=currentLocationObject().uid();if(group.isNull() || index<0) return;
+		auto keys=m_masterConfiguration.masterGroupAuthenticationKeys();const auto id=group.toString(QUuid::WithoutBraces);
+		const auto name=m_groupKey->itemData(index).toString();if(name.isEmpty()) keys.remove(id);else keys.insert(id,name);
+		m_masterConfiguration.setMasterGroupAuthenticationKeys(keys);
+	});
 	// Keep explicit actions above the tables, including in a non-maximized window.
 	auto grid=ui->gridLayout_2;
 	grid->removeItem(ui->horizontalLayout);grid->removeItem(ui->horizontalLayout_2);
@@ -67,6 +89,7 @@ BuiltinDirectoryConfigurationPage::BuiltinDirectoryConfigurationPage( BuiltinDir
 		table->horizontalHeader()->setMinimumSectionSize(75);
 	}
 	ui->computerTableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+	ui->computerTableWidget->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	ui->computerTableWidget->setColumnWidth(0,135);ui->computerTableWidget->setColumnWidth(1,155);
 	ui->computerTableWidget->setColumnWidth(2,145);
 	const auto refreshIcons=[this]{const auto p=NetLinkAppearance::install()->preferences();
@@ -81,7 +104,8 @@ BuiltinDirectoryConfigurationPage::BuiltinDirectoryConfigurationPage( BuiltinDir
 			 this, &BuiltinDirectoryConfigurationPage::populateComputers );
 	const auto selectionChanged=[this]{ui->removeLocationButton->setEnabled(!currentLocationObject().uid().isNull());
 		ui->addComputerButton->setEnabled(!currentLocationObject().uid().isNull());
-		ui->removeComputerButton->setEnabled(!currentComputerObject().uid().isNull());};
+		ui->removeComputerButton->setEnabled(ui->computerTableWidget->selectionModel()->selectedRows().size()==1 && !currentComputerObject().uid().isNull());};
+	connect(ui->computerTableWidget,&QTableWidget::itemSelectionChanged,this,[this]{m_moveComputers->setEnabled(!ui->computerTableWidget->selectionModel()->selectedRows().isEmpty());});
 	connect(ui->locationTableWidget,&QTableWidget::itemSelectionChanged,this,selectionChanged);
 	connect(ui->computerTableWidget,&QTableWidget::itemSelectionChanged,this,selectionChanged);
 	selectionChanged();
@@ -157,6 +181,8 @@ void BuiltinDirectoryConfigurationPage::removeLocation()
 	ObjectManager<NetworkObject> objectManager( m_configuration.networkObjects() );
 	objectManager.remove( uid, true );
 	m_configuration.setNetworkObjects( objectManager.objects() );
+	auto keys=m_masterConfiguration.masterGroupAuthenticationKeys();keys.remove(uid.toString(QUuid::WithoutBraces));
+	m_masterConfiguration.setMasterGroupAuthenticationKeys(keys);
 
 	populateLocations();
 }
@@ -204,12 +230,56 @@ void BuiltinDirectoryConfigurationPage::updateComputer()
 
 void BuiltinDirectoryConfigurationPage::removeComputer()
 {
+	if(ui->computerTableWidget->selectionModel()->selectedRows().size()!=1) return;
 	if(currentComputerObject().uid().isNull()) return;
 	ObjectManager<NetworkObject> objectManager( m_configuration.networkObjects() );
 	objectManager.remove( currentComputerObject().uid() );
 	m_configuration.setNetworkObjects( objectManager.objects() );
 
 	populateComputers();
+}
+
+void BuiltinDirectoryConfigurationPage::moveComputers()
+{
+	QSet<QUuid> selected;
+	for(const auto& row:ui->computerTableWidget->selectionModel()->selectedRows())
+		selected.insert(ui->computerTableWidget->item(row.row(),0)->data(NetworkObjectModel::UidRole).toUuid());
+	if(selected.isEmpty()) return;
+	const auto before=m_configuration.networkObjects();
+	const auto bindings=m_masterConfiguration.masterGroupAuthenticationKeys();
+	const auto defaultKey=m_masterConfiguration.masterAuthenticationKey();
+	const auto environmentKey=qEnvironmentVariable("VEYON_AUTH_KEY_NAME");
+	QDialog dialog(this);dialog.setObjectName(QStringLiteral("moveComputersDialog"));dialog.setWindowTitle(NetLinkUi::text("Move computers to group"));
+	auto layout=new QFormLayout(&dialog);auto target=new QComboBox(&dialog);target->setObjectName(QStringLiteral("moveDestination"));
+	target->addItem(NetLinkUi::text("Choose destination group"),QUuid{});
+	for(const auto& value:before) {const NetworkObject object(value.toObject());if(object.type()==NetworkObject::Type::Location && object.uid()!=currentLocationObject().uid()) target->addItem(object.name(),object.uid());}
+	layout->addRow(NetLinkUi::text("Destination"),target);
+	auto explanation=new QLabel(NetLinkUi::text("The computers keep their identifiers, names, addresses and MACs. They will use the destination group's key. No key or setting on a remote client is changed."),&dialog);explanation->setWordWrap(true);layout->addRow(explanation);
+	auto buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dialog);layout->addRow(buttons);
+	buttons->button(QDialogButtonBox::Ok)->setEnabled(false);
+	connect(target,QOverload<int>::of(&QComboBox::currentIndexChanged),&dialog,[target,buttons]{buttons->button(QDialogButtonBox::Ok)->setEnabled(!target->currentData().toUuid().isNull());});
+	connect(buttons,&QDialogButtonBox::accepted,&dialog,&QDialog::accept);connect(buttons,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
+	if(dialog.exec()!=QDialog::Accepted) return;
+	QJsonArray after;QString error;
+	if(!SchoolDirectoryOperations::move(before,selected,target->currentData().toUuid(),after,error)) {QMessageBox::warning(this,NetLinkUi::text("Move computers"),error);return;}
+	const auto choice=SchoolDirectoryOperations::keyChoice(after,bindings,*selected.cbegin(),defaultKey,environmentKey,QString{});
+	if(!choice.error.isEmpty()) {QMessageBox::warning(this,NetLinkUi::text("Move computers"),choice.error);return;}
+	auto prompt=NetLinkUi::text("Move %1 computers to %2?\nDestination key: %3\n\nOnly their group on this Master changes. Client keys are not modified. Use Apply to save, then restart the Console after ending active features.")
+		.arg(selected.size()).arg(target->currentText(),choice.name.isEmpty()?NetLinkUi::text("Automatic — first readable private key (legacy)"):choice.name);
+	if(!choice.name.isEmpty() && !QFileInfo(QDir(privateKeyDirectory()).filePath(choice.name+QStringLiteral("/key"))).isReadable())
+		prompt+=QStringLiteral("\n\n")+NetLinkUi::text("The destination private key is missing or unreadable on this Master. Connections will fail until it is available; the previous key will not be used.");
+	auto summary=NetLinkUi::text("Move %1 computers to %2?\nDestination key: %3").arg(selected.size()).arg(target->currentText(),choice.name.isEmpty()?NetLinkUi::text("Automatic — first readable private key (legacy)"):choice.name);
+	if(!choice.name.isEmpty() && !QFileInfo(QDir(privateKeyDirectory()).filePath(choice.name+QStringLiteral("/key"))).isReadable())
+		summary+=QStringLiteral("\n\n")+NetLinkUi::text("WARNING: destination private key unavailable. Connections will fail.");
+	QMessageBox confirmation(QMessageBox::Question,NetLinkUi::text("Confirm move"),summary,QMessageBox::Yes|QMessageBox::No,this);
+	confirmation.setInformativeText(NetLinkUi::text("Client keys stay unchanged. Apply and restart the Console after ending active features."));
+	confirmation.setDetailedText(prompt);
+	confirmation.setTextFormat(Qt::PlainText);confirmation.setDefaultButton(QMessageBox::No);
+	if(confirmation.exec()!=QMessageBox::Yes) return;
+	if(m_configuration.networkObjects()!=before || m_masterConfiguration.masterGroupAuthenticationKeys()!=bindings || m_masterConfiguration.masterAuthenticationKey()!=defaultKey || qEnvironmentVariable("VEYON_AUTH_KEY_NAME")!=environmentKey) {
+		QMessageBox::warning(this,NetLinkUi::text("Move computers"),NetLinkUi::text("The computer list or key settings changed. Repeat the move; nothing was changed."));return;
+	}
+	m_configuration.setNetworkObjects(after);populateComputers();
 }
 
 
@@ -248,6 +318,17 @@ void BuiltinDirectoryConfigurationPage::populateLocations()
 
 void BuiltinDirectoryConfigurationPage::populateComputers()
 {
+	const QSignalBlocker keyBlock(m_groupKey);m_groupKey->clear();m_groupKey->addItem(NetLinkUi::text("Use Master default key"),QString{});
+	const auto binding=m_masterConfiguration.masterGroupAuthenticationKeys().value(currentLocationObject().uid().toString(QUuid::WithoutBraces));
+	const auto key=binding.toString();
+	const auto path=privateKeyDirectory();const QDir directory(path);
+	if(!path.isEmpty()) for(const auto& name:directory.entryList(QDir::Dirs|QDir::NoDotAndDotDot,QDir::Name)) if(VeyonCore::isAuthenticationKeyNameValid(name) && QFileInfo::exists(directory.filePath(name+QStringLiteral("/key")))) m_groupKey->addItem(name,name);
+	if(!key.isEmpty() && m_groupKey->findData(key)<0) m_groupKey->addItem(NetLinkUi::text("Missing private key: %1").arg(key),key);
+	m_groupKey->setCurrentIndex(qMax(0,m_groupKey->findData(key)));m_groupKey->setEnabled(!currentLocationObject().uid().isNull());m_moveComputers->setEnabled(false);
+	if(!binding.isUndefined() && (!binding.isString() || key.isEmpty() || key.size()>255 || !VeyonCore::isAuthenticationKeyNameValid(key))) {
+		m_groupKey->addItem(NetLinkUi::text("Invalid group key — choose a valid key"));m_groupKey->setCurrentIndex(m_groupKey->count()-1);
+		if(auto model=qobject_cast<QStandardItemModel*>(m_groupKey->model())) model->item(m_groupKey->count()-1)->setEnabled(false);
+	}
 	const QSignalBlocker blocker(ui->computerTableWidget);
 	auto parentUid = currentLocationObject().uid();
 
@@ -281,6 +362,14 @@ void BuiltinDirectoryConfigurationPage::populateComputers()
 }
 
 
+
+QString BuiltinDirectoryConfigurationPage::privateKeyDirectory() const
+{
+	const auto path=m_masterConfiguration.privateKeyBaseDir();
+	// Isolated UI tests have no platform/core and use only a temporary directory.
+	if(!VeyonCore::instance()) return QDir::isAbsolutePath(path)?path:QString{};
+	return VeyonCore::filesystem().expandPath(path);
+}
 
 NetworkObject BuiltinDirectoryConfigurationPage::currentLocationObject() const
 {

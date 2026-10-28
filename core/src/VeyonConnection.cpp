@@ -52,7 +52,15 @@ rfbBool handleVeyonMessage( rfbClient* client, rfbServerToClientMsg* msg )
 
 
 VeyonConnection::VeyonConnection():
-	m_veyonAuthType( RfbVeyonAuth::Logon ),
+	VeyonConnection(new VncConnection,
+		VeyonCore::config().authenticationMethod() == VeyonCore::AuthenticationMethod::KeyFileAuthentication
+			? RfbVeyonAuth::KeyFile : RfbVeyonAuth::Logon, VeyonCore::instance())
+{
+}
+
+VeyonConnection::VeyonConnection(VncConnection* transport, RfbVeyonAuth::Type authType, QObject* lifetimeOwner):
+	m_vncConnection(transport),
+	m_veyonAuthType(authType),
 	m_user(),
 	m_userHomeDir()
 {
@@ -65,14 +73,9 @@ VeyonConnection::VeyonConnection():
 		rfbClientRegisterExtension(&extension);
 	});
 
-	if( VeyonCore::config().authenticationMethod() == VeyonCore::AuthenticationMethod::KeyFileAuthentication )
-	{
-		m_veyonAuthType = RfbVeyonAuth::KeyFile;
-	}
-
 	connect(m_vncConnection, &VncConnection::connectionPrepared, this,
 			[this, transport = m_vncConnection]() { transport->setClientData(VeyonConnectionTag, this); }, Qt::DirectConnection);
-	connect( m_vncConnection, &VncConnection::destroyed, VeyonCore::instance(), [this]() {
+	connect( m_vncConnection, &VncConnection::destroyed, lifetimeOwner, [this]() {
 		delete this;
 	} );
 }
@@ -350,6 +353,13 @@ AuthenticationCredentials VeyonConnection::authenticationCredentials() const
 	{
 		return m_authenticationProxy->credentials();
 	}
+	if(m_credentials) return *m_credentials;
 
 	return VeyonCore::authenticationCredentials();
+}
+
+bool VeyonConnection::setAuthenticationCredentials(const AuthenticationCredentials& credentials)
+{
+	if(!m_vncConnection || m_credentials || m_vncConnection->isRunning()) return false;
+	m_credentials.reset(new AuthenticationCredentials(credentials));return true;
 }

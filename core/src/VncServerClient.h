@@ -118,6 +118,8 @@ public:
 	{
 		m_username = username;
 	}
+	QString authenticationKeyName() const {return m_authenticationKeyName;}
+	void setAuthenticationKeyName(const QString& name) {m_authenticationKeyName=name;}
 
 	const QString& hostAddress() const
 	{
@@ -165,6 +167,7 @@ private:
 	AccessControlState m_accessControlState;
 	QElapsedTimer m_accessControlTimer;
 	QString m_username;
+	QString m_authenticationKeyName;
 	QString m_hostAddress;
 	QByteArray m_challenge;
 	CryptoCore::PrivateKey m_privateKey;

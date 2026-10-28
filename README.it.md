@@ -6,9 +6,9 @@ Suite NetLink per la gestione delle aule Windows, basata su **Veyon 4.7.5**.
 Integra controllo remoto, InternetGuard WFP, Appello, profili classe–aula,
 ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
 
-**Versione preliminare 1.0.0-alpha.34: usare consapevolmente.**
+**Versione preliminare 1.0.0-alpha.35: usare consapevolmente.**
 
-**[Scarica l’installer Windows x64 — ultima release (alpha.34)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.34/NetLink-1.0.0-alpha.34-win64-setup.exe)**
+**[Scarica l’installer Windows x64 — ultima release (alpha.35)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.35/NetLink-1.0.0-alpha.35-win64-setup.exe)**
 
 ## Funzionalità
 
@@ -43,10 +43,15 @@ ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
   disponibili delle schede fisiche; aggiornare anche i client interessati.
 - **Configurazione semplificata:** modalità Facile, Normale e Avanzata;
   riutilizzo di aule, PC, chiavi e regole di accesso già configurati.
+  Chiave privata predefinita del Master e chiave facoltativa per gruppo/laboratorio
+  della directory integrata. Spostamento dei PC selezionati senza ricrearne
+  l'identità: usano la chiave di destinazione, senza modificare le chiavi dei client.
 - **Stato e diagnostica:** icona del servizio con riepilogo locale, Companion
   per analizzare PC/rete e distinguere le prove di controllo remoto e discovery.
   Il tooltip preferisce l'IPv4 della rete attiva; nei dettagli restano gli altri
   indirizzi di ascolto, backend VNC e informazioni sui fotogrammi inoltrati.
+  Lo stato del client distingue le chiavi pubbliche delle connessioni autorizzate
+  dall'ultima usata, senza confonderle con quelle semplicemente installate.
   Le miniature connesse mostrano plugin VNC, porta interna e osservazioni sul
   video della singola connessione, attraverso il canale autenticato esistente.
   La funzione richiede docente e client aggiornati; risposte vecchie, mancanti

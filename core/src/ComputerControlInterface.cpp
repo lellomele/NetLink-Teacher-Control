@@ -31,6 +31,10 @@
 #include "VeyonConfiguration.h"
 #include "VeyonConnection.h"
 #include "VncConnection.h"
+#include "AuthenticationCredentials.h"
+#include "Filesystem.h"
+#include "SchoolDirectoryOperations.h"
+#include <QProcessEnvironment>
 
 
 ComputerControlInterface::ComputerControlInterface( const Computer& computer, int port, QObject* parent ) :
@@ -84,6 +88,21 @@ void ComputerControlInterface::start( QSize scaledFramebufferSize, UpdateMode up
 	{
 		m_connection = new VeyonConnection;
 		m_connection->setAuthenticationProxy( authenticationProxy );
+		m_authenticationKeyName.clear();m_authenticationKeyError.clear();
+		if(!authenticationProxy && VeyonCore::config().authenticationMethod()==VeyonCore::AuthenticationMethod::KeyFileAuthentication &&
+		   (VeyonCore::component()==VeyonCore::Component::Master || VeyonCore::component()==VeyonCore::Component::CLI)) {
+			const auto choice=SchoolDirectoryOperations::keyChoice(
+				VeyonCore::config().value(QStringLiteral("NetworkObjects"),QStringLiteral("BuiltinDirectory"),QJsonArray{}).toJsonArray(),
+				VeyonCore::config().masterGroupAuthenticationKeys(),m_computer.networkObjectUid(),VeyonCore::config().masterAuthenticationKey(),
+				QProcessEnvironment::systemEnvironment().value(QStringLiteral("VEYON_AUTH_KEY_NAME")),VeyonCore::authenticationCredentials().authenticationKeyName());
+			m_authenticationKeyName=choice.name;m_authenticationKeyError=choice.error;
+			if(choice.explicitKey || !choice.error.isEmpty()) {
+				const auto credentials=SchoolDirectoryOperations::credentials(choice,m_authenticationKeyError,[](const QString& name,AuthenticationCredentials& target) {
+					return target.loadPrivateKey(VeyonCore::filesystem().privateKeyPath(name));
+				});
+				m_connection->setAuthenticationCredentials(credentials);
+			}
+		}
 
 		auto vncConnection = m_connection->vncConnection();
 		vncConnection->setHost( m_computer.hostAddress() );

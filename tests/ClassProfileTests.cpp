@@ -384,6 +384,27 @@ private Q_SLOTS:
         safe=false;question->button(QMessageBox::Yes)->click();QCOMPARE(finished,2);QCOMPARE(profiles.profile().className,QString("3A"));
         QCOMPARE(fixture.checked.index(1,0).data(Qt::CheckStateRole).toInt(),int(Qt::Checked));
     }
+    void profilesFollowMovedComputerIdentityWithoutMovingItBack() {
+        DirectoryFixture fixture;ProfileMaster master;ClassProfiles profiles(master);fixture.bind(profiles);
+        auto stored=sample();QVERIFY(ClassProfileDirectory::snapshot(fixture.model,fixture.roomA,stored));stored.assignments[0].student="Anna";
+        const auto before=stored.toJson();
+        auto moved=fixture.model.item(0)->takeRow(0);fixture.model.item(1)->appendRow(moved);
+        auto plan=ClassProfileDirectory::plan(fixture.checked,stored);
+        QVERIFY(plan.selectable.contains(fixture.a));QCOMPARE(plan.currentGroups.value(fixture.a),fixture.roomB);QCOMPARE(plan.moved,QStringList{"PC-01"});
+        QCOMPARE(stored.toJson(),before);
+        profiles.show();profiles.confirmLoad(stored,"previous-room.json",[]{});
+        auto question=profiles.m_dialog->findChild<QMessageBox*>("profileLoadConfirmation");QVERIFY(question);QVERIFY(question->text().contains("current group"));
+        question->button(QMessageBox::Yes)->click();
+        QCOMPARE(fixture.model.item(0)->rowCount(),1);QCOMPARE(fixture.model.item(1)->rowCount(),2);QCOMPARE(profiles.profile().assignments[0].student,QString("Anna"));
+        QCOMPARE(stored.toJson(),before);QCOMPARE(profiles.profile().groupId,fixture.roomA);
+        // A second move while confirmation is open must invalidate the old plan,
+        // even if the same PCs remain present and their display names do not change.
+        QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
+        profiles.confirmLoad(stored,"previous-room.json",[]{});question=profiles.m_dialog->findChild<QMessageBox*>("profileLoadConfirmation");QVERIFY(question);
+        auto third=fixture.item("Room C",QUuid::createUuid(),NetworkObject::Type::Location);fixture.model.appendRow(third);
+        third->appendRow(fixture.model.item(1)->takeRow(1));QVERIFY(!(ClassProfileDirectory::plan(fixture.checked,stored)==plan));
+        question->button(QMessageBox::Yes)->click();QCOMPARE(profiles.profile().assignments[0].student,QString("Anna"));QCOMPARE(third->rowCount(),1);
+    }
     void saveCapturesGroupWithoutChangingClientDeclarations() {
         DirectoryFixture fixture;ProfileMaster master;auto ci=client(fixture.a);ci->setStudentName("Anna");master.clients={ci};
         ClassProfiles profiles(master);fixture.bind(profiles);profiles.m_profile.className="3A";profiles.show("save");

@@ -34,6 +34,9 @@
 #include "VeyonConfiguration.h"
 #include "NetLinkUi.h"
 #include "ClassProfileDirectory.h"
+#include "NetLinkIdentity.h"
+#include "PlatformCoreFunctions.h"
+#include <QMenu>
 
 #include "ui_ComputerSelectPanel.h"
 
@@ -71,6 +74,14 @@ ComputerSelectPanel::ComputerSelectPanel( ComputerManager& computerManager, QWid
 	// set computer tree model as data model
 	ui->treeView->setModel( m_filterProxyModel );
 	ui->treeView->setSelectionBehavior(QAbstractItemView::SelectRows);
+	ui->treeView->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(ui->treeView,&QTreeView::customContextMenuRequested,this,[this](const QPoint& point){
+		QMenu menu(this);auto manage=menu.addAction(NetLinkUi::text("Manage groups and move computers…"));
+		if(menu.exec(ui->treeView->viewport()->mapToGlobal(point))!=manage) return;
+		if(QMessageBox::question(this,NetLinkUi::text("Open Configurator"),NetLinkUi::text("Open Configurator as administrator to manage groups and move PCs. End Lock, Demo and InternetGuard before applying changes; restart the Console afterwards. No client key will be changed."),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)==QMessageBox::Yes)
+			if(!VeyonCore::platform().coreFunctions().runProgramAsAdmin(NetLinkIdentity::executablePath(NetLinkIdentity::Application::Configurator),{}))
+				QMessageBox::warning(this,NetLinkUi::text("Open Configurator"),NetLinkUi::text("Configurator could not be opened or administrator approval was cancelled."));
+	});
 
 	// set default sort order
 	ui->treeView->sortByColumn( 0, Qt::AscendingOrder );

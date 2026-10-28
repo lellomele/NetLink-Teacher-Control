@@ -110,6 +110,7 @@ VncServerClient::AuthState ServerAuthenticationManager::performKeyAuthentication
 	switch( client->authState() )
 	{
 	case VncServerClient::AuthState::Init:
+		client->setAuthenticationKeyName({});
 		client->setChallenge( CryptoCore::generateChallenge() );
 		if( VariantArrayMessage( message.ioDevice() ).write( client->challenge() ).send() == false )
 		{
@@ -150,6 +151,7 @@ VncServerClient::AuthState ServerAuthenticationManager::performKeyAuthentication
 		}
 
 		vDebug() << "SUCCESS";
+		client->setAuthenticationKeyName(authKeyName); // Only a verified signature may populate this field.
 		return VncServerClient::AuthState::Successful;
 	}
 
