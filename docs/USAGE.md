@@ -52,6 +52,17 @@ Changing the source is refused while unselected PCs receive a different Demo.
 
 ## Configurator
 
+Saving configuration coordinates current Console/Configurator/CLI writers.
+Edits to different fields are merged; conflicting changes to the same field
+stop the save without silently overwriting the other writer. Export pending
+edits before reloading when a conflict is reported. Do not edit the same
+configuration with older NetLink/Veyon tools or Registry Editor concurrently.
+The recovery record contains settings, not private-key file contents. On Windows
+it is protected with DPAPI for the saving account. After an interrupted write,
+recovery may require Configurator as administrator under that same Windows
+account. Invalid/unrecoverable settings prevent startup rather than loading
+partial security defaults. Keep normal JSON/key backups separately.
+
 - **Easy:** access, keys, essential service settings, groups/PCs and discovery.
 - **Standard/Advanced:** access to additional settings.
 - Switching views must not change hidden values.
@@ -208,13 +219,18 @@ Unresolved names leave results visible; an old DHCP IP is not stable identity.
 Disable the filter to see known PCs too.
 
 Verify the destination before import. Configuration write rights and Master
-restart are required to display a new PC. Before importing, highlight the destination
-group or one of its PC rows in **Locations & computers**: checkboxes and selected
-thumbnails do not choose this group. Discovery shows the destination and confirms
-it together with the address and port. No highlighted row means no import; it
-never falls back to the first group or creates a group automatically. If the group
-is changed, renamed or removed while confirmation is open, retry the import.
+restart are required to display a new PC. Choose **Import selected computers into
+group** in the Discovery window. The highlighted group (or the parent of its
+highlighted PC) in **Locations & computers** is offered once, on opening. Later
+changes to that panel, checkboxes or thumbnail selection never change the
+Discovery drop-down. Without a valid initial highlight, choose a group manually;
+the first group is never chosen implicitly and no group is created automatically.
+If the destination is changed in Discovery, renamed or removed while confirmation
+is open, retry the import. A removed destination clears the choice without fallback.
 Import does not alter keys/access rules.
+This drop-down chooses an import destination, not a network discovery filter.
+Current announcements do not identify a Locations group or authentication key.
+Unassigned new computers remain visible, regardless of the chosen destination.
 Select multiple discovery rows with **Ctrl** or **Shift**, or use **Select all**;
 **Clear selection** selects none. **Import selected computers** presents one
 confirmation with the count, destination and full list under Show Details.

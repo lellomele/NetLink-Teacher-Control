@@ -176,6 +176,8 @@ void MainWindow::apply()
 		{
 			page->applyConfiguration();
 		}
+		// Reflect disjoint edits merged from another writer, without reloading the store.
+		reset(true);
 
 		ui->buttonBox->setEnabled( false );
 		m_configChanged = false;

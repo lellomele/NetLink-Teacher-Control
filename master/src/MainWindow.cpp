@@ -299,8 +299,10 @@ bool MainWindow::initAuthentication()
 
 	if( VeyonCore::config().authenticationMethod() == VeyonCore::AuthenticationMethod::KeyFileAuthentication )
 	{
-		if(!VeyonCore::config().masterAuthenticationKey().isEmpty()) {
-			QMessageBox::warning(nullptr,NetLinkUi::text("Master authentication key"),NetLinkUi::text("The configured default private key is missing, unreadable or invalid. Check the Master key selection and file permissions in Configurator; do not regenerate working keys."));return false;
+		const auto environmentKey=qEnvironmentVariable("VEYON_AUTH_KEY_NAME");
+		const auto selectedKey=environmentKey.isEmpty()?VeyonCore::config().masterAuthenticationKey():environmentKey;
+		if(!selectedKey.isEmpty()) {
+			QMessageBox::warning(nullptr,NetLinkUi::text("Master authentication key"),NetLinkUi::text("Selected Master private key %1 is missing, unreadable or invalid. Check the launch override, Configurator key selection and file permissions; do not regenerate working keys.").arg(selectedKey));return false;
 		}
 		QMessageBox::information( nullptr,
 				tr( "Authentication impossible" ),

@@ -42,10 +42,20 @@ public:
 	void flush( const Object *obj ) override;
 	// Update one value without clearing or rewriting unrelated configuration.
 	bool writeValue(const QString& key, const QVariant& value, const QString& parentKey = {});
+	// Checked optimistic save: merges disjoint edits, rejects conflicts and reports I/O errors.
+	bool save(Object& object, QString& error);
+	bool compareAndWriteValue(const QString& key,const QVariant& expected,const QVariant& value,
+	                         const QString& parentKey,QString& error);
+	bool clearChecked(QString& error);
+	QString errorString() const {return m_error;}
 	bool isWritable() const override;
 	void clear() override;
 
 	virtual QSettings *createSettingsObject() const;
+
+private:
+	bool saveSnapshot(const Object& object,Object* updated,QString& error);
+	QString m_error;
 
 } ;
 

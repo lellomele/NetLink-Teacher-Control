@@ -66,6 +66,14 @@ Object::~Object()
 	}
 }
 
+void Object::flushStore()
+{
+	if(auto local=dynamic_cast<LocalStore*>(m_store)) {
+		QString error;const auto ok=local->save(*this,error);setProperty("netlinkConfigurationWriteError",error);
+		if(!ok) qWarning()<<error;
+	} else if(m_store) m_store->flush(this);
+}
+
 
 
 Object& Object::operator=( const Object& ref )
@@ -88,6 +96,10 @@ Object& Object::operator=( const Object& ref )
 	}
 
 	m_data = ref.data();
+	if(!m_localBaselineValid) {
+		m_localBaseline=ref.m_localBaseline;m_localStoreIdentity=ref.m_localStoreIdentity;
+		m_localBaselineValid=ref.m_localBaselineValid;
+	}
 
 	return *this;
 }
@@ -243,7 +255,7 @@ void Object::setValue( const QString& key, const QVariant& value, const QString&
 {
 	// recursively search through data maps and sub data-maps until
 	// all levels of the parentKey are processed
-	QStringList subLevels = parentKey.split( QLatin1Char('/') );
+	QStringList subLevels = parentKey.isEmpty()?QStringList{}:parentKey.split( QLatin1Char('/') );
 	DataMap data = setValueRecursive( m_data, subLevels, key, value );
 
 	if( data != m_data )
@@ -286,7 +298,7 @@ static Object::DataMap removeValueRecursive( Object::DataMap data,
 
 void Object::removeValue( const QString& key, const QString& parentKey )
 {
-	QStringList subLevels = parentKey.split( QLatin1Char('/') );
+	QStringList subLevels = parentKey.isEmpty()?QStringList{}:parentKey.split( QLatin1Char('/') );
 	DataMap data = removeValueRecursive( m_data, subLevels, key );
 	if( data != m_data )
 	{

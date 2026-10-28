@@ -57,6 +57,19 @@ PC non selezionati stanno ricevendo una Demo diversa.
 
 ## Configurator
 
+Il salvataggio coordina gli scrittori delle versioni correnti di Console,
+Configurator e CLI. Modifiche su campi diversi vengono unite; cambiamenti in
+conflitto sullo stesso campo fermano il salvataggio senza sovrascrivere l'altro
+scrittore. Se appare un conflitto, esportare le modifiche in sospeso prima di
+ricaricare. Non modificare contemporaneamente la stessa configurazione con
+vecchi strumenti NetLink/Veyon o con l'Editor del Registro.
+Il registro di recupero contiene impostazioni, non il contenuto dei file delle
+chiavi private. Su Windows è protetto con DPAPI per l'account che salva.
+Dopo una scrittura interrotta può essere necessario avviare Configurator come
+amministratore con quello stesso account Windows. Dati non validi o non
+recuperabili impediscono l'avvio, anziché caricare impostazioni di sicurezza
+parziali o predefinite. Conservare separatamente i normali backup JSON e delle chiavi.
+
 - **Facile:** accesso, chiavi, impostazioni essenziali del servizio, gruppi/PC
   e discovery.
 - **Normale/Avanzata:** accesso alle altre impostazioni.
@@ -228,13 +241,19 @@ Disattivare il filtro per vedere anche i PC già noti.
 
 Verificare il destinatario prima dell'importazione. Servono diritti di scrittura
 sulla configurazione e riavvio del Master per visualizzare il nuovo PC.
-Prima di importare, evidenziare il gruppo di destinazione o la riga di uno dei
-suoi PC in **Posizioni e computer**. Le spunte e le miniature selezionate non
-scelgono il gruppo. Discovery mostra la destinazione e chiede conferma con
-indirizzo e porta. Nessuna selezione significa nessuna importazione: non sceglie
-il primo gruppo e non crea gruppi automaticamente. Se il gruppo viene cambiato,
-rinominato o eliminato durante la conferma, occorre ripetere l'importazione.
+Scegliere **Importa i PC selezionati nel gruppo** nella tendina della finestra
+Discovery. Il gruppo evidenziato (o il padre del PC evidenziato) in **Posizioni
+e computer** viene proposto una sola volta, all'apertura. Cambiare successivamente
+quel pannello, le spunte o le miniature selezionate non cambia la tendina della
+Discovery. Senza una riga iniziale valida, scegliere manualmente il gruppo:
+non seleziona implicitamente il primo e non crea gruppi automaticamente.
+Se la destinazione viene cambiata nella Discovery, rinominata o eliminata durante
+la conferma, occorre ripetere l'importazione. Una destinazione rimossa azzera la
+scelta senza ripiegare su un altro gruppo.
 L'importazione non modifica chiavi o autorizzazioni.
+Questa tendina sceglie la destinazione di importazione, non filtra gli annunci
+di rete. Gli annunci attuali non identificano il gruppo Locations né la chiave
+di autenticazione. I PC nuovi non assegnati rimangono visibili qualunque sia la destinazione.
 Selezionare più righe della discovery con **Ctrl** o **Maiusc**, oppure usare
 **Seleziona tutti**; **Deseleziona** azzera la selezione. **Importa PC selezionati**
 presenta una sola conferma con numero, gruppo ed elenco completo in Mostra dettagli.

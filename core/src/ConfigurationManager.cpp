@@ -44,9 +44,7 @@ ConfigurationManager::ConfigurationManager( QObject* parent ) :
 
 bool ConfigurationManager::clearConfiguration()
 {
-	Configuration::LocalStore( Configuration::LocalStore::System ).clear();
-
-	return true;
+	return Configuration::LocalStore(Configuration::LocalStore::System).clearChecked(m_errorString);
 }
 
 
@@ -103,6 +101,5 @@ bool ConfigurationManager::saveConfiguration()
 		return false;
 	}
 
-	localStore.flush( &m_configuration );
-	return true;
+	return localStore.save(m_configuration,m_errorString);
 }

@@ -6,9 +6,9 @@ Suite NetLink per la gestione delle aule Windows, basata su **Veyon 4.7.5**.
 Integra controllo remoto, InternetGuard WFP, Appello, profili classe–aula,
 ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
 
-**Versione preliminare 1.0.0-alpha.35: usare consapevolmente.**
+**Versione preliminare 1.0.0-alpha.36: usare consapevolmente.**
 
-**[Scarica l’installer Windows x64 — ultima release (alpha.35)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.35/NetLink-1.0.0-alpha.35-win64-setup.exe)**
+**[Scarica l’installer Windows x64 — ultima release (alpha.36)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.36/NetLink-1.0.0-alpha.36-win64-setup.exe)**
 
 ## Funzionalità
 
@@ -35,8 +35,8 @@ ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
 - **Trova client:** WS-Discovery, modalità automatica con IPv4 preferito e IPv6
   come alternativa, opzione Solo IPv4, filtro dei PC già configurati e
   accorpamento degli annunci della stessa identità.
-  I conflitti mostrano nomi, indirizzi e porte osservati. L'importazione usa il
-  gruppo evidenziato in Posizioni e computer, non il primo gruppo per impostazione predefinita.
+  I conflitti mostrano nomi, indirizzi e porte osservati. Il gruppo di importazione
+  si sceglie nella tendina della Discovery; la riga di Posizioni e computer è solo la proposta iniziale.
   Selezione multipla con Ctrl/Maiusc o Seleziona tutti e importazione con un'unica
   conferma; una riga non valida impedisce l'importazione dell'intera selezione.
   Identità adatte ai PC clonati: ID del sistema, nome del PC e MAC permanenti
@@ -46,6 +46,8 @@ ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
   Chiave privata predefinita del Master e chiave facoltativa per gruppo/laboratorio
   della directory integrata. Spostamento dei PC selezionati senza ricrearne
   l'identità: usano la chiave di destinazione, senza modificare le chiavi dei client.
+  I salvataggi uniscono modifiche indipendenti e rifiutano quelle concorrenti
+  in conflitto; un registro protetto permette il recupero di scritture interrotte.
 - **Stato e diagnostica:** icona del servizio con riepilogo locale, Companion
   per analizzare PC/rete e distinguere le prove di controllo remoto e discovery.
   Il tooltip preferisce l'IPv4 della rete attiva; nei dettagli restano gli altri

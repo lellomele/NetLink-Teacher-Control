@@ -27,6 +27,8 @@
 #include <QAbstractButton>
 #include <QAction>
 #include <QApplication>
+#include <QMessageBox>
+#include <cstdlib>
 #include <QDir>
 #include <QGroupBox>
 #include <QJsonDocument>
@@ -51,6 +53,7 @@
 #include "NetLinkUi.h"
 #include "UserGroupsBackendManager.h"
 #include "VeyonConfiguration.h"
+#include "SchoolDirectoryOperations.h"
 #include "VncConnection.h"
 
 
@@ -577,6 +580,12 @@ void VeyonCore::initSession()
 void VeyonCore::initConfiguration()
 {
 	m_config = new VeyonConfiguration();
+	const auto readError=m_config->property("netlinkConfigurationReadError").toString();
+	if(!readError.isEmpty()) {
+		qCritical().noquote()<<readError;
+		if(qobject_cast<QApplication*>(QCoreApplication::instance())) QMessageBox::critical(nullptr,QStringLiteral("NetLink"),readError);
+		std::exit(EXIT_FAILURE); // Never start a server with partial/default security settings.
+	}
 	m_config->upgrade();
 
 	if( QUuid( config().installationID() ).isNull() )
@@ -693,8 +702,10 @@ bool VeyonCore::initLogonAuthentication()
 
 bool VeyonCore::initKeyFileAuthentication()
 {
-	auto authKeyName = QProcessEnvironment::systemEnvironment().value( QStringLiteral("VEYON_AUTH_KEY_NAME") );
-	if(authKeyName.isEmpty()) authKeyName=config().masterAuthenticationKey();
+	const auto choice=SchoolDirectoryOperations::keyChoice({}, {}, {},config().masterAuthenticationKey(),
+		QProcessEnvironment::systemEnvironment().value(QStringLiteral("VEYON_AUTH_KEY_NAME")),{});
+	if(!choice.error.isEmpty()) {qWarning().noquote()<<choice.error;return false;}
+	const auto authKeyName=choice.name;
 
 	if( authKeyName.isEmpty() == false )
 	{

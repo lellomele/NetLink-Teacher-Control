@@ -6,6 +6,27 @@ L'audit di NetLink è **parziale**. Questo documento descrive i meccanismi prese
 i limiti e le prove necessarie; non certifica l'assenza di vulnerabilità,
 la conformità completa WS-Discovery o l'impiego in produzione.
 
+## Persistenza della configurazione
+
+Lettori/scrittori LocalStore correnti usano un blocco interprocesso per archivio
+(Windows: mutex globale con acquisizione non bloccante). Configurator e CLI
+salvano da una base nota e uniscono modifiche indipendenti; conflitti sugli stessi
+campi fermano il salvataggio senza scrivere. La Discovery usa lo stesso blocco
+per confronto e scrittura dell'elenco PC. I normali salvataggi non svuotano più
+l'intero albero. Vengono controllati sincronizzazione e rilettura; gli errori non
+sono presentati come successi.
+
+Prima delle modifiche viene scritto un registro di recupero prima/dopo. Con
+NativeFormat Windows è protetto da DPAPI dell'account corrente, non esposto in
+chiaro sotto permessi di una chiave padre meno restrittivi. Non si avvia con
+impostazioni parziali; il recupero può richiedere l'account Windows originale
+e i diritti di scrittura. Il registro non viene esportato nella configurazione
+e non contiene byte dei file delle chiavi. Il coordinamento riguarda gli
+strumenti correnti, non vecchie versioni, modifiche esterne al registro o guasti
+arbitrari del supporto. Test isolati coprono unione, conflitti, processi concorrenti,
+interruzione di processo, errori I/O, registro di recupero e un caso HKCU di prova.
+Non usano configurazione di sistema o chiavi di autenticazione reali.
+
 ## Comunicazione e ciclo di vita
 
 - L'avvio del servizio Windows contatta Service Control Manager prima di

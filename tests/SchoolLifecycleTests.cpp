@@ -132,6 +132,8 @@ private:
         void show(const QStringList& configuredHosts={}) {features.discovery(master,configuredHosts);}
         QDialog* dialog() const {return features.m_discoveryDialog;}
         QTableWidget* table() const {return dialog()->findChild<QTableWidget*>();}
+        QComboBox* destination() const {return dialog()->findChild<QComboBox*>("schoolDiscoveryDestination");}
+        void chooseGroup(const QUuid& uid) {destination()->setCurrentIndex(destination()->findData(uid));}
         QPushButton* importButton() const {
             const auto buttons=dialog()->findChild<QDialogButtonBox*>();
             for(auto button:buttons->buttons()) if(buttons->buttonRole(button)==QDialogButtonBox::ActionRole) return qobject_cast<QPushButton*>(button);
@@ -893,14 +895,14 @@ private Q_SLOTS:
         agent.m_records[record.endpoint+QChar(0)+"2001:db8::25"].seen=-96000;
         const auto fresh=agent.records().first();QVERIFY(!fresh.conflict);QVERIFY(SchoolDiscovery::conflictDetails(fresh).isEmpty());
     }
-    void discoveryImportsIntoHighlightedGroupNotFirstGroup_data() {
+    void discoveryDefaultsToHighlightedGroupNotFirstGroup_data() {
         QTest::addColumn<QString>("locale");
         QTest::newRow("English")<<QString("en_US");QTest::newRow("Italian")<<QString("it_IT");
     }
-    void discoveryImportsIntoHighlightedGroupNotFirstGroup() {
+    void discoveryDefaultsToHighlightedGroupNotFirstGroup() {
         QFETCH(QString,locale);struct Restore {QLocale value;~Restore(){QLocale::setDefault(value);}} restore{QLocale()};QLocale::setDefault(QLocale(locale));
         ImportFixture fixture;const auto before=fixture.objects;fixture.show();
-        QVERIFY(fixture.dialog()->findChild<QLabel*>("schoolDiscoveryDestination")->text().contains("Room B"));
+        QVERIFY(fixture.destination());QCOMPARE(fixture.destination()->currentText(),QString("Room B"));QCOMPARE(fixture.destination()->currentData().toUuid(),fixture.second);
         const auto question=fixture.ask();QVERIFY(question);QVERIFY(question->text().contains("Room B"));
         QCOMPARE(question->textFormat(),Qt::PlainText);QCOMPARE(question->defaultButton(),question->button(QMessageBox::No));
         question->button(QMessageBox::Yes)->click();QCOMPARE(fixture.saves,1);QCOMPARE(fixture.objects.size(),before.size()+1);
@@ -909,22 +911,23 @@ private Q_SLOTS:
         QCOMPARE(imported.type(),NetworkObject::Type::Host);QCOMPARE(imported.parentUid(),fixture.second);
         QCOMPARE(imported.hostAddress(),fixture.peer.address);QCOMPARE(imported.name(),fixture.peer.name);
     }
-    void discoveryBatchImportsSelectedRowsOnceIntoHighlightedGroup_data() {
+    void discoveryBatchImportsSelectedRowsOnceIntoExplicitGroup_data() {
         QTest::addColumn<QString>("locale");
         QTest::newRow("English")<<QString("en_US");QTest::newRow("Italian")<<QString("it_IT");
     }
-    void discoveryBatchImportsSelectedRowsOnceIntoHighlightedGroup() {
+    void discoveryBatchImportsSelectedRowsOnceIntoExplicitGroup() {
         QFETCH(QString,locale);struct Restore {QLocale value;~Restore(){QLocale::setDefault(value);}} restore{QLocale()};QLocale::setDefault(QLocale(locale));
         ImportFixture fixture;
         auto second=fixture.peer;second.endpoint="urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces);second.name="Second PC";second.address="192.0.2.26";
         auto third=second;third.endpoint="urn:uuid:"+QUuid::createUuid().toString(QUuid::WithoutBraces);third.name="Not selected";third.address="192.0.2.27";
         fixture.features.m_discovery->m_records.insert(second.endpoint,second);fixture.features.m_discovery->m_records.insert(third.endpoint,third);
         const auto before=fixture.objects;fixture.show();QCOMPARE(fixture.table()->selectionMode(),QAbstractItemView::ExtendedSelection);
+        fixture.chooseGroup(fixture.first); // Explicit destination overrides the highlighted Room B.
         for(int row=0;row<fixture.table()->rowCount();++row) if(fixture.table()->item(row,1)->text()!=third.address)
             fixture.table()->selectionModel()->select(fixture.table()->model()->index(row,0),QItemSelectionModel::Select|QItemSelectionModel::Rows);
         QCOMPARE(fixture.table()->selectionModel()->selectedRows().size(),2);fixture.importButton()->click();
         auto question=fixture.dialog()->findChild<QMessageBox*>("schoolDiscoveryImportConfirmation");QVERIFY(question);
-        QVERIFY(question->text().contains("Room B"));QVERIFY(question->text().contains("2"));
+        QVERIFY(question->text().contains("Room A"));QVERIFY(question->text().contains("2"));
         QVERIFY(question->detailedText().contains(fixture.peer.address));QVERIFY(question->detailedText().contains(second.address));
         QVERIFY(!question->detailedText().contains(third.address));QCOMPARE(question->defaultButton(),question->button(QMessageBox::No));
         // Even if the selection changes, import the exact list that was confirmed.
@@ -932,7 +935,7 @@ private Q_SLOTS:
         QCOMPARE(fixture.saves,1);QCOMPARE(fixture.objects.size(),before.size()+2);
         QSet<QString> added;QSet<QUuid> ids;
         for(int i=before.size();i<fixture.objects.size();++i) {
-            const NetworkObject host(fixture.objects[i].toObject());QCOMPARE(host.parentUid(),fixture.second);
+            const NetworkObject host(fixture.objects[i].toObject());QCOMPARE(host.parentUid(),fixture.first);
             added.insert(host.hostAddress());QVERIFY(!host.uid().isNull());ids.insert(host.uid());
         }
         QCOMPARE(ids.size(),2);QCOMPARE(added,QSet<QString>({fixture.peer.address,second.address}));
@@ -969,7 +972,7 @@ private Q_SLOTS:
             if(change=="late-duplicate") fixture.objects.append(NetworkObject(NetworkObject::Type::Host,"Duplicate",second.address,{},{},QUuid::createUuid(),fixture.first).toJson());
             if(change=="late-alias") {auto alias=second;alias.address=fixture.peer.address;fixture.features.m_discovery->m_records.insert(second.endpoint+"alias",alias);}
             if(change=="late-stable-alias") {auto alias=second;alias.address="2001:db8::25";fixture.features.m_discovery->m_records.insert(second.endpoint+"alias",alias);}
-            if(change=="late-group") fixture.master.highlightedGroup=fixture.first;
+            if(change=="late-group") fixture.chooseGroup(fixture.first);
             if(change=="late-permission") fixture.writable=false;
             if(change=="save-failure") fixture.failSave=true;
             if(change=="closed") fixture.dialog()->hide();
@@ -1016,20 +1019,54 @@ private Q_SLOTS:
         // platform and influence programmatic row selection in later tests.
         click(0,Qt::NoModifier);QCOMPARE(QGuiApplication::keyboardModifiers(),Qt::KeyboardModifiers(Qt::NoModifier));
     }
-    void discoveryRequiresARealHighlightedGroup_data() {
+    void discoveryRequiresARealDropDownDestination_data() {
         QTest::addColumn<QString>("choice");
-        for(const auto name:{"none","unknown","host","duplicate-group","empty-directory"}) QTest::newRow(name)<<QString(name);
+        for(const auto name:{"none","unknown","host","duplicate-group","host-collision","null-group","empty-directory"}) QTest::newRow(name)<<QString(name);
     }
-    void discoveryRequiresARealHighlightedGroup() {
+    void discoveryRequiresARealDropDownDestination() {
         QFETCH(QString,choice);ImportFixture fixture;
         if(choice=="none") fixture.master.highlightedGroup=QUuid{};
         if(choice=="unknown") fixture.master.highlightedGroup=QUuid::createUuid();
         if(choice=="host") fixture.master.highlightedGroup=NetworkObject(fixture.objects.last().toObject()).uid();
         if(choice=="duplicate-group") fixture.objects.append(fixture.objects[1]);
+        if(choice=="host-collision") fixture.objects.append(NetworkObject(NetworkObject::Type::Host,"Ambiguous ID","192.0.2.11",{},{},fixture.second,fixture.first).toJson());
         if(choice=="empty-directory") fixture.objects={};
+        if(choice=="null-group") fixture.objects={NetworkObject(NetworkObject::Type::Location,"Invalid room").toJson()};
         const auto before=fixture.objects;fixture.show();QVERIFY(!fixture.ask());QCOMPARE(fixture.saves,0);QCOMPARE(fixture.objects,before);
+        QCOMPARE(fixture.destination()->currentData().toUuid(),QUuid{});
         auto notice=fixture.dialog()->findChild<QMessageBox*>();QVERIFY(notice);
-        QCOMPARE(notice->text(),NetLinkUi::text("Highlight a configured group or one of its PCs in Locations & computers, then import again. No computer was imported and no group was created."));
+        QCOMPARE(notice->text(),NetLinkUi::text("Choose a destination group in this Discovery window, then import again. No computer was imported and no group was created."));
+    }
+    void discoveryDoesNotFollowLaterLocationChanges_data() {
+        QTest::addColumn<QString>("when");for(const auto name:{"before_import","during_confirmation","timer_refresh"}) QTest::newRow(name)<<QString(name);
+    }
+    void discoveryDoesNotFollowLaterLocationChanges() {
+        QFETCH(QString,when);ImportFixture fixture;fixture.show();
+        QCOMPARE(fixture.destination()->currentData().toUuid(),fixture.second);
+        if(when!="during_confirmation") fixture.master.highlightedGroup=fixture.first;
+        if(when=="timer_refresh") QVERIFY(QMetaObject::invokeMethod(fixture.dialog()->findChild<QTimer*>("schoolDiscoveryRefresh"),"timeout",Qt::DirectConnection));
+        const auto question=fixture.ask();QVERIFY(question);QVERIFY(question->text().contains("Room B"));
+        fixture.master.highlightedGroup=QUuid{}; // Also irrelevant while confirmation is pending.
+        question->button(QMessageBox::Yes)->click();QCOMPARE(fixture.saves,1);
+        QCOMPARE(NetworkObject(fixture.objects.last().toObject()).parentUid(),fixture.second);
+    }
+    void discoveryCanChooseDestinationWithoutHighlightedLocation() {
+        ImportFixture fixture;fixture.master.highlightedGroup=QUuid{};fixture.show();
+        QCOMPARE(fixture.destination()->currentIndex(),0);QCOMPARE(fixture.destination()->count(),3);
+        fixture.chooseGroup(fixture.first);auto question=fixture.ask();QVERIFY(question);
+        question->button(QMessageBox::Yes)->click();QCOMPARE(fixture.saves,1);QCOMPARE(NetworkObject(fixture.objects.last().toObject()).parentUid(),fixture.first);
+    }
+    void discoveryPreservesExplicitDestinationByUuidAndNeverFallsBackAfterRemoval() {
+        ImportFixture fixture;fixture.show();fixture.chooseGroup(fixture.first);
+        fixture.objects.removeAt(0);fixture.objects.append(NetworkObject(NetworkObject::Type::Location,"Renamed A",{},{},{},fixture.first).toJson());
+        const auto refresh=[&]{QVERIFY(QMetaObject::invokeMethod(fixture.dialog()->findChild<QTimer*>("schoolDiscoveryRefresh"),"timeout",Qt::DirectConnection));};
+        refresh();QCOMPARE(fixture.destination()->currentData().toUuid(),fixture.first);QCOMPARE(fixture.destination()->currentText(),QString("Renamed A"));QCOMPARE(fixture.saves,0);
+        fixture.objects.removeAt(fixture.objects.size()-1);refresh();
+        QCOMPARE(fixture.destination()->currentIndex(),0);QCOMPARE(fixture.saves,0); // Not Room B despite its highlight.
+        fixture.objects.append(NetworkObject(NetworkObject::Type::Location,"New room",{},{},{},QUuid::createUuid()).toJson());refresh();QCOMPARE(fixture.destination()->currentIndex(),0);
+        auto table=fixture.table();QCOMPARE(table->rowCount(),1); // Destination changes never filter out new discoveries.
+        const auto output=qEnvironmentVariable("NETLINK_DISCOVERY_SCREENSHOTS");
+        if(!output.isEmpty()) {QVERIFY(QDir().mkpath(output));QVERIFY(fixture.dialog()->grab().save(QDir(output).filePath(QString("discovery-explicit-%1.png").arg(qRound(fixture.dialog()->devicePixelRatioF()*100)))));}
     }
     void discoveryImportRevalidatesDestinationAndPendingConfirmation_data() {
         QTest::addColumn<QString>("change");
@@ -1037,7 +1074,7 @@ private Q_SLOTS:
     }
     void discoveryImportRevalidatesDestinationAndPendingConfirmation() {
         QFETCH(QString,change);ImportFixture fixture;fixture.show();const auto question=fixture.ask();QVERIFY(question);
-        if(change=="selection") fixture.master.highlightedGroup=fixture.first;
+        if(change=="selection") fixture.chooseGroup(fixture.first);
         if(change=="removed") fixture.objects.removeAt(1);
         if(change=="renamed") fixture.objects[1]=NetworkObject(NetworkObject::Type::Location,"Renamed room",{},{},{},fixture.second).toJson();
         if(change=="port") fixture.port=11102;

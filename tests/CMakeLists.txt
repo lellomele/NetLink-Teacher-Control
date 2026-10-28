@@ -2,6 +2,20 @@ if(WITH_FUZZERS)
 	add_subdirectory(libfuzzer)
 endif()
 if(WITH_TESTS)
+    add_executable(netlink-configuration-repository-tests ConfigurationRepositoryTests.cpp)
+    set_default_target_properties(netlink-configuration-repository-tests)
+    target_link_libraries(netlink-configuration-repository-tests PRIVATE veyon-core Qt${QT_MAJOR_VERSION}::Test)
+    add_test(NAME netlink-configuration-repository-tests COMMAND netlink-configuration-repository-tests
+        disjointConfiguratorAndDiscoveryEditsAreMergedWithoutChangingKeys overlappingEditsAreRejectedWithoutWritingAnyField
+        failedWriteNeverClaimsSuccessOrClearsExistingData interruptedWritesRecoverBeforeExposingSettings
+        clearAndUnsetAreCheckedAndDoNotResurrectRemovedValues twoProcessesCannotBothCommitTheSameExpectedRevision
+        processCrashRecoversPartialWrite pureImportPlanRejectsLatePortDecoratedDuplicateAndIsAtomic preferenceFlushAdvancesBaselineAndCanRemoveNewValues
+        -o "${CMAKE_CURRENT_BINARY_DIR}/netlink-configuration-repository-results.txt,txt")
+    set_tests_properties(netlink-configuration-repository-tests PROPERTIES TIMEOUT 40)
+    if(WIN32)
+        add_test(NAME netlink-configuration-native-recovery-tests COMMAND netlink-configuration-repository-tests nativeRegistryRecoveryIsProtectedAndRetainsOldValues -o "${CMAKE_CURRENT_BINARY_DIR}/netlink-configuration-native-results.txt,txt")
+        set_tests_properties(netlink-configuration-native-recovery-tests PROPERTIES TIMEOUT 30)
+    endif()
     if(WIN32)
         add_executable(netlink-service-startup-tests WindowsServiceStartupTests.cpp ../plugins/platform/windows/WindowsServiceControl.h)
         set_default_target_properties(netlink-service-startup-tests)

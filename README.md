@@ -6,9 +6,9 @@ NetLink is a Windows classroom-management suite based on **Veyon 4.7.5**.
 It integrates remote control, WFP InternetGuard, student names, class–room profiles,
 automatic client discovery and Companion diagnostics, without external plugins.
 
-**Pre-release 1.0.0-alpha.35: use with awareness of its limitations.**
+**Pre-release 1.0.0-alpha.36: use with awareness of its limitations.**
 
-**[Download Windows x64 installer — latest release (alpha.35)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.35/NetLink-1.0.0-alpha.35-win64-setup.exe)**
+**[Download Windows x64 installer — latest release (alpha.36)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.36/NetLink-1.0.0-alpha.36-win64-setup.exe)**
 
 ## Features
 
@@ -33,8 +33,8 @@ automatic client discovery and Companion diagnostics, without external plugins.
   Loading checks the saved PCs and restores names without replacing the network tree.
 - **Find clients:** WS-Discovery with IPv4-preferred automatic mode, IPv6 fallback,
   IPv4-only mode, known-computer filtering and grouping of the same discovery identity.
-  Conflicts list the observed names, addresses and ports. Import targets the highlighted
-  group in Locations & computers, never the first group by default.
+  Conflicts list the observed names, addresses and ports. Choose the import group
+  explicitly in Discovery; the highlighted Location is only the initial suggestion.
   Select multiple discovery rows with Ctrl/Shift or Select all and import them
   with one confirmation; any invalid row blocks the entire batch.
   Clone-aware identities combine system ID, computer name and available permanent
@@ -44,6 +44,8 @@ automatic client discovery and Companion diagnostics, without external plugins.
   Choose a default Master private key and an optional key per built-in group/laboratory.
   Move selected PCs between groups without recreating their identities;
   they inherit the destination group's key, without changing any client keys.
+  Configuration saves merge unrelated edits and reject conflicting concurrent
+  changes; interrupted settings writes have a protected recovery record.
 - **Status and diagnostics:** service tray summary and Companion PC/network
   analysis with distinct remote-control and discovery tests.
   The tray tooltip prefers the active network's IPv4; details retain the other

@@ -65,13 +65,7 @@ public:
 		}
 	}
 
-	void flushStore()
-	{
-		if( m_store )
-		{
-			m_store->flush( this );
-		}
-	}
+	void flushStore();
 
 	bool isStoreWritable() const
 	{
@@ -94,6 +88,11 @@ Q_SIGNALS:
 
 
 private:
+	friend class LocalStore;
+	// Baseline belongs to the store, not to a JSON file merged into the editor.
+	mutable DataMap m_localBaseline;
+	mutable QString m_localStoreIdentity;
+	mutable bool m_localBaselineValid{false};
 	static Store* createStore( Store::Backend backend, Store::Scope scope );
 
 	Configuration::Store *m_store{nullptr};

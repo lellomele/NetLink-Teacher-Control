@@ -6,6 +6,26 @@ The NetLink audit is **partial**. This document describes implemented mechanisms
 limitations and required tests. It does not certify freedom from vulnerabilities,
 complete WS-Discovery compliance or production readiness.
 
+## Configuration persistence
+
+Current LocalStore readers/writers coordinate through a per-store cross-process
+lock (Windows: global named mutex, nonblocking acquisition). Configurator/CLI
+save from a captured baseline and merge disjoint changes; overlapping edits fail
+without writing. Discovery uses the same lock for compare-and-write of the PC
+list. The repository no longer clears the entire tree before ordinary saves.
+Sync status and read-back are checked; errors do not report success.
+
+A before/after recovery record is persisted before changing values. On Windows
+NativeFormat it is protected with current-user DPAPI, not exposed as plaintext
+under a weaker parent ACL. Startup does not accept partially recovered settings;
+recovery can require the original saving Windows identity with write permissions.
+Records are excluded from configuration exports and never contain key-file bytes.
+These mechanisms coordinate cooperating current tools, not old Veyon/NetLink,
+external registry edits, or arbitrary native storage failures. The isolated
+repository suite exercises merge/conflict, process races, process interruption,
+I/O errors, journal validation and a test-only HKCU recovery case. No real system
+configuration or real authentication keys are used by those tests.
+
 ## Communication and lifecycle
 
 - Windows service startup connects to the Service Control Manager before IPC,
