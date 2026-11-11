@@ -91,6 +91,14 @@ Settings backups are in `C:\ProgramData\NetLink\Recovery`.
 
 Full procedure: [installation, uninstall and recovery](docs/INSTALLATION.md).
 
+## Optional removal utility
+
+[NetLink / Veyon Removal 1.0.4 — portable ZIP](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.36/NetLink-Veyon-Removal-1.0.4-win64.zip) removes recognized NetLink/Veyon installations even when their uninstaller is missing. Windows x64, .NET Framework 4.8 and administrator approval are required. Configuration and keys are preserved by default. Removal interrupts remote sessions and may require a restart.
+
+The optional post-reboot check is read-only. Guided residual cleanup requires confirmation and a new backup, and refuses changed files or recognized new installations. Drivers and unidentified remnants are not blindly removed. The ZIP contains English/Italian instructions; the program is unsigned. This utility is separate from the suite installer and is **not required for normal in-place updates**.
+
+[Executable](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.36/NetLink-Veyon-Removal.exe) · [Source](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.36/NetLink-Veyon-Removal-1.0.4-source.zip) · [SHA-256](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.36/SHA256SUMS-1.0.4.txt)
+
 ## Quick start
 
 - Configure keys/access rights in Configurator, keeping existing locations and PCs.
