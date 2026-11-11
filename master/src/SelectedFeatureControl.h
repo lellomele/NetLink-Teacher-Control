@@ -3,8 +3,8 @@
 #include "ComputerControlInterface.h"
 #include "Feature.h"
 
-// Shared by the toolbar and thumbnail context menu. Never retain a selection
-// across user requests and never turn an empty selection into a whole room.
+// Mode planning on explicitly resolved targets. Interactive empty-selection
+// confirmation is centralized in CommandTargetSelection before planning.
 namespace SelectedFeatureControl {
 inline bool isMode(const Feature& feature) {
     const auto name=feature.name();
@@ -13,9 +13,6 @@ inline bool isMode(const Feature& feature) {
          name==QStringLiteral("Demo") || name==QStringLiteral("ShareOwnScreenFullScreen") ||
          name==QStringLiteral("ShareOwnScreenWindow") || name==QStringLiteral("ShareUserScreenFullScreen") ||
          name==QStringLiteral("ShareUserScreenWindow"));
-}
-inline bool applies(const Feature& feature) {
-    return isMode(feature) || feature.name()==QStringLiteral("InternetGuard");
 }
 inline ComputerControlInterfaceList targets(const ComputerControlInterfaceList& selected) {
     ComputerControlInterfaceList result;

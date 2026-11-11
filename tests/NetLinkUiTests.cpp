@@ -453,6 +453,23 @@ private Q_SLOTS:
         QVERIFY(QMetaObject::invokeMethod(&page,"removeLocation",Qt::DirectConnection));
         QCOMPARE(directory.networkObjects().size(),1);QCOMPARE(NetworkObject(directory.networkObjects()[0].toObject()).uid(),other);
     }
+    void directoryCellsExplainEditingAndSidebarHelpIsLocalized() {
+        Configuration::JsonStore store(Configuration::Store::System,m_directory.filePath("tooltips.json"));
+        VeyonConfiguration config(&store);BuiltinDirectoryConfiguration directory(&config);directory.setNetworkObjects(objects());
+        BuiltinDirectoryConfigurationPage page(directory);
+        const auto locations=page.findChild<QTableWidget*>("locationTableWidget"),computers=page.findChild<QTableWidget*>("computerTableWidget");
+        QVERIFY(locations);QVERIFY(computers);QVERIFY(locations->rowCount()>0);QVERIFY(computers->rowCount()>0);
+        QCOMPARE(locations->toolTipDuration(),7000);QCOMPARE(computers->toolTipDuration(),7000);
+        QCOMPARE(locations->item(0,0)->toolTip(),NetLinkUi::text("Double-click to rename this group. Its computers and key assignment are retained. Use Apply to save."));
+        QVERIFY(computers->item(0,0)->toolTip().contains(NetLinkUi::text("Double-click to rename this computer in the list. This does not rename Windows on the client. Use Apply to save.")));
+        for(int column=0;column<3;++column) QVERIFY(!computers->item(0,column)->toolTip().isEmpty());
+        const auto previous=QLocale();
+        for(const auto& name:QStringList{"GeneralConfigurationPage","ServiceConfigurationPage","MasterConfigurationPage","AccessControlPage","BuiltinDirectoryConfigurationPage","AuthKeysConfigurationPage","SchoolConfigurationPage","WindowsPlatformConfigurationPage","DemoConfigurationPage","DesktopServicesConfigurationPage","FileTransferConfigurationPage","LdapConfigurationPage","WebApiConfigurationPage","UnknownPlugin"}) {
+            QLocale::setDefault(QLocale("en_US"));const auto english=NetLinkUi::configurationPageDescription(name);QVERIFY(!english.isEmpty());
+            QLocale::setDefault(QLocale("it_IT"));const auto italian=NetLinkUi::configurationPageDescription(name);QVERIFY(!italian.isEmpty());QVERIFY(italian!=english);
+        }
+        QLocale::setDefault(previous);
+    }
     void consolePreviewUsesActualButtonsAndCopyrightMenu() {
         QMainWindow window;window.resize(1120,680);window.setWindowTitle(NetLinkUi::windowTitle("NetLink — anteprima Console docente"));
         NetLinkUi::addInformationMenu(&window);NetLinkUi::addInformationMenu(&window);

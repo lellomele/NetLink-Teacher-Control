@@ -12,6 +12,18 @@ QList<NetworkObject> DiscoveryImportController::groups(const QJsonArray& objects
     }
     return result;
 }
+bool DiscoveryImportController::createGroup(const QJsonArray& before,const QString& input,QJsonArray& after,NetworkObject& group,QString& error) {
+    after=before;group=NetworkObject{};error.clear();
+    const auto name=input.simplified();
+    bool valid=!name.isEmpty() && name.size()<=120;
+    for(const auto character:input) if(character.category()==QChar::Other_Control || character.category()==QChar::Other_Format) valid=false;
+    if(!valid) {error=NetLinkUi::text("Enter a group name of 1 to 120 characters, without control characters.");return false;}
+    for(const auto& existing:groups(before)) if(existing.name().simplified().compare(name,Qt::CaseInsensitive)==0) {
+        error=NetLinkUi::text("A group with this name already exists. Choose it in the destination list or use a different name.");return false;
+    }
+    group=NetworkObject(NetworkObject::Type::Location,name,{},{},{},QUuid::createUuid());
+    after.append(group.toJson());return true;
+}
 QString DiscoveryImportController::validate(const QList<SchoolDiscovery::Record>& selected,const QList<SchoolDiscovery::Record>& available,int port,
     const std::function<bool(const SchoolDiscovery::Record&)>& known,QList<SchoolDiscovery::Record>& current) {
     current.clear();if(selected.isEmpty()) return NetLinkUi::text("Select at least one discovery row. No computer was imported.");

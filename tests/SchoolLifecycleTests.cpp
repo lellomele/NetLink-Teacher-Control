@@ -7,6 +7,7 @@
 #include <QDialogButtonBox>
 #include <QFontDatabase>
 #include <QLineEdit>
+#include <QInputDialog>
 #include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>
@@ -20,6 +21,8 @@
 #include "Configuration/LocalStore.h"
 #include "NetworkObject.h"
 #include "SchoolDirectoryOperations.h"
+#include "CommandTargetSelection.h"
+#include "DiscoveryImportController.h"
 #include "SchoolFeatures.h"
 #include "NetLinkUi.h"
 #include "SchoolPolicyResolver.h"
@@ -36,7 +39,7 @@ public:
     void reloadSubFeatures() override {}
     ComputerControlInterface& localSessionControlInterface() override { return local; }
     const ComputerControlInterfaceList& allComputerControlInterfaces() const override { return clients; }
-    ComputerControlInterfaceList selectedComputerControlInterfaces() const override { return clients; }
+    ComputerControlInterfaceList selectedComputerControlInterfaces() const override { return noSelection?ComputerControlInterfaceList{}:clients; }
     ComputerControlInterfaceList filteredComputerControlInterfaces() const override { return clients; }
     QUuid highlightedLocationUid() const override {return highlightedGroup;}
     QWidget window;
@@ -44,6 +47,7 @@ public:
     ComputerControlInterfaceList clients;
     Configuration::Object preferences;
     QUuid highlightedGroup;
+    bool noSelection=false;
 };
 class IsolatedSchoolWorker : public QObject, public VeyonWorkerInterface {
 public:
@@ -142,6 +146,112 @@ private:
         QMessageBox* ask() {table()->setCurrentCell(0,0,QItemSelectionModel::ClearAndSelect|QItemSelectionModel::Rows);importButton()->click();return dialog()->findChild<QMessageBox*>("schoolDiscoveryImportConfirmation");}
     };
 private Q_SLOTS:
+    void commandTargetsUseSelectionAndNeverAskForUnselectedClients() {
+        QWidget parent;QObject context;const auto first=client(),second=client("192.0.2.26");
+        ComputerControlInterfaceList selected{first,{},first},visible{first,second},sent;int calls=0;
+        CommandTargetSelection::request(&parent,&context,"Command",[&]{return selected;},[&]{return visible;},[&](const ComputerControlInterfaceList& targets){sent=targets;++calls;});
+        QCOMPARE(calls,1);QCOMPARE(sent,ComputerControlInterfaceList{first});QVERIFY(!parent.findChild<QMessageBox*>());
+        selected={second};
+        CommandTargetSelection::request(&parent,&context,"Next command",[&]{return selected;},[&]{return visible;},[&](const ComputerControlInterfaceList& targets){sent=targets;++calls;});
+        QCOMPARE(calls,2);QCOMPARE(sent,ComputerControlInterfaceList{second});
+    }
+    void commandTargetsRequireExplicitConfirmation_data() {
+        QTest::addColumn<QString>("change");
+        for(const auto value:{"yes","no","escape","selected","visible","none","forced","forced-changed","owner-destroyed"}) QTest::newRow(value)<<QString(value);
+    }
+    void commandTargetsRequireExplicitConfirmation() {
+        QFETCH(QString,change);QWidget parent;QObject context;const auto first=client(),second=client("192.0.2.26");
+        ComputerControlInterfaceList selected,visible{first,second},sent;int calls=0;bool forced=change.startsWith("forced");
+        if(forced) selected={second};
+        if(change=="none") visible.clear();
+        const auto request=[&] {
+            CommandTargetSelection::request(&parent,&context,"Lock",[&]{return selected;},[&]{return visible;},[&](const ComputerControlInterfaceList& targets){sent=targets;++calls;},[&]{return forced;});
+        };
+        request();QCOMPARE(calls,0);
+        QPointer<QMessageBox> question=parent.findChild<QMessageBox*>("netlinkCommandTargetConfirmation");
+        if(change=="none") {QVERIFY(!question);return;}
+        QVERIFY(question);QCOMPARE(question->icon(),QMessageBox::Warning);QCOMPARE(question->defaultButton(),question->button(QMessageBox::No));
+        QVERIFY(question->detailedText().contains("192.0.2.26"));
+        request();QCOMPARE(parent.findChildren<QMessageBox*>("netlinkCommandTargetConfirmation").size(),1);
+        if(change=="selected") selected={first};
+        if(change=="visible") visible={first};
+        if(change=="forced-changed") forced=false;
+        if(change=="owner-destroyed") {delete question;QCOMPARE(calls,0);return;}
+        if(change=="escape") question->reject();
+        else question->button(change=="no"?QMessageBox::No:QMessageBox::Yes)->click();
+        const bool accepted=change=="yes" || change=="forced";
+        QCOMPARE(calls,accepted?1:0);
+        if(accepted) QCOMPARE(sent,change=="forced"?ComputerControlInterfaceList{second}:ComputerControlInterfaceList({first,second}));
+    }
+    void guardWithNoThumbnailsAsksBeforeEveryAction() {
+        IsolatedSchoolMaster master;master.clients={client(),client("192.0.2.26")};master.noSelection=true;SchoolFeatures features(nullptr,false);
+        QVERIFY(features.startFeature(master,features.featureList().first(),{}));
+        auto dialog=features.m_guardDialog;auto table=dialog->findChild<QTableWidget*>();QCOMPARE(table->rowCount(),2);
+        auto block=static_cast<QPushButton*>(nullptr);
+        for(auto button:dialog->findChildren<QPushButton*>()) if(button->text()==NetLinkUi::text("Block Internet")) block=button;
+        QVERIFY(block);
+        for(const auto& ci:master.clients) ci->setNetworkPolicyStatus("untouched");
+        block->click();auto question=dialog->findChild<QMessageBox*>("netlinkCommandTargetConfirmation");QVERIFY(question);
+        for(const auto& ci:master.clients) QCOMPARE(ci->networkPolicyStatus(),QString("untouched"));
+        question->button(QMessageBox::No)->click();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
+        block->click();question=dialog->findChild<QMessageBox*>("netlinkCommandTargetConfirmation");QVERIFY(question);
+        question->button(QMessageBox::Yes)->click();
+        for(const auto& ci:master.clients) QCOMPARE(ci->networkPolicyStatus(),NetLinkUi::text("not connected"));
+        QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
+        master.noSelection=false;table->clearSelection();
+        block->click();question=dialog->findChild<QMessageBox*>("netlinkCommandTargetConfirmation");QVERIFY(question);question->button(QMessageBox::No)->click();
+    }
+    void discoveryGroupCreationIsExplicitAtomicAndLocal_data() {
+        QTest::addColumn<QString>("change");
+        for(const auto value:{"accept","cancel","permission","concurrent","failure","invalid","duplicate"}) QTest::newRow(value)<<QString(value);
+    }
+    void discoveryGroupCreationIsExplicitAtomicAndLocal() {
+        QFETCH(QString,change);ImportFixture fixture;fixture.objects={};fixture.features.m_discoveryImport.suggestedGroup=[] {return QString("test_key");};
+        fixture.show();fixture.table()->selectAll();fixture.importButton()->click();
+        auto editor=fixture.dialog()->findChild<QInputDialog*>("schoolDiscoveryGroupName");QVERIFY(editor);QCOMPARE(editor->textValue(),QString("test_key"));QCOMPARE(fixture.saves,0);
+        if(change=="permission") fixture.writable=false;
+        if(change=="concurrent") fixture.objects.append(NetworkObject(NetworkObject::Type::Location,"Other group",{},{},{},fixture.first).toJson());
+        if(change=="failure") fixture.failSave=true;
+        if(change=="invalid") editor->setTextValue("  ");
+        // Validation sees the captured list, while save detects a competing write.
+        if(change=="duplicate") fixture.objects.append(NetworkObject(NetworkObject::Type::Location,"test_key",{},{},{},fixture.first).toJson());
+        const auto before=fixture.objects;
+        if(change=="cancel") editor->reject();else editor->accept();
+        if(change!="accept") {QCOMPARE(fixture.saves,0);QCOMPARE(fixture.objects,before);return;}
+        QCOMPARE(fixture.saves,1);QCOMPARE(fixture.objects.size(),1);
+        const NetworkObject group(fixture.objects.first().toObject());QCOMPARE(group.type(),NetworkObject::Type::Location);QCOMPARE(group.name(),QString("test_key"));
+        QCOMPARE(fixture.destination()->currentData().toUuid(),group.uid());
+        auto question=fixture.ask();QVERIFY(question);question->button(QMessageBox::Yes)->click();
+        QCOMPARE(fixture.saves,2);QCOMPARE(fixture.objects.size(),2);QCOMPARE(NetworkObject(fixture.objects.last().toObject()).parentUid(),group.uid());
+    }
+    void discoveryGroupNameValidationPreservesAllObjects() {
+        const QJsonArray before{NetworkObject(NetworkObject::Type::Location,"Room A",{},{},{},QUuid::createUuid()).toJson()};
+        for(const auto& name:QStringList{"", "  ", "ROOM a",QString(121,'a'),QString("a\nb"),QString(QChar(0x202e))}) {
+            QJsonArray after;NetworkObject group;QString error;
+            QVERIFY(!DiscoveryImportController::createGroup(before,name,after,group,error));QCOMPARE(after,before);QVERIFY(!group.isValid());QVERIFY(!error.isEmpty());
+        }
+    }
+    void attendanceRechecksSelectionWhenAnOperationIsPressed() {
+        IsolatedSchoolMaster master;SchoolFeatures features(nullptr,false);const auto first=client(),second=client("192.0.2.26");
+        first->setStudentName("First student");second->setStudentName("Second student");
+        master.clients={first};
+        auto openEnd=[&] {
+            const auto feature=features.featureList()[1];QVERIFY(features.startFeature(master,feature,master.clients));
+            auto box=qobject_cast<QMessageBox*>(features.m_attendanceDialog.data());QVERIFY(box);
+            for(auto button:box->buttons()) if(button->text()==NetLinkUi::text("End requests and clear declarations")) {button->click();return;}
+            QFAIL("Attendance action missing");
+        };
+        QVERIFY(features.startFeature(master,features.featureList()[1],{first}));
+        master.clients={second};openEnd();
+        QCOMPARE(first->studentName(),QString("First student"));QVERIFY(second->studentName().isEmpty());
+        QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
+        master.clients={first,second};master.noSelection=true;openEnd();
+        auto question=master.window.findChild<QMessageBox*>("netlinkCommandTargetConfirmation");QVERIFY(question);
+        question->button(QMessageBox::No)->click();QCOMPARE(first->studentName(),QString("First student"));
+        QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
+        openEnd();question=master.window.findChild<QMessageBox*>("netlinkCommandTargetConfirmation");QVERIFY(question);
+        question->button(QMessageBox::Yes)->click();QVERIFY(first->studentName().isEmpty());
+    }
     void laboratoryKeysArePerComputerAndFollowDestinationWithoutFallback() {
         using namespace SchoolDirectoryOperations;
         const auto a=QUuid::createUuid(),b=QUuid::createUuid(),one=QUuid::createUuid(),two=QUuid::createUuid();
@@ -248,7 +358,7 @@ private Q_SLOTS:
         replacement->setNetworkPolicyStatus("altro PC");QTRY_COMPARE(table->item(0,1)->text(),QString("altro PC"));
         original->setNetworkPolicyStatus("vecchio PC");QTest::qWait(300);QCOMPARE(table->item(0,1)->text(),QString("altro PC"));
     }
-    void guardCommandsHonorHighlightedRowsAndNeverFallBackToAll() {
+    void guardCommandsHonorHighlightedRowsAndConfirmEmptySelection() {
         IsolatedSchoolMaster master;const auto first=client(),second=client("192.0.2.26");
         master.clients={first,second};SchoolFeatures features(nullptr,false);
         first->setNetworkPolicyStatus("unchanged");second->setNetworkPolicyStatus("unchanged");
@@ -262,8 +372,12 @@ private Q_SLOTS:
         second->setNetworkPolicyStatus("unchanged");query->click();QCOMPARE(first->networkPolicyStatus(),QString("unchanged"));QVERIFY(second->networkPolicyStatus()!=QString("unchanged"));
         features.m_guardTargets={{first.data(),{},0},{second.data(),{},0}};
         release->click();QCOMPARE(features.m_guardTargets.size(),1);QCOMPARE(features.m_guardTargets.first().control.data(),first.data());
-        table->clearSelection();QVERIFY(!block->isEnabled());QVERIFY(!release->isEnabled());QVERIFY(!query->isEnabled());
-        block->click();release->click();query->click();QCOMPARE(features.m_guardTargets.size(),1);
+        table->clearSelection();QVERIFY(block->isEnabled());QVERIFY(release->isEnabled());QVERIFY(query->isEnabled());
+        for(auto button:{block,release,query}) {
+            button->click();auto confirmation=features.m_guardDialog->findChild<QMessageBox*>("netlinkCommandTargetConfirmation");QVERIFY(confirmation);
+            QCOMPARE(features.m_guardTargets.size(),1);confirmation->button(QMessageBox::No)->click();
+            QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
+        }
         // The toolbar can pass all filtered PCs: the dialog must still use the
         // Master's actual selection, refreshed when it is opened again.
         master.clients={second};QVERIFY(features.startFeature(master,features.featureList().first(),{first,second}));
@@ -1034,6 +1148,9 @@ private Q_SLOTS:
         if(choice=="null-group") fixture.objects={NetworkObject(NetworkObject::Type::Location,"Invalid room").toJson()};
         const auto before=fixture.objects;fixture.show();QVERIFY(!fixture.ask());QCOMPARE(fixture.saves,0);QCOMPARE(fixture.objects,before);
         QCOMPARE(fixture.destination()->currentData().toUuid(),QUuid{});
+        if(choice=="empty-directory") {
+            QVERIFY(fixture.dialog()->findChild<QInputDialog*>("schoolDiscoveryGroupName"));return;
+        }
         auto notice=fixture.dialog()->findChild<QMessageBox*>();QVERIFY(notice);
         QCOMPARE(notice->text(),NetLinkUi::text("Choose a destination group in this Discovery window, then import again. No computer was imported and no group was created."));
     }

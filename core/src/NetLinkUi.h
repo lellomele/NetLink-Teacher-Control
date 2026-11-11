@@ -31,6 +31,7 @@ VEYON_CORE_EXPORT QIcon icon(const QString& name, const QString& set, const QCol
 VEYON_CORE_EXPORT QString featureDescription(const Feature& feature);
 VEYON_CORE_EXPORT void addInformationMenu(QMainWindow* window);
 VEYON_CORE_EXPORT bool easyPage(const QString& className);
+VEYON_CORE_EXPORT QString configurationPageDescription(const QString& className);
 VEYON_CORE_EXPORT void setEasyPage(QWidget* page, bool easy);
 VEYON_CORE_EXPORT void setPropertyVisibility(QWidget* widget, bool advanced);
 // Pure formatting: no DNS, sockets, service queries or changes to the machine.

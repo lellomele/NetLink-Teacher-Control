@@ -176,40 +176,8 @@ void ComputerMonitoringView::initiateIconSizeAutoAdjust()
 
 void ComputerMonitoringView::runFeature( const Feature& feature )
 {
-	if(SelectedFeatureControl::applies(feature)) {
-		m_master->runFeature(feature);return;
-	}
-	auto computerControlInterfaces = selectedComputerControlInterfaces();
-	if( computerControlInterfaces.isEmpty() )
-	{
-		computerControlInterfaces = m_master->filteredComputerControlInterfaces();
-	}
-
-	const auto alreadyActive = feature.testFlag( Feature::Flag::Mode ) &&
-							   isFeatureOrRelatedFeatureActive( computerControlInterfaces, feature.uid() );
-
-	if( feature.testFlag( Feature::Flag::Mode ) )
-	{
-		for( const auto& currentFeature : m_master->features() )
-		{
-			// stop already active or all other active mode features
-			if( currentFeature.testFlag( Feature::Flag::Mode ) && ( alreadyActive || currentFeature != feature ) )
-			{
-				VeyonCore::featureManager().stopFeature( *m_master, currentFeature, computerControlInterfaces );
-
-				const auto subFeatures = m_master->subFeatures( currentFeature.uid() );
-				for( const auto& subFeature : subFeatures )
-				{
-					VeyonCore::featureManager().stopFeature( *m_master, subFeature, computerControlInterfaces );
-				}
-			}
-		}
-	}
-
-	if( alreadyActive == false )
-	{
-		VeyonCore::featureManager().startFeature( *m_master, feature, computerControlInterfaces );
-	}
+	// Toolbar, context menu, shortcuts and double-click share one target policy.
+	m_master->runFeatureFromView(feature,selectedComputerControlInterfaces());
 }
 
 

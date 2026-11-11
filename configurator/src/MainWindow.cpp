@@ -424,6 +424,12 @@ void MainWindow::loadConfigurationPagePlugins()
 		}
 	}
 
+	// Item-level transient help works for built-in pages and plugin pages alike.
+	ui->pageSelector->setToolTipDuration(7000);
+	for(int row=0;row<ui->pageSelector->count();++row) {
+		const auto page=ui->configPages->widget(row);
+		if(page) ui->pageSelector->item(row)->setToolTip(NetLinkUi::configurationPageDescription(QString::fromLatin1(page->metaObject()->className())));
+	}
 	// adjust minimum size
 	ui->pageSelector->setMinimumSize( ui->pageSelector->sizeHintForColumn(0) + 3 * ui->pageSelector->spacing(),
 									  ui->pageSelector->minimumHeight() );

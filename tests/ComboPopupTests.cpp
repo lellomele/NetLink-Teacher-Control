@@ -17,6 +17,7 @@
 #include <QStyleOptionComboBox>
 #include <QTemporaryDir>
 #include <QVBoxLayout>
+#include <qpa/qwindowsysteminterface.h>
 #include <memory>
 #include "NetLinkAppearance.h"
 
@@ -107,6 +108,14 @@ int main(int argc,char** argv) {
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
     QApplication app(argc,argv);QApplication::setFont(QFont("Segoe UI",10));
+    // Qt 5's offscreen plugin hardcodes 800x600 native pixels. At 200% this
+    // becomes 400x300 logical pixels: not the high-resolution display being
+    // tested. Resize only this process's synthetic screen, never Windows.
+    if(QGuiApplication::platformName()==QStringLiteral("offscreen")) {
+        const QRect fullHd(0,0,1920,1080);
+        QWindowSystemInterface::handleScreenGeometryChange(QGuiApplication::primaryScreen(),fullHd,fullHd);
+        QCoreApplication::processEvents();
+    }
     ComboPopupTests tests;return QTest::qExec(&tests,argc,argv);
 }
 #include "ComboPopupTests.moc"

@@ -25,7 +25,6 @@
 #include <QApplication>
 #include <QBuffer>
 #include <QClipboard>
-#include <QInputDialog>
 
 #include "AuthenticationCredentials.h"
 #include "FeatureWorkerManager.h"
@@ -101,7 +100,7 @@ bool RemoteAccessFeaturePlugin::controlFeature(Feature::Uid featureUid, Operatio
 bool RemoteAccessFeaturePlugin::startFeature( VeyonMasterInterface& master, const Feature& feature,
 											  const ComputerControlInterfaceList& computerControlInterfaces )
 {
-	Q_UNUSED(computerControlInterfaces)
+	Q_UNUSED(master)
 
 	if( hasFeature( feature.uid() ) == false )
 	{
@@ -111,31 +110,11 @@ bool RemoteAccessFeaturePlugin::startFeature( VeyonMasterInterface& master, cons
 	const auto viewOnly = feature.uid() == m_remoteViewFeature.uid() ||
 						  remoteControlEnabled() == false;
 
-	const auto selectedComputerControlInterfaces = master.selectedComputerControlInterfaces();
-
-	if (selectedComputerControlInterfaces.count() > 0)
+	// Respect the caller's resolved/confirmed snapshot, never re-read selection
+	// or replace an empty selection with an unrelated manual target.
+	for (const auto& computerControlInterface : computerControlInterfaces)
 	{
-		for (const auto& computerControlInterface : selectedComputerControlInterfaces)
-		{
-			createRemoteAccessWindow(computerControlInterface, viewOnly);
-		}
-	}
-	else
-	{
-		const auto hostName = QInputDialog::getText( master.mainWindow(),
-													 tr( "Remote access" ),
-													 tr( "No computer has been selected so you can enter a hostname "
-														 "or IP address of a computer for manual access:" ) );
-		if( hostName.isEmpty() )
-		{
-			return false;
-		}
-
-		Computer customComputer;
-		customComputer.setHostAddress( hostName );
-		customComputer.setName( hostName );
-
-		createRemoteAccessWindow(ComputerControlInterface::Pointer::create(customComputer), viewOnly);
+		if(computerControlInterface) createRemoteAccessWindow(computerControlInterface, viewOnly);
 	}
 
 	return false;

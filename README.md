@@ -6,13 +6,16 @@ NetLink is a Windows classroom-management suite based on **Veyon 4.7.5**.
 It integrates remote control, WFP InternetGuard, student names, class–room profiles,
 automatic client discovery and Companion diagnostics, without external plugins.
 
-**Pre-release 1.0.0-alpha.36: use with awareness of its limitations.**
+**Pre-release 1.0.0-alpha.37: use with awareness of its limitations.**
 
-**[Download Windows x64 installer — latest release (alpha.36)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.36/NetLink-1.0.0-alpha.36-win64-setup.exe)**
+**[Download Windows x64 installer — latest release (alpha.37)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.37/NetLink-1.0.0-alpha.37-win64-setup.exe)**
 
 ## Features
 
 - **Teacher Console:** computer thumbnails, remote control and Veyon commands.
+  Diagnostic tooltips show the running client's NetLink version when reported,
+  alongside VNC plugin, internal port and video state. Older clients remain usable;
+  their version is shown as unavailable. No extra ports are needed.
   Ctrl+double-click a thumbnail to control that workstation; normal double-click
   keeps its configured action (remote view by default).
   The compact remote toolbar keeps the desktop visible, with a persistent pin,
@@ -21,9 +24,10 @@ automatic client discovery and Companion diagnostics, without external plugins.
   high-resolution display support, descriptive tooltips and visible button-press feedback.
 - **WFP InternetGuard:** block/release Internet on selected clients, with
   application/error feedback and filter expiry when renewal stops.
-  All dialog rows are initially selected; commands affect highlighted rows only.
-  InternetGuard, Lock and Demo recheck selected thumbnails for each request;
-  an empty selection never targets the whole room. A confirmed active filter
+  All dialog rows are initially selected; commands affect highlighted rows.
+  All terminal commands recheck selected thumbnails for each request. With no
+  selection, targeting all computers in the current list requires explicit
+  confirmation; hidden computers are not included. A confirmed active filter
   is marked `[web locked]` in white on red; inactive filters add no caption label.
 - **Student names:** the student's self-declared name appears beside the Windows
   account and PC name. It does not verify identity or attendance.
@@ -35,12 +39,15 @@ automatic client discovery and Companion diagnostics, without external plugins.
   IPv4-only mode, known-computer filtering and grouping of the same discovery identity.
   Conflicts list the observed names, addresses and ports. Choose the import group
   explicitly in Discovery; the highlighted Location is only the initial suggestion.
+  Use **Create group…** if no Locations group exists; administrator rights are
+  required to save it. Creating a group does not change client keys or settings.
   Select multiple discovery rows with Ctrl/Shift or Select all and import them
   with one confirmation; any invalid row blocks the entire batch.
   Clone-aware identities combine system ID, computer name and available permanent
   physical-adapter MACs; update the affected clients as well as the Master.
 - **Simplified configuration:** Easy, Standard and Advanced views;
   reuse existing locations, computers, keys and access rules.
+  Hover over pages or directory cells for help; double-click cells to edit them.
   Choose a default Master private key and an optional key per built-in group/laboratory.
   Move selected PCs between groups without recreating their identities;
   they inherit the destination group's key, without changing any client keys.

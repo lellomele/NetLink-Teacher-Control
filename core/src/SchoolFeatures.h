@@ -68,6 +68,7 @@ private:
         std::function<QJsonArray()> objects = [] {return QJsonArray{};};
         std::function<int()> port = [] {return 11100;};
         std::function<bool()> writable = [] {return false;};
+        std::function<QString()> suggestedGroup = [] {return QStringLiteral("NetLink clients");};
         std::function<bool(const QJsonArray&,const QJsonArray&,QString&)> save =
             [](const QJsonArray&,const QJsonArray&,QString&) {return false;};
     } m_discoveryImport;

@@ -6,13 +6,16 @@ Suite NetLink per la gestione delle aule Windows, basata su **Veyon 4.7.5**.
 Integra controllo remoto, InternetGuard WFP, Appello, profili classe–aula,
 ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
 
-**Versione preliminare 1.0.0-alpha.36: usare consapevolmente.**
+**Versione preliminare 1.0.0-alpha.37: usare consapevolmente.**
 
-**[Scarica l’installer Windows x64 — ultima release (alpha.36)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.36/NetLink-1.0.0-alpha.36-win64-setup.exe)**
+**[Scarica l’installer Windows x64 — ultima release (alpha.37)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.37/NetLink-1.0.0-alpha.37-win64-setup.exe)**
 
 ## Funzionalità
 
 - **Console docente:** miniature dei PC, controllo remoto e comandi Veyon.
+  I tooltip diagnostici mostrano la versione NetLink in esecuzione sul client,
+  se comunicata, insieme a plugin VNC, porta interna e stato video. I client
+  precedenti restano utilizzabili, con versione non disponibile. Nessuna nuova porta.
   Ctrl+doppio clic su una miniatura controlla quella postazione; il doppio clic
   normale mantiene l'azione configurata (visualizzazione remota per impostazione predefinita).
   La barra remota compatta non oscura il desktop: puntina permanente,
@@ -21,9 +24,10 @@ ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
   con supporto ai display ad alta risoluzione, descrizioni dei comandi ed effetto di pressione dei pulsanti.
 - **InternetGuard WFP:** blocco/sblocco sui client selezionati, feedback di
   applicazione o errore e scadenza dei filtri in assenza di rinnovo.
-  La finestra seleziona inizialmente tutte le righe; i comandi agiscono solo su quelle evidenziate.
-  InternetGuard, Lock e Demo rileggono le miniature selezionate a ogni richiesta;
-  nessuna selezione non significa mai tutta l'aula. Il filtro attivo confermato
+  La finestra seleziona inizialmente tutte le righe; i comandi agiscono su quelle evidenziate.
+  Tutti i comandi ai terminali rileggono le miniature selezionate a ogni richiesta.
+  Senza selezione, agire su tutti i PC nell'elenco corrente richiede conferma
+  esplicita; i PC nascosti non sono inclusi. Il filtro attivo confermato
   è indicato da `[web locked]` bianco su rosso; se inattivo non aggiunge etichette.
 - **Appello:** nome dichiarato dallo studente sulle miniature, insieme ad account
   Windows e nome del PC. Non è una verifica dell'identità o della presenza.
@@ -37,12 +41,15 @@ ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
   accorpamento degli annunci della stessa identità.
   I conflitti mostrano nomi, indirizzi e porte osservati. Il gruppo di importazione
   si sceglie nella tendina della Discovery; la riga di Posizioni e computer è solo la proposta iniziale.
+  Se non esiste alcun gruppo Locations, usa **Crea gruppo…**; servono diritti
+  amministrativi per salvarlo. La creazione non modifica chiavi o impostazioni dei client.
   Selezione multipla con Ctrl/Maiusc o Seleziona tutti e importazione con un'unica
   conferma; una riga non valida impedisce l'importazione dell'intera selezione.
   Identità adatte ai PC clonati: ID del sistema, nome del PC e MAC permanenti
   disponibili delle schede fisiche; aggiornare anche i client interessati.
 - **Configurazione semplificata:** modalità Facile, Normale e Avanzata;
   riutilizzo di aule, PC, chiavi e regole di accesso già configurati.
+  Passa il mouse sulle schede o sulle celle per i suggerimenti; doppio clic sulle celle per modificarle.
   Chiave privata predefinita del Master e chiave facoltativa per gruppo/laboratorio
   della directory integrata. Spostamento dei PC selezionati senza ricrearne
   l'identità: usano la chiave di destinazione, senza modificare le chiavi dei client.

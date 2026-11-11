@@ -193,6 +193,23 @@ void NetLinkUi::addInformationMenu(QMainWindow* window) {
     auto about=menu->addAction(NetLinkUi::text("About NetLink"));about->setObjectName("netlinkAboutAction");
     QObject::connect(about,&QAction::triggered,window,[window]{showAbout(window);});
 }
+QString NetLinkUi::configurationPageDescription(const QString& name) {
+    if(name=="GeneralConfigurationPage") return text("Language, authentication method and general interface settings.");
+    if(name=="ServiceConfigurationPage") return text("Listening addresses and ports, VNC backend and service settings on this computer.");
+    if(name=="MasterConfigurationPage") return text("Teacher Console behavior, thumbnails and default private key for client connections.");
+    if(name=="AccessControlPage") return text("Rules that allow or deny remote access after authentication. Discovery alone never grants access.");
+    if(name=="AuthKeysConfigurationPage") return text("Create, import and export authentication keys. Keep private keys on authorized Masters only.");
+    if(name=="BuiltinDirectoryConfigurationPage") return text("Groups, computers, addresses and group keys. Double-click a group or computer cell to edit; use Apply to save.");
+    if(name=="SchoolConfigurationPage") return text("WS-Discovery announcements and InternetGuard settings. Discovery does not authenticate clients.");
+    if(name=="DemoConfigurationPage") return text("Screen sharing server, demonstration ports and transmission settings.");
+    if(name=="DesktopServicesConfigurationPage") return text("Applications and websites available as predefined teacher commands.");
+    if(name=="FileTransferConfigurationPage") return text("File transfer folders and behavior on receiving computers.");
+    if(name=="WindowsPlatformConfigurationPage") return text("Windows integration, software Ctrl+Alt+Del and user authentication options.");
+    if(name=="LinuxPlatformConfigurationPage") return text("Linux integration and platform-specific settings.");
+    if(name.contains("Ldap")) return text("Directory connection and mapping of groups and computers from LDAP.");
+    if(name=="WebApiConfigurationPage") return text("HTTP API access and listening settings. This is separate from normal Console connections.");
+    return text("Open this configuration page. Changes are saved with Apply; hovering does not change any setting.");
+}
 bool NetLinkUi::easyPage(const QString& name) {
     return QStringList{"GeneralConfigurationPage","ServiceConfigurationPage","AuthKeysConfigurationPage",
         "BuiltinDirectoryConfigurationPage","SchoolConfigurationPage"}.contains(name);

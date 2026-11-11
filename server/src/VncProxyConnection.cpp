@@ -30,6 +30,7 @@
 #include "VncClientProtocol.h"
 #include "VncProxyConnection.h"
 #include "VncServerProtocol.h"
+#include "NetLinkUi.h"
 
 VncProxyConnection::VncProxyConnection( QTcpSocket* clientSocket,
 										int vncServerPort,
@@ -256,6 +257,9 @@ bool VncProxyConnection::receiveServerMessage()
 ServiceDiagnostics::Snapshot VncProxyConnection::serviceDiagnostics(const QString& plugin,bool external,int port,bool checked,bool available)
 {
 	ServiceDiagnostics::Snapshot result;result.plugin=plugin;result.external=external;result.internalPort=port;
+	// Report the running build, not an installation registry value that can be
+	// newer than a process left running during an upgrade.
+	result.netlinkVersion=NetLinkUi::displayVersion(VeyonCore::versionString());
 	result.backend=backendReady()?ServiceDiagnostics::Backend::Ready:
 		m_vncServerSocket->state()!=QAbstractSocket::UnconnectedState?ServiceDiagnostics::Backend::Connecting:
 		!checked?ServiceDiagnostics::Backend::Unchecked:

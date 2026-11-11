@@ -6,6 +6,7 @@
 #include "SchoolPolicyResolver.h"
 #include "SchoolDiscoveryKnownHosts.h"
 #include "DiscoveryImportController.h"
+#include "CommandTargetSelection.h"
 #include "SchoolConfigurationPage.h"
 #include "NetLinkUi.h"
 #include "ConfigurationPage.h"
@@ -137,6 +138,10 @@ SchoolFeatures::SchoolFeatures(QObject* parent,bool initializeRuntime) : QObject
     m_discoveryImport.objects=[] {return VeyonCore::config().value("NetworkObjects","BuiltinDirectory",QJsonArray{}).toJsonArray();};
     m_discoveryImport.port=[] {return VeyonCore::config().veyonServerPort();};
     m_discoveryImport.writable=[] {return Configuration::LocalStore(Configuration::LocalStore::System).isWritable();};
+    m_discoveryImport.suggestedGroup=[] {
+        const auto key=VeyonCore::config().masterAuthenticationKey();
+        return key.isEmpty()?NetLinkUi::text("NetLink clients"):key.left(120);
+    };
     m_discoveryImport.save=[](const QJsonArray& before,const QJsonArray& after,QString& error) {
         Configuration::LocalStore store(Configuration::LocalStore::System);
         if(!store.compareAndWriteValue("NetworkObjects",before,after,"BuiltinDirectory",error)) return false;
@@ -203,22 +208,26 @@ bool SchoolFeatures::startFeature(VeyonMasterInterface& master,const Feature& fe
     auto release=buttons->addButton(NetLinkUi::text("Unblock"),QDialogButtonBox::ActionRole);
     auto query=buttons->addButton(NetLinkUi::text("Check status"),QDialogButtonBox::ActionRole);
     auto selected=QSharedPointer<ComputerControlInterfaceList>::create();
-    auto selectedRows=[&master,selected,table] {
+    auto currentTargets=[&master] {
+        const auto selected=CommandTargetSelection::unique(master.selectedComputerControlInterfaces());
+        return selected.isEmpty()?CommandTargetSelection::unique(master.filteredComputerControlInterfaces()):selected;
+    };
+    auto selectedRows=[currentTargets,selected,table] {
         ComputerControlInterfaceList targets;
-        const auto current=master.selectedComputerControlInterfaces();
+        const auto current=currentTargets();
         for(int row=0;row<selected->size();++row) if(table->selectionModel()->isRowSelected(row,QModelIndex()) && (*selected)[row] && current.contains((*selected)[row])) targets.append((*selected)[row]);
         return targets;
     };
     auto updateSelection=[selected,selectedRows,selectionLabel,block,release,query] {
         const auto count=selectedRows().size();
-        selectionLabel->setText(NetLinkUi::text("Selected: %1 of %2. Commands affect highlighted rows only.").arg(count).arg(selected->size()));
-        for(auto button:{block,release,query}) button->setEnabled(count>0);
+        selectionLabel->setText(NetLinkUi::text("Selected: %1 of %2. With no row selected, applying to the current list requires confirmation.").arg(count).arg(selected->size()));
+        for(auto button:{block,release,query}) button->setEnabled(!selected->isEmpty());
     };
     auto refreshStatus=[selected,table] {
         for(int i=0;i<selected->size();++i) table->item(i,1)->setText((*selected)[i]?(*selected)[i]->networkPolicyStatus():NetLinkUi::text("unavailable"));
     };
-    auto refreshSelection=[&master,selected,table,refreshStatus,updateSelection](bool reset) {
-        const auto current=master.selectedComputerControlInterfaces();
+    auto refreshSelection=[currentTargets,selected,table,refreshStatus,updateSelection](bool reset) {
+        const auto current=currentTargets();
         if(current!=*selected) {
             *selected=current;table->setRowCount(0);table->setRowCount(current.size());
             for(int i=0;i<current.size();++i) {
@@ -234,9 +243,14 @@ bool SchoolFeatures::startFeature(VeyonMasterInterface& master,const Feature& fe
     auto selectionTimer=new QTimer(dialog);selectionTimer->setInterval(250);
     connect(selectionTimer,&QTimer::timeout,dialog,[refreshSelection] {refreshSelection(false);});selectionTimer->start();dialog->refreshSelection();
     connect(table,&QTableWidget::itemSelectionChanged,dialog,updateSelection);
-    connect(block,&QPushButton::clicked,dialog,[this,selectedRows,refreshSelection]{refreshSelection(false);policy(selectedRows(),true);});
-    connect(release,&QPushButton::clicked,dialog,[this,selectedRows,refreshSelection]{refreshSelection(false);policy(selectedRows(),false);});
-    connect(query,&QPushButton::clicked,dialog,[this,selectedRows,refreshSelection]{refreshSelection(false);for(const auto& ci:selectedRows()) sendPolicy(ci.data(),Status,{});});
+    auto request=[&master,dialog,selectedRows,currentTargets,refreshSelection](const QString& command,CommandTargetSelection::Action action) {
+        refreshSelection(false);
+        CommandTargetSelection::request(dialog,dialog,command,selectedRows,currentTargets,std::move(action),
+            [&master] {return master.selectedComputerControlInterfaces().isEmpty();});
+    };
+    connect(block,&QPushButton::clicked,dialog,[this,request]{request(NetLinkUi::text("Block Internet"),[this](const ComputerControlInterfaceList& clients){policy(clients,true);});});
+    connect(release,&QPushButton::clicked,dialog,[this,request]{request(NetLinkUi::text("Unblock"),[this](const ComputerControlInterfaceList& clients){policy(clients,false);});});
+    connect(query,&QPushButton::clicked,dialog,[this,request]{request(NetLinkUi::text("Check status"),[this](const ComputerControlInterfaceList& clients){for(const auto& ci:clients) sendPolicy(ci.data(),Status,{});});});
     auto close=buttons->addButton(QDialogButtonBox::Close);connect(close,&QPushButton::clicked,dialog,&QDialog::accept);
     // Closing this monitor never releases a policy: its authenticated explicit
     // Release command and service-side lease remain the only recovery paths.
@@ -451,15 +465,19 @@ bool SchoolFeatures::handleFeatureMessage(VeyonWorkerInterface& worker,const Fea
     dialog->show();dialog->raise();dialog->activateWindow();name->setFocus();return true;
 }
 void SchoolFeatures::attendance(VeyonMasterInterface& master,const ComputerControlInterfaceList& clients) {
+    Q_UNUSED(clients)
     if(bringForward(m_attendanceDialog)) return;
-    auto box=new QMessageBox(QMessageBox::Question,NetLinkUi::text("Attendance"),NetLinkUi::text("Names are self-declared, not verified.\nChoose an operation for the computers selected when opened. Preloaded assignments remain until you unload or change the profile in Locations & computers."),QMessageBox::NoButton,master.mainWindow());
+    auto box=new QMessageBox(QMessageBox::Question,NetLinkUi::text("Attendance"),NetLinkUi::text("Names are self-declared, not verified.\nEach operation uses the current thumbnail selection. With no selection, all visible computers require confirmation. Preloaded assignments remain until you unload or change the profile."),QMessageBox::NoButton,master.mainWindow());
     m_attendanceDialog=box;prepareDialog(box,"schoolAttendanceDialog");box->setTextFormat(Qt::PlainText);
     auto ask=box->addButton(NetLinkUi::text("Request names"),QMessageBox::ActionRole);auto end=box->addButton(NetLinkUi::text("End requests and clear declarations"),QMessageBox::ActionRole);auto exportButton=box->addButton(NetLinkUi::text("Export CSV"),QMessageBox::ActionRole);auto profiles=box->addButton(NetLinkUi::text("Class–room profiles…"),QMessageBox::ActionRole);box->addButton(QMessageBox::Cancel);
     QPointer<QWidget> parent(master.mainWindow());
     QPointer<VeyonMasterInterface> guardedMaster(&master);
-    connect(box,&QMessageBox::buttonClicked,this,[this,box,ask,end,exportButton,profiles,guardedMaster,clients,parent](QAbstractButton* clicked) {
+    connect(box,&QMessageBox::buttonClicked,this,[this,ask,end,exportButton,profiles,guardedMaster,parent](QAbstractButton* clicked) {
         if(clicked==profiles && guardedMaster) {guardedMaster->showClassProfiles();return;}
-        if(clicked==ask) {
+        if(!guardedMaster) return;
+        const bool requestNames=clicked==ask,clearNames=clicked==end,exportNames=clicked==exportButton;
+        auto operation=[this,requestNames,clearNames,exportNames,parent](const ComputerControlInterfaceList& clients) {
+        if(requestNames) {
             for(const auto& ci:clients) if(ci) {
                 if(ci->state()!=ComputerControlInterface::State::Connected) continue;
                 const auto id=newId();ci->setProperty("schoolAttendanceRequest",id);ci->setStudentName({});ci->sendFeatureMessage(FeatureMessage(m_attendanceUid,AskName).addArgument(0,id));
@@ -469,9 +487,9 @@ void SchoolFeatures::attendance(VeyonMasterInterface& master,const ComputerContr
                 disconnect(deadline,nullptr,this,nullptr);
                 connect(deadline,&QTimer::timeout,this,[guarded,id] {if(guarded && guarded->property("schoolAttendanceRequest").toString()==id) guarded->setProperty("schoolAttendanceRequest",QString{});});deadline->start(180000);
             }
-        } else if(clicked==end) {
+        } else if(clearNames) {
             for(const auto& ci:clients) if(ci) {ci->clearStudentDeclaration();ci->sendFeatureMessage(FeatureMessage(m_attendanceUid,EndAttendance));}
-        } else if(clicked==exportButton && parent) {
+        } else if(exportNames && parent) {
             auto chooser=new QFileDialog(parent,NetLinkUi::text("Export attendance"),{},"CSV (*.csv)");
             chooser->setAcceptMode(QFileDialog::AcceptSave);chooser->setDefaultSuffix("csv");chooser->setAttribute(Qt::WA_DeleteOnClose);
             connect(chooser,&QFileDialog::fileSelected,this,[clients,parent](const QString& path) {
@@ -485,7 +503,15 @@ void SchoolFeatures::attendance(VeyonMasterInterface& master,const ComputerContr
             });
             chooser->open();
         }
-        Q_UNUSED(box)
+        };
+        if(requestNames || clearNames) {
+            CommandTargetSelection::request(parent,guardedMaster,requestNames?NetLinkUi::text("Request names"):NetLinkUi::text("End requests and clear declarations"),
+                [guardedMaster] {return guardedMaster->selectedComputerControlInterfaces();},
+                [guardedMaster] {return guardedMaster->filteredComputerControlInterfaces();},operation);
+        } else if(exportNames) {
+            const auto selected=guardedMaster->selectedComputerControlInterfaces();
+            operation(selected.isEmpty()?guardedMaster->filteredComputerControlInterfaces():selected);
+        }
     });
     box->show();
 }
@@ -541,17 +567,40 @@ void SchoolFeatures::discovery(VeyonMasterInterface& master,const QStringList& c
     auto target=new QComboBox(dialog);target->setObjectName("schoolDiscoveryDestination");targetLabel->setBuddy(target);
     target->setToolTip(NetLinkUi::text("Only an import destination, not a discovery filter. Locations & computers supplies the initial choice only; later changes there do not change this choice."));
     target->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);target->setMinimumContentsLength(20);
-    targetRow->addWidget(targetLabel);targetRow->addWidget(target,1);layout->addLayout(targetRow);
+    auto createGroup=new QPushButton(NetLinkUi::text("Create group…"),dialog);createGroup->setObjectName("schoolDiscoveryCreateGroup");
+    createGroup->setToolTip(NetLinkUi::text("Creates an empty Locations group on this Master. No client settings or authentication keys are changed."));
+    targetRow->addWidget(targetLabel);targetRow->addWidget(target,1);targetRow->addWidget(createGroup);layout->addLayout(targetRow);
     auto refreshTargets=[groups,target] {
         const auto available=groups();bool changed=target->count()!=available.size()+1;
         if(!changed) for(int i=0;i<available.size();++i) if(target->itemData(i+1).toUuid()!=available[i].uid() || target->itemText(i+1)!=available[i].name()) {changed=true;break;}
         if(!changed) return;
         const auto chosen=target->currentData().toUuid();const QSignalBlocker blocker(target);
-        target->clear();target->addItem(NetLinkUi::text("Choose destination group"),QUuid{});
+        target->clear();target->addItem(NetLinkUi::text(available.isEmpty()?"No Locations group — create a group first":"Choose destination group"),QUuid{});
         for(const auto& group:available) {target->addItem(group.name(),group.uid());target->setItemData(target->count()-1,group.uid().toString(QUuid::WithoutBraces),Qt::ToolTipRole);}
         target->setCurrentIndex(qMax(0,target->findData(chosen)));
     };
     refreshTargets();
+    connect(createGroup,&QPushButton::clicked,dialog,[this,dialog,createGroup,target,refreshTargets] {
+        if(!m_discoveryImport.writable()) {
+            notify(dialog,QMessageBox::Warning,"Discovery",NetLinkUi::text("Creating a group changes the system computer list. Run the Console as administrator, or create the group in NetLink Configurator."));return;
+        }
+        const auto before=m_discoveryImport.objects();
+        auto editor=new QInputDialog(dialog);editor->setObjectName("schoolDiscoveryGroupName");editor->setWindowTitle(NetLinkUi::text("Create group…"));
+        editor->setLabelText(NetLinkUi::text("Group name (suggested from the Master key, when configured). No keys will be created or changed."));
+        editor->setTextValue(m_discoveryImport.suggestedGroup());editor->setAttribute(Qt::WA_DeleteOnClose);
+        if(auto line=editor->findChild<QLineEdit*>()) line->setMaxLength(120);
+        createGroup->setEnabled(false);
+        connect(editor,&QObject::destroyed,dialog,[createGroup] {createGroup->setEnabled(true);});
+        connect(editor,&QDialog::accepted,dialog,[this,dialog,editor,before,target,refreshTargets] {
+            if(m_discoveryDialog!=dialog || !dialog->isVisible()) return;
+            if(!m_discoveryImport.writable()) {notify(dialog,QMessageBox::Warning,"Discovery",NetLinkUi::text("Creating a group changes the system computer list. Run the Console as administrator, or create the group in NetLink Configurator."));return;}
+            QJsonArray after;NetworkObject group;QString error;
+            if(!DiscoveryImportController::createGroup(before,editor->textValue(),after,group,error) || !m_discoveryImport.save(before,after,error)) {
+                notify(dialog,QMessageBox::Warning,"Discovery",error.isEmpty()?NetLinkUi::text("Could not save the computer list. No computer was imported."):error);return;
+            }
+            refreshTargets();target->setCurrentIndex(target->findData(group.uid()));
+        });editor->open();
+    });
     // The highlighted Location is a one-time suggestion, never a live binding.
     const auto initial=master.highlightedLocationUid();if(!initial.isNull()) target->setCurrentIndex(qMax(0,target->findData(initial)));
     auto destination=[groups,target] {
@@ -629,7 +678,7 @@ void SchoolFeatures::discovery(VeyonMasterInterface& master,const QStringList& c
         return DiscoveryImportController::validate(selected,m_discovery->records(mode->currentIndex()==1?SchoolDiscovery::AddressMode::Ipv4Only:SchoolDiscovery::AddressMode::Automatic),
             m_discoveryImport.port(),[known](const SchoolDiscovery::Record& record){return known->contains(record);},current);
     };
-    connect(import,&QPushButton::clicked,dialog,[this,dialog,table,records,import,known,batchError,destination] {
+    connect(import,&QPushButton::clicked,dialog,[this,dialog,table,records,import,known,batchError,destination,groups,createGroup] {
         auto rows=table->selectionModel()->selectedRows();std::sort(rows.begin(),rows.end(),[](const QModelIndex& a,const QModelIndex& b){return a.row()<b.row();});
         QList<SchoolDiscovery::Record> selected;
         for(const auto& row:rows) if(row.row()>=0 && row.row()<records->size()) selected.append((*records)[row.row()]);
@@ -638,6 +687,7 @@ void SchoolFeatures::discovery(VeyonMasterInterface& master,const QStringList& c
         if(!error.isEmpty()) {notify(dialog,QMessageBox::Warning,"Discovery",error);return;}
         const auto group=destination();
         if(!group.isValid()) {
+            if(groups().isEmpty()) {createGroup->click();return;}
             notify(dialog,QMessageBox::Information,"Discovery",NetLinkUi::text("Choose a destination group in this Discovery window, then import again. No computer was imported and no group was created."));return;
         }
         if(!m_discoveryImport.writable()) {

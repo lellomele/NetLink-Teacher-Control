@@ -56,6 +56,7 @@ public:
 	void reloadSubFeatures();
 
 	ComputerControlInterfaceList selectedComputerControlInterfaces() const;
+	bool selectCommandTargets(const ComputerControlInterfaceList& clients);
 
 protected:
 	void closeEvent( QCloseEvent* event ) override;

@@ -6,11 +6,16 @@
 #include "NetLinkUi.h"
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <cmath>
 
 namespace {
 constexpr int MaximumPayload=2048;
 constexpr qint64 MaximumFrameAge=604800000; // Saturate at seven days, not "never".
+bool validVersion(const QString& version) {
+    static const QRegularExpression pattern(QStringLiteral("\\A[0-9][0-9A-Za-z.+_-]{0,63}\\z"));
+    return version.size()<=64 && pattern.match(version).hasMatch();
+}
 bool integer(const QJsonValue& value,qint64 minimum,qint64 maximum) {
     const auto number=value.toDouble(-2);
     return value.isDouble() && std::isfinite(number) && number>=minimum && number<=maximum && std::floor(number)==number;
@@ -28,9 +33,11 @@ bool ServiceDiagnostics::validQuery(const FeatureMessage& message) {
         !nonce(message).isEmpty() && message.argument(1).userType()==QMetaType::Int && message.argument(1).toInt()==1;
 }
 QByteArray ServiceDiagnostics::encode(const Snapshot& snapshot) {
-    return QJsonDocument(QJsonObject{{"schema",1},{"plugin",snapshot.plugin.left(100)},
+    QJsonObject object{{"schema",1},{"plugin",snapshot.plugin.left(100)},
         {"external",snapshot.external},{"internalPort",snapshot.internalPort},{"backend",int(snapshot.backend)},
-        {"frameAgeMs",double(qBound<qint64>(-1,snapshot.frameAgeMs,MaximumFrameAge))}}).toJson(QJsonDocument::Compact);
+        {"frameAgeMs",double(qBound<qint64>(-1,snapshot.frameAgeMs,MaximumFrameAge))}};
+    if(validVersion(snapshot.netlinkVersion)) object.insert("netlinkVersion",snapshot.netlinkVersion);
+    return QJsonDocument(object).toJson(QJsonDocument::Compact);
 }
 bool ServiceDiagnostics::decode(const QByteArray& bytes,Snapshot* snapshot) {
     if(!snapshot || bytes.isEmpty() || bytes.size()>MaximumPayload) return false;
@@ -43,7 +50,12 @@ bool ServiceDiagnostics::decode(const QByteArray& bytes,Snapshot* snapshot) {
     for(const auto c:plugin.toString()) if(c.category()==QChar::Other_Control || c.category()==QChar::Other_Format) return false;
     Snapshot result;result.plugin=plugin.toString();result.external=object.value("external").toBool();
     result.internalPort=object.value("internalPort").toInt();result.backend=Backend(object.value("backend").toInt());
-    result.frameAgeMs=qint64(object.value("frameAgeMs").toDouble());*snapshot=result;return true;
+    result.frameAgeMs=qint64(object.value("frameAgeMs").toDouble());
+    const auto version=object.value("netlinkVersion");
+    // Missing, future or malformed optional metadata must not invalidate the
+    // established VNC diagnostic fields. Keep the original schema and envelope.
+    if(version.isString() && validVersion(version.toString())) result.netlinkVersion=version.toString();
+    *snapshot=result;return true;
 }
 QString ServiceDiagnostics::tooltip(const Snapshot& s,qint64 elapsedMs) {
     QString backend;
@@ -62,6 +74,8 @@ QString ServiceDiagnostics::tooltip(const Snapshot& s,qint64 elapsedMs) {
              NetLinkUi::text("Internal VNC port: %1").arg(s.internalPort?QString::number(s.internalPort):NetLinkUi::text("unavailable")).toHtmlEscaped(),
              NetLinkUi::text("VNC backend: %1").arg(backend).toHtmlEscaped(),
              NetLinkUi::text("Video: %1").arg(video).toHtmlEscaped());
+    result+=QStringLiteral("<br>%1").arg(NetLinkUi::text("NetLink client version: %1")
+        .arg(validVersion(s.netlinkVersion)?s.netlinkVersion:NetLinkUi::text("unavailable")).toHtmlEscaped());
     if(s.backend==Backend::Unreachable)
         result+=QStringLiteral("<br><b>%1</b>").arg(NetLinkUi::text("VNC backend unavailable: check the plugin and internal port on the client.").toHtmlEscaped());
     result+=QStringLiteral("<br><small>%1</small>").arg(NetLinkUi::text("Forwarding is not proof of display; an unchanged desktop may send no new frames.").toHtmlEscaped());

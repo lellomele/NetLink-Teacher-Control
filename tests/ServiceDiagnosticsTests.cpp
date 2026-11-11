@@ -25,6 +25,37 @@ class ServiceDiagnosticsTests : public QObject {
     }
 private Q_SLOTS:
     void initTestCase() {QLocale::setDefault(QLocale("en_US"));}
+    void versionIsAnOptionalCompatibleSchemaOneExtension() {
+        auto old=sample();const auto legacy=ServiceDiagnostics::encode(old);
+        auto object=QJsonDocument::fromJson(legacy).object();QVERIFY(!object.contains("netlinkVersion"));
+        ServiceDiagnostics::Snapshot parsed;parsed.netlinkVersion="stale";
+        QVERIFY(ServiceDiagnostics::decode(legacy,&parsed));QVERIFY(parsed.netlinkVersion.isEmpty());
+        QVERIFY(ServiceDiagnostics::tooltip(parsed).contains("NetLink client version: unavailable"));
+        auto current=old;current.netlinkVersion="1.0.0-alpha.37";
+        const auto encoded=ServiceDiagnostics::encode(current);auto extended=QJsonDocument::fromJson(encoded).object();
+        QCOMPARE(extended.take("netlinkVersion").toString(),current.netlinkVersion);
+        QCOMPARE(extended,object); // Every legacy field and schema remains identical.
+        QVERIFY(ServiceDiagnostics::decode(encoded,&parsed));QCOMPARE(parsed.netlinkVersion,current.netlinkVersion);
+        QVERIFY(ServiceDiagnostics::tooltip(parsed).contains("NetLink client version: 1.0.0-alpha.37"));
+        object.insert("futureMetadata",QJsonObject{{"ignored",true}});
+        QVERIFY(ServiceDiagnostics::decode(QJsonDocument(object).toJson(),&parsed));QVERIFY(parsed.netlinkVersion.isEmpty());
+        for(const auto& value:QList<QJsonValue>{QJsonValue(),17,true,QJsonObject{},QString(""),QString(65,'1'),QString("1.0\ninvalid"),QString("1.0<script>"),QString("1.0")+QChar(0x202e)}) {
+            object.insert("netlinkVersion",value);parsed.netlinkVersion="stale";
+            QVERIFY(ServiceDiagnostics::decode(QJsonDocument(object).toJson(),&parsed));QVERIFY(parsed.netlinkVersion.isEmpty());QCOMPARE(parsed.internalPort,11200);
+        }
+    }
+    void versionsArePerClientAndDisappearOnExpiryOrReconnect() {
+        using namespace ServiceDiagnostics;ClientStatus first,second;first.reset(true);second.reset(true);
+        auto a=sample(),b=sample();a.netlinkVersion="1.0.0-alpha.37";b.netlinkVersion="1.0.0-alpha.31";
+        const auto one=first.request(0),two=second.request(0);
+        QVERIFY(first.receive(reply(one,encode(a)),1));QVERIFY(second.receive(reply(two,encode(b)),1));
+        QVERIFY(first.tooltip(1).contains(a.netlinkVersion));QVERIFY(!first.tooltip(1).contains(b.netlinkVersion));
+        QVERIFY(second.tooltip(1).contains(b.netlinkVersion));QVERIFY(!second.tooltip(1).contains(a.netlinkVersion));
+        QVERIFY(first.expire(35001));QVERIFY(!first.tooltip(35001).contains(a.netlinkVersion));
+        second.reset(true);QVERIFY(!second.tooltip(2).contains(b.netlinkVersion));
+        const auto old=second.request(2);QVERIFY(second.receive(reply(old,encode(sample())),3));
+        QVERIFY(second.tooltip(3).contains("NetLink client version: unavailable"));
+    }
     void queryAndReplyUseTheExistingBoundedFeatureEnvelope() {
         const auto id=QUuid::createUuid().toString(QUuid::WithoutBraces);
         FeatureMessage query(ServiceDiagnostics::uid(),ServiceDiagnostics::Query);query.addArgument(0,id).addArgument(1,1);

@@ -12,6 +12,8 @@ struct Snapshot {
     int internalPort=0;
     Backend backend=Backend::Unchecked;
     qint64 frameAgeMs=-1;
+    // Optional schema-1 extension. Empty means the peer did not report it.
+    QString netlinkVersion;
 };
 // Additive extension on the existing authenticated feature-message connection.
 VEYON_CORE_EXPORT QUuid uid();

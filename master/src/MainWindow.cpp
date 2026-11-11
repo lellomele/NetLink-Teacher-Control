@@ -364,6 +364,24 @@ ComputerControlInterfaceList MainWindow::selectedComputerControlInterfaces() con
 	return ui->computerMonitoringWidget->selectedComputerControlInterfaces();
 }
 
+bool MainWindow::selectCommandTargets(const ComputerControlInterfaceList& clients)
+{
+	const auto targets=SelectedFeatureControl::targets(clients);
+	if(SelectedFeatureControl::targets(selectedComputerControlInterfaces())==targets) return true;
+	auto view=ui->computerMonitoringWidget;
+	QItemSelection selection;ComputerControlInterfaceList found;
+	for(int row=0;row<view->model()->rowCount();++row) {
+		const auto index=view->model()->index(row,0);
+		const auto client=index.data(ComputerControlListModel::ControlInterfaceRole).value<ComputerControlInterface::Pointer>();
+		if(targets.contains(client)) {selection.select(index,index);found.append(client);}
+	}
+	// A client hidden by the current main filter must not become an empty
+	// selection and accidentally turn into a command for everyone else.
+	if(SelectedFeatureControl::targets(found).size()!=targets.size()) return false;
+	view->selectionModel()->select(selection,QItemSelectionModel::ClearAndSelect|QItemSelectionModel::Rows);
+	return true;
+}
+
 
 
 void MainWindow::closeEvent( QCloseEvent* event )

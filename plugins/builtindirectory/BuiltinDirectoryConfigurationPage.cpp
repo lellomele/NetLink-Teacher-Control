@@ -84,6 +84,7 @@ BuiltinDirectoryConfigurationPage::BuiltinDirectoryConfigurationPage( BuiltinDir
 	auto helpFont=font();helpFont.setItalic(false);ui->label_3->setFont(helpFont);
 	ui->computerTableWidget->setHorizontalHeaderLabels({NetLinkUi::text("Computer name"),NetLinkUi::text("IP / hostname"),NetLinkUi::text("MAC (optional)")});
 	for(auto table:{ui->locationTableWidget,ui->computerTableWidget}) {
+		table->setToolTipDuration(7000);
 		table->setAlternatingRowColors(true);table->setSelectionBehavior(QAbstractItemView::SelectRows);
 		table->setSelectionMode(QAbstractItemView::SingleSelection);table->setMinimumSize(120,120);
 		table->horizontalHeader()->setMinimumSectionSize(75);
@@ -300,6 +301,7 @@ void BuiltinDirectoryConfigurationPage::populateLocations()
 		if( networkObject.type() == NetworkObject::Type::Location )
 		{
 			auto item = new QTableWidgetItem( networkObject.name() );
+			item->setToolTip(NetLinkUi::text("Double-click to rename this group. Its computers and key assignment are retained. Use Apply to save."));
 			item->setData( NetworkObjectModel::UidRole, networkObject.uid() );
 			ui->locationTableWidget->setRowCount( ++rowCount );
 			ui->locationTableWidget->setItem( rowCount-1, 0, item );
@@ -353,6 +355,9 @@ void BuiltinDirectoryConfigurationPage::populateComputers()
 			ui->computerTableWidget->setItem( rowCount, 0, nameItem );
 			ui->computerTableWidget->setItem( rowCount, 1, new QTableWidgetItem( networkObject.hostAddress() ) );
 			ui->computerTableWidget->setItem( rowCount, 2, new QTableWidgetItem( networkObject.macAddress() ) );
+			nameItem->setToolTip(NetLinkUi::text("Double-click to rename this computer in the list. This does not rename Windows on the client. Use Apply to save."));
+			ui->computerTableWidget->item(rowCount,1)->setToolTip(NetLinkUi::text("Double-click to edit the IP address or hostname used to connect to this computer. This does not change the client's network settings. Use Apply to save."));
+			ui->computerTableWidget->item(rowCount,2)->setToolTip(NetLinkUi::text("Double-click to edit the optional MAC address used for Wake-on-LAN. Use Apply to save."));
 			++rowCount;
 		}
 	}

@@ -9,6 +9,7 @@
 #include <cstring>
 #include "VncProxyConnection.h"
 #include "VncClientProtocol.h"
+#include "NetLinkUi.h"
 
 class TestClientProtocol : public VncClientProtocol {
 public:
@@ -60,6 +61,8 @@ private Q_SLOTS:
         QVERIFY(active.frameAgeMs>=0);QCOMPARE(active.backend,ServiceDiagnostics::Backend::Ready);
         QCOMPARE(idle.frameAgeMs,qint64(-1));QCOMPARE(idle.backend,ServiceDiagnostics::Backend::Unreachable);
         QCOMPARE(idle.internalPort,5900);QVERIFY(idle.external);
+        QCOMPARE(active.netlinkVersion,NetLinkUi::displayVersion(VeyonCore::versionString()));
+        QCOMPARE(idle.netlinkVersion,active.netlinkVersion);QVERIFY(!active.netlinkVersion.isEmpty());
     }
 };
 QTEST_GUILESS_MAIN(ServerVideoStatusTests)

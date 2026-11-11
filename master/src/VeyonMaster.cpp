@@ -41,6 +41,7 @@
 #include "UserConfig.h"
 #include "PluginManager.h"
 #include "SelectedFeatureControl.h"
+#include "CommandTargetSelection.h"
 #include "NetLinkUi.h"
 #include <QMessageBox>
 #include <QInputDialog>
@@ -230,15 +231,33 @@ void VeyonMaster::showClassProfiles(const QString& operation)
 	m_classProfiles->show(operation);
 }
 
-void VeyonMaster::runFeature( const Feature& feature )
+void VeyonMaster::runFeatureFromView(const Feature& feature,const ComputerControlInterfaceList& selected)
 {
-	const auto computerControlInterfaces = SelectedFeatureControl::applies(feature) ?
-		SelectedFeatureControl::targets(selectedComputerControlInterfaces()) : filteredComputerControlInterfaces();
-	if(SelectedFeatureControl::applies(feature) && computerControlInterfaces.isEmpty()) {
+	// Auxiliary thumbnail views (Spotlight/Slideshow) have their own selection.
+	// Synchronize it explicitly so every command panel sees the same recipients.
+	if(!m_mainWindow->selectCommandTargets(selected)) {
 		auto notice=new QMessageBox(QMessageBox::Information,feature.displayName(),
-			NetLinkUi::text("Select at least one computer thumbnail before sending this command."),QMessageBox::Ok,mainWindow());
+			NetLinkUi::text("The target selection changed. No command was sent. Repeat the command with the new selection."),QMessageBox::Ok,mainWindow());
 		notice->setAttribute(Qt::WA_DeleteOnClose);notice->open();return;
 	}
+	runFeature(feature);
+}
+
+void VeyonMaster::runFeature( const Feature& feature )
+{
+	if(!feature.isValid()) return;
+	// Discovery and options are local UI operations. InternetGuard resolves its
+	// targets on each Block/Unblock/Status press, not when its monitor is opened.
+	if(feature.name()==QStringLiteral("Discovery") || feature.name()==QStringLiteral("InternetGuard") || feature.name()==QStringLiteral("Appello") || feature.testFlag(Feature::Flag::Option)) {
+		runFeatureOnTargets(feature,{});return;
+	}
+	CommandTargetSelection::request(mainWindow(),this,feature.displayName(),
+		[this] {return selectedComputerControlInterfaces();},[this] {return filteredComputerControlInterfaces();},
+		[this,feature](const ComputerControlInterfaceList& clients) {runFeatureOnTargets(feature,clients);});
+}
+
+void VeyonMaster::runFeatureOnTargets(const Feature& feature, const ComputerControlInterfaceList& computerControlInterfaces)
+{
 	if(SelectedFeatureControl::isMode(feature)) {
 		auto& manager=VeyonCore::featureManager();
 		FeatureUidList family;
@@ -256,9 +275,9 @@ void VeyonMaster::runFeature( const Feature& feature )
 				.arg(plan.clients[i]->computer().name(),plan.clients[i]->computer().hostAddress()));
 			bool accepted=false;
 			const auto source=QInputDialog::getItem(mainWindow(),feature.displayName(),NetLinkUi::text("Choose the source screen. Only the other selected computers will receive it."),choices,0,false,&accepted);
-			// Cancelling does not stop an existing mode. Reject a changed selection
-			// rather than sending commands to a stale group after the dialog.
-			if(!accepted || computerControlInterfaces!=SelectedFeatureControl::targets(selectedComputerControlInterfaces())) return;
+			// Cancelling does not stop an existing mode. Keep the already resolved
+			// snapshot; choosing a source must never add recipients.
+			if(!accepted) return;
 			const auto index=choices.indexOf(source);if(index<0) return;
 			plan.clients.prepend(plan.clients.takeAt(index));
 		}

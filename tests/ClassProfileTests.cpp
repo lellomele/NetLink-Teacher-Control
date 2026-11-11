@@ -175,7 +175,7 @@ private Q_SLOTS:
         const Feature guard("InternetGuard",Feature::Flag::Action,QUuid::createUuid(),{},"IG",{},{},{});
         const auto first=client(QUuid::createUuid()),second=client(QUuid::createUuid());
         const FeatureUidList family{mode.uid()};const FeatureList modes{mode,other,guard};
-        QVERIFY(SelectedFeatureControl::applies(mode));QVERIFY(SelectedFeatureControl::applies(guard));
+        QVERIFY(SelectedFeatureControl::isMode(mode));QVERIFY(!SelectedFeatureControl::isMode(guard));
         auto apply=[&](const ComputerControlInterfaceList& selected) {
             const auto plan=SelectedFeatureControl::plan(mode,selected,family,modes);
             for(const auto& feature:plan.stop) QVERIFY(feature!=guard);
