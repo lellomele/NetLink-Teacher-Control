@@ -29,7 +29,7 @@ $keyHash=(Get-FileHash -LiteralPath (Join-Path $root 'keys/netlink_test')).Hash
 $keyAcl=(Get-Acl -LiteralPath (Join-Path $root 'keys/netlink_test')).Sddl
 Copy-Item -LiteralPath $Helper -Destination (Join-Path $payload 'netlink-maintenance.exe')
 Copy-Item -LiteralPath $Cli -Destination (Join-Path $payload 'netlink-wcli.exe')
-foreach($component in @('master','configurator','companion')) {
+foreach($component in @('master','configurator','companion','startup-check')) {
     Copy-Item -LiteralPath $Cli -Destination (Join-Path $payload "netlink-$component.exe")
 }
 [IO.File]::WriteAllText((Join-Path $payload 'platforms/qwindows.dll'),'INERT PLATFORM FIXTURE')
@@ -55,7 +55,7 @@ function RunInstaller([string]$file,[string]$arguments,[int]$expectedExit=0) {
     if(Test-Path -LiteralPath $errorFile){Remove-Item -LiteralPath $errorFile}
     $process=Start-Process -FilePath $file -ArgumentList $arguments -WindowStyle Hidden -PassThru
     try {if(!$process.WaitForExit(60000)){$process.Kill();throw "Installer fixture deadline exceeded: $file $arguments"}; if($process.ExitCode-ne$expectedExit){$detail=if(Test-Path -LiteralPath $errorFile){Get-Content -LiteralPath $errorFile -Raw}else{'no helper error'}; $trace=Join-Path $root 'installer-cli-trace.txt'; if(Test-Path -LiteralPath $trace){$detail+="`n"+((Get-Content -LiteralPath $trace | Select-Object -Last 12)-join"`n")}; throw "Installer fixture failed after $script:successfulInstalls successful installs: exit $($process.ExitCode), expected $expectedExit; command '$file $arguments'; $detail"}}finally{$process.Dispose()}
-    if($expectedExit-eq0 -and (Split-Path $file -Leaf)-eq'NetLink-1.0.0-alpha.37-win64-setup.exe'){$script:successfulInstalls++}
+    if($expectedExit-eq0 -and (Split-Path $file -Leaf)-eq'NetLink-1.0.0-alpha.38-win64-setup.exe'){$script:successfulInstalls++}
 }
 function WaitRemoval {
     $deadline=[DateTime]::UtcNow.AddSeconds(20)
@@ -113,7 +113,7 @@ function CheckComponents([string]$role,[bool]$companion=$false) {
 try {
     & (Join-Path $Toolchain 'bin/makensis.exe') '/INPUTCHARSET' 'UTF8' "/DNETLINK_INSTALLER_FIXTURE" "/DFIXTURE_ID=$id" "/DFIXTURE_ROOT=$root" "/DFIXTURE_REGKEY=$registry" "/DREPOROOT=$repoRoot" "/DOUTPUT=$root" "/DPAYLOAD=$payload" (Join-Path $repoRoot 'packaging/veyon-school.nsi') | Out-Null
     if($LASTEXITCODE-ne0){throw 'Full installer fixture compilation failed'}
-    $installer=Join-Path $root 'NetLink-1.0.0-alpha.37-win64-setup.exe'
+    $installer=Join-Path $root 'NetLink-1.0.0-alpha.38-win64-setup.exe'
     $oldHashes=@{};Get-ChildItem -LiteralPath $app -File | ForEach-Object {$oldHashes[$_.Name]=(Get-FileHash -LiteralPath $_.FullName).Hash}
     $loaded=Start-Process -FilePath $Helper -ArgumentList ('hold-image "'+$app+'"') -WindowStyle Hidden -PassThru
     try {
@@ -187,11 +187,21 @@ try {
     CheckComponents 'Master'
     RunInstaller $installer '/S /Role=Client'
     CheckComponents 'Client'
+    RunInstaller $installer '/S /StartupCheck=5'
+    RunInstaller $installer '/S'
+    $startupSettings=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($registry+'\StartupCheck')
+    try {if(!$startupSettings -or $startupSettings.GetValue('DelayMinutes')-ne5){throw 'Upgrade did not preserve the 5-minute boot check'}}finally{if($startupSettings){$startupSettings.Dispose()}}
+    RunInstaller $installer '/S /StartupCheck=off'
+    RunInstaller $installer '/S'
+    $startupSettings=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($registry+'\StartupCheck')
+    try {if(!$startupSettings -or $startupSettings.GetValue('DelayMinutes')-ne0){throw 'Upgrade re-enabled a disabled boot check'}}finally{if($startupSettings){$startupSettings.Dispose()}}
     $beforeActions=@(Get-Content -LiteralPath (Join-Path $root 'maintenance-actions.txt')).Count
     RunInstaller $installer '/S /Role=Unknown' 2
     RunInstaller $installer '/S /Role=' 2
     RunInstaller $installer '/S /Companion=yes' 2
     RunInstaller $installer '/S /Companion=' 2
+    RunInstaller $installer '/S /StartupCheck=4' 2
+    RunInstaller $installer '/S /StartupCheck=' 2
     if(@(Get-Content -LiteralPath (Join-Path $root 'maintenance-actions.txt')).Count-ne$beforeActions){throw 'Invalid role started maintenance'}
     CheckComponents 'Client'
     if(!(Test-Path -LiteralPath (Join-Path $app 'platforms/qwindows.dll'))){throw 'Incomplete installation was not repaired'}
@@ -203,10 +213,14 @@ try {
     try {RunInstaller $installer '/S' 2} finally {Remove-Item -LiteralPath $failureMarker}
     RunInstaller (Join-Path $app 'Uninstall.exe') '/S /PURGE'
     WaitRemoval
+    $startupSettings=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($registry+'\StartupCheck')
+    if($startupSettings){$startupSettings.Dispose();throw 'Purge left startup preference behind'}
     $settings=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($registry+'\Configuration\Authentication')
     if(!$settings -or $settings.GetValue('OtherSetting') -or $settings.GetValue('PrivateKeyBaseDir')-ne(Join-Path $root 'keys')){throw 'Purge failed to remove settings/preserve key locations'}
     $settings.Dispose()
     RunInstaller $installer '/S'
+    $startupSettings=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($registry+'\StartupCheck')
+    try {if(!$startupSettings -or $startupSettings.GetValue('DelayMinutes')-ne3){throw 'Fresh install did not default to 3 minutes'}}finally{if($startupSettings){$startupSettings.Dispose()}}
     $settings=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($registry+'\Configuration\Authentication')
     $settings.SetValue('OtherSetting','PRESERVE ON NORMAL UNINSTALL')
     $settings.Dispose()

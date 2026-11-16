@@ -17,6 +17,11 @@ if(WITH_TESTS)
         set_tests_properties(netlink-configuration-native-recovery-tests PROPERTIES TIMEOUT 30)
     endif()
     if(WIN32)
+        add_executable(netlink-early-service-bootstrap-tests EarlyServiceBootstrapTests.cpp)
+        set_default_target_properties(netlink-early-service-bootstrap-tests)
+        target_link_libraries(netlink-early-service-bootstrap-tests PRIVATE veyon-core Qt${QT_MAJOR_VERSION}::Test advapi32)
+        add_test(NAME netlink-early-service-bootstrap-tests COMMAND netlink-early-service-bootstrap-tests -o "${CMAKE_CURRENT_BINARY_DIR}/netlink-early-service-bootstrap-results.txt,txt")
+        set_tests_properties(netlink-early-service-bootstrap-tests PROPERTIES TIMEOUT 30)
         add_executable(netlink-service-startup-tests WindowsServiceStartupTests.cpp ../plugins/platform/windows/WindowsServiceControl.h)
         set_default_target_properties(netlink-service-startup-tests)
         target_link_libraries(netlink-service-startup-tests PRIVATE veyon-core Qt${QT_MAJOR_VERSION}::Test advapi32)
@@ -114,7 +119,9 @@ if(WITH_TESTS)
     foreach(scale 1 1.5 2)
         string(REPLACE "." "_" profile_scale "${scale}")
         add_test(NAME netlink-class-profiles-scale-${profile_scale} COMMAND netlink-class-profile-tests -o "${CMAKE_CURRENT_BINARY_DIR}/netlink-class-profile-${profile_scale}-results.txt,txt")
-        set_tests_properties(netlink-class-profiles-scale-${profile_scale} PROPERTIES TIMEOUT 45 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_SCALE_FACTOR=${scale}")
+        # QFileSystemModel uses shared Windows shell/icon services even when
+        # rendered offscreen. Keep this file-dialog DPI matrix isolated.
+        set_tests_properties(netlink-class-profiles-scale-${profile_scale} PROPERTIES TIMEOUT 45 RUN_SERIAL TRUE ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_SCALE_FACTOR=${scale}")
     endforeach()
     add_executable(netlink-lock-notification-tests LockNotificationTests.cpp
         ../plugins/screenlock/ScreenLockFeaturePlugin.cpp ../plugins/screenlock/ScreenLockFeaturePlugin.h

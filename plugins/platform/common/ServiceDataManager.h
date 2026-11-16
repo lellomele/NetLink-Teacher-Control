@@ -25,6 +25,8 @@
 #pragma once
 
 #include <QThread>
+#include <QSemaphore>
+#include <QAtomicInt>
 
 #include "CryptoCore.h"
 #include "VariantArrayMessage.h"
@@ -48,6 +50,10 @@ public:
 
 	ServiceDataManager( QObject* parent = nullptr );
 	~ServiceDataManager() override;
+	bool waitUntilReady(int milliseconds) {
+		if(!m_startupReady.tryAcquire(1,milliseconds)) return false;
+		m_startupReady.release();return m_listening.loadAcquire()!=0;
+	}
 
 	const Token& token() const
 	{
@@ -83,6 +89,8 @@ private:
 	}
 
 	QLocalServer* m_server{nullptr};
+	QSemaphore m_startupReady;
+	QAtomicInt m_listening{0};
 
 	Token m_token;
 	Data m_data;

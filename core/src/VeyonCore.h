@@ -23,6 +23,7 @@
  */
 
 #pragma once
+#include <functional>
 
 #include <QtEndian>
 #include <QVersionNumber>
@@ -87,7 +88,8 @@ public:
 	};
 	Q_ENUM(Component)
 
-	VeyonCore( QCoreApplication* application, Component component, const QString& appComponentName );
+	VeyonCore( QCoreApplication* application, Component component, const QString& appComponentName,
+			   const std::function<void()>& startupProgress={} );
 	~VeyonCore() override;
 
 	static VeyonCore* instance();

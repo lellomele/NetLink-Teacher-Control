@@ -17,6 +17,10 @@ Var RoleDialog
 Var MasterRadio
 Var ClientRadio
 Var StartMenuDir
+Var StartupDelay
+Var Startup3
+Var Startup5
+Var StartupOff
 ; Fixture-only trace preserves ExecWait's exit code and error flag verbatim.
 !macro TraceFixtureCli ACTION
  !ifdef NETLINK_INSTALLER_FIXTURE
@@ -48,8 +52,8 @@ Var StartMenuDir
  !define LOCKNAME "Global\NetLinkInstallerMaintenance"
  RequestExecutionLevel admin
 !endif
-Name "NetLink 1.0.0 alpha.37${NETLINK_BUILD_SUFFIX}"
-OutFile "${OUTPUT}\NetLink-1.0.0-alpha.37${NETLINK_BUILD_SUFFIX}-win64-setup.exe"
+Name "NetLink 1.0.0 alpha.38${NETLINK_BUILD_SUFFIX}"
+OutFile "${OUTPUT}\NetLink-1.0.0-alpha.38${NETLINK_BUILD_SUFFIX}-win64-setup.exe"
 InstallDir "$PROGRAMFILES64\Veyon School"
 SetCompressor /SOLID lzma
 AllowSkipFiles off
@@ -61,6 +65,7 @@ Page custom RolePageCreate RolePageLeave
 !define MUI_COMPONENTSPAGE_TEXT_TOP "Seleziona le applicazioni da installare. Service e Configurator sono obbligatori. Per aggiungere Companion in seguito basta rieseguire questo installer: configurazione e chiavi sono conservate."
 !define MUI_COMPONENTSPAGE_TEXT_COMPLIST "Applicazioni NetLink:"
 !insertmacro MUI_PAGE_COMPONENTS
+Page custom StartupPageCreate StartupPageLeave
 !insertmacro MUI_PAGE_INSTFILES
 ; Standard MUI completion action: checked by default, only on the interactive
 ; success page. Silent installs and pending-reboot exits never launch the GUI.
@@ -70,10 +75,10 @@ Page custom RolePageCreate RolePageLeave
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "Italian"
-VIProductVersion "1.0.0.37"
+VIProductVersion "1.0.0.38"
 VIAddVersionKey /LANG=1040 "ProductName" "NetLink"
 VIAddVersionKey /LANG=1040 "FileDescription" "NetLink installer (pre-release)"
-VIAddVersionKey /LANG=1040 "FileVersion" "1.0.0-alpha.37${NETLINK_BUILD_SUFFIX}"
+VIAddVersionKey /LANG=1040 "FileVersion" "1.0.0-alpha.38${NETLINK_BUILD_SUFFIX}"
 VIAddVersionKey /LANG=1040 "LegalCopyright" "Copyright (c) 2025-26 prof. Ing. Raffaele Mele; Veyon e contributori"
 Function .onInit
  System::Call 'kernel32::CreateMutexW(p 0, i 0, w "${LOCKNAME}") p .r0 ?e'
@@ -88,6 +93,19 @@ Function .onInit
    Abort
  ${EndIf}
  SetRegView 64
+ StrCpy $StartupDelay 3
+ !ifdef NETLINK_INSTALLER_FIXTURE
+ ReadRegDWORD $R1 HKCU "${FIXTURE_REGKEY}\StartupCheck" "DelayMinutes"
+ !else
+ ReadRegDWORD $R1 HKLM "Software\NetLink\StartupCheck" "DelayMinutes"
+ !endif
+ ${IfNot} ${Errors}
+   ${If} $R1 == 0
+     StrCpy $StartupDelay off
+   ${ElseIf} $R1 == 5
+     StrCpy $StartupDelay 5
+   ${EndIf}
+ ${EndIf}
  ; Retain installed optional components. Metadata is written only on success;
  ; older installations can be recognized by their existing executable.
  ReadRegDWORD $InstallCompanion ${APPREGROOT} "${APPREGKEY}" "InstallCompanion"
@@ -121,6 +139,20 @@ Function .onInit
    ${EndIf}
  ${EndIf}
  ${GetParameters} $R0
+ ClearErrors
+ ${GetOptions} $R0 "/StartupCheck=" $R1
+ ${IfNot} ${Errors}
+   ${If} $R1 == 3
+   ${OrIf} $R1 == 5
+   ${OrIf} $R1 == off
+     StrCpy $StartupDelay $R1
+   ${Else}
+     SetErrorLevel 2
+     IfSilent +2
+     MessageBox MB_OK|MB_ICONSTOP "Controllo avvio non valido. Usare /StartupCheck=3, /StartupCheck=5 oppure /StartupCheck=off. Nessuna modifica eseguita."
+     Quit
+   ${EndIf}
+ ${EndIf}
  ClearErrors
  ${GetOptions} $R0 "/Role=" $R1
  ${IfNot} ${Errors}
@@ -201,6 +233,45 @@ Function RolePageCreate
  ${EndIf}
  nsDialogs::Show
 FunctionEnd
+Function StartupPageCreate
+ !insertmacro MUI_HEADER_TEXT "Controllo automatico del servizio" "Una verifica di recupero per i PC che si avviano lentamente."
+ nsDialogs::Create 1018
+ Pop $0
+ ${If} $0 == error
+   Abort
+ ${EndIf}
+ ${NSD_CreateLabel} 0 0 100% 42u "Windows avvia normalmente NetLink. Dopo il tempo scelto, un controllo indipendente verifica il servizio: se è già attivo non lo riavvia; se è fermo tenta di avviarlo. Non cambia configurazione, chiavi o porte."
+ Pop $0
+ ${NSD_CreateRadioButton} 0 48u 100% 16u "Controlla dopo 3 minuti (consigliato)"
+ Pop $Startup3
+ ${NSD_CreateRadioButton} 0 70u 100% 16u "Controlla dopo 5 minuti (PC molto lenti)"
+ Pop $Startup5
+ ${NSD_CreateRadioButton} 0 92u 100% 16u "Non eseguire il controllo dopo l'avvio"
+ Pop $StartupOff
+ ${NSD_CreateLabel} 0 116u 100% 32u "Massimo 3 richieste di avvio, con pausa di 2 minuti dopo un errore. Rispetta Manuale/Disabilitato e non interviene durante installazione o disinstallazione."
+ Pop $0
+ ${If} $StartupDelay == 5
+   ${NSD_Check} $Startup5
+ ${ElseIf} $StartupDelay == off
+   ${NSD_Check} $StartupOff
+ ${Else}
+   ${NSD_Check} $Startup3
+ ${EndIf}
+ nsDialogs::Show
+FunctionEnd
+Function StartupPageLeave
+ ${NSD_GetState} $Startup5 $0
+ ${If} $0 == ${BST_CHECKED}
+   StrCpy $StartupDelay 5
+ ${Else}
+   ${NSD_GetState} $StartupOff $0
+   ${If} $0 == ${BST_CHECKED}
+     StrCpy $StartupDelay off
+   ${Else}
+     StrCpy $StartupDelay 3
+   ${EndIf}
+ ${EndIf}
+FunctionEnd
 Function RolePageLeave
  ${NSD_GetState} $MasterRadio $0
  ${If} $0 == ${BST_CHECKED}
@@ -245,6 +316,23 @@ FunctionEnd
  ${OrIf} $0 != 0
    Abort "${MESSAGE} (codice $0). Dettagli: C:\ProgramData\NetLink\maintenance-error.txt"
  ${EndIf}
+!macroend
+!macro RunStartup ACTION
+ !ifdef NETLINK_INSTALLER_FIXTURE
+   ; No task, global named object, service or HKLM write on the host in tests.
+   FileOpen $R9 "${FIXTURE_ROOT}\startup-trace.txt" a
+   FileSeek $R9 0 END
+   FileWrite $R9 "${ACTION}$\r$\n"
+   FileClose $R9
+ !else
+   ClearErrors
+   nsExec::ExecToLog /TIMEOUT=40000 '"$PLUGINSDIR\netlink-startup-check.exe" ${ACTION}'
+   Pop $0
+   ${If} ${Errors}
+   ${OrIf} $0 != 0
+     Abort "Controllo automatico del servizio non configurato (codice $0). Nessuna chiave è stata modificata. Verifica Utilità di pianificazione e C:\ProgramData\NetLink\StartupCheck."
+   ${EndIf}
+ !endif
 !macroend
 !macro CheckInstallerReady ACTION EXTRA
  ClearErrors
@@ -321,9 +409,11 @@ Section "-NetLink installation"
  InitPluginsDir
  SetOutPath "$PLUGINSDIR"
  File /oname=netlink-maintenance.exe "${PAYLOAD}\netlink-maintenance.exe"
+ File /oname=netlink-startup-check.exe "${PAYLOAD}\netlink-startup-check.exe"
  File /oname=replacement.sha256 "${PAYLOAD}\payload.sha256"
  !insertmacro CheckInstallerReady "check-pending" ""
  !insertmacro RunMaintenance "backup" "Backup delle impostazioni non riuscito; nessun file è stato sostituito"
+ !insertmacro RunStartup "--quiesce"
  !insertmacro RunMaintenance "quiesce" "Impossibile arrestare il servizio per verificare i file; chiudere le applicazioni e riavviare"
  !insertmacro CheckInstallerReady "check-files" ' "$PLUGINSDIR\replacement.sha256"'
  !insertmacro RunMaintenance "stop" "Impossibile arrestare/rimuovere il servizio precedente; chiudere le applicazioni e riavviare"
@@ -408,6 +498,23 @@ Section "-NetLink installation"
      Abort
    ${EndIf}
  ${EndIf}
+ ; Register the task from its protected installed path, not the extraction dir.
+ !ifdef NETLINK_INSTALLER_FIXTURE
+   !insertmacro RunStartup "--configure $StartupDelay"
+   ${If} $StartupDelay == off
+     WriteRegDWORD HKCU "${FIXTURE_REGKEY}\StartupCheck" "DelayMinutes" 0
+   ${Else}
+     WriteRegDWORD HKCU "${FIXTURE_REGKEY}\StartupCheck" "DelayMinutes" $StartupDelay
+   ${EndIf}
+ !else
+   ClearErrors
+   nsExec::ExecToLog /TIMEOUT=40000 '"$INSTDIR\netlink-startup-check.exe" --configure $StartupDelay'
+   Pop $0
+   ${If} ${Errors}
+   ${OrIf} $0 != 0
+     Abort "Registrazione del controllo dopo l'avvio non riuscita (codice $0). Configurazione e chiavi sono conservate."
+   ${EndIf}
+ !endif
  ClearErrors
  ExecWait '"$INSTDIR\netlink-wcli.exe" service start' $0
  !insertmacro TraceFixtureCli "service start"
@@ -458,8 +565,8 @@ Section "-NetLink installation"
  Delete "$SMPROGRAMS\Veyon School\Configurator.lnk"
  RMDir "$SMPROGRAMS\Veyon School"
  !endif
- WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayName" "NetLink 1.0.0 alpha.37${NETLINK_BUILD_SUFFIX}"
- WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayVersion" "1.0.0-alpha.37${NETLINK_BUILD_SUFFIX}"
+ WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayName" "NetLink 1.0.0 alpha.38${NETLINK_BUILD_SUFFIX}"
+ WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayVersion" "1.0.0-alpha.38${NETLINK_BUILD_SUFFIX}"
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "InstallationRole" "$InstallationRole"
  WriteRegDWORD ${APPREGROOT} "${APPREGKEY}" "InstallCompanion" $InstallCompanion
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
@@ -475,8 +582,14 @@ Section "Uninstall"
  ${If} ${Errors}
    Abort "Strumento di rimozione assente: ripristinare con l'installer completo prima di disinstallare."
  ${EndIf}
+ ClearErrors
+ CopyFiles /SILENT "$INSTDIR\netlink-startup-check.exe" "$PLUGINSDIR\netlink-startup-check.exe"
+ ${If} ${Errors}
+   Abort "Controllo di avvio assente: ripristina con l'installer completo prima di disinstallare."
+ ${EndIf}
  !insertmacro RunMaintenance "check-keys" "Chiavi presenti nella cartella del programma: spostarle prima con il Configurator; nessuna chiave è stata cancellata"
  !insertmacro RunMaintenance "backup" "Backup di recupero non riuscito; disinstallazione interrotta"
+ !insertmacro RunStartup "--remove"
  !insertmacro RunMaintenance "stop" "Servizio non arrestabile; chiudere le applicazioni e riprovare dopo il riavvio"
  !insertmacro RunMaintenance "clean-firewall" "Rimozione regole firewall del fork non riuscita"
  !ifndef NETLINK_INSTALLER_FIXTURE
@@ -504,6 +617,11 @@ Section "Uninstall"
  !endif
  ${If} $PurgeSettings == 1
    !insertmacro RunMaintenance "clean-settings" "Pulizia impostazioni non riuscita"
+   !ifdef NETLINK_INSTALLER_FIXTURE
+     DeleteRegKey HKCU "${FIXTURE_REGKEY}\StartupCheck"
+   !else
+     DeleteRegKey HKLM "Software\NetLink\StartupCheck"
+   !endif
  ${EndIf}
  ; The native remover validates the fixed root and never follows junctions.
  ; Files in use are scheduled, with their directory, for removal at reboot.

@@ -52,7 +52,7 @@ PlatformSessionManager::~PlatformSessionManager()
 {
 	vDebug();
 
-	quit();
+	requestInterruption();quit();
 	wait();
 }
 
@@ -60,11 +60,15 @@ PlatformSessionManager::~PlatformSessionManager()
 
 void PlatformSessionManager::run()
 {
+	QLocalServer localServer;
 	if( mode() == Mode::Multi )
 	{
-		auto server = new QLocalServer;
+		auto server = &localServer;
 		server->setSocketOptions( QLocalServer::WorldAccessOption );
-		server->listen( serverName() );
+		if(!server->listen(serverName())) {
+			vCritical()<<"Session map IPC listen failed"<<server->errorString();
+			m_startupReady.release();return;
+		}
 
 		connect( server, &QLocalServer::newConnection, server, [this, server]() {
 			auto connection = server->nextPendingConnection();
@@ -79,7 +83,9 @@ void PlatformSessionManager::run()
 		} );
 	}
 
-	QThread::run();
+	m_listening.storeRelease(1);m_startupReady.release();
+	if(!isInterruptionRequested()) QThread::run();
+	m_listening.storeRelease(0);
 }
 
 PlatformSessionManager::SessionId PlatformSessionManager::openSession( const PlatformSessionId& platformSessionId )

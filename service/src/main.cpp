@@ -26,15 +26,29 @@
 
 #include "VeyonServiceControl.h"
 #include "PlatformServiceFunctions.h"
+#ifdef Q_OS_WIN
+#include "WindowsServiceBootstrap.h"
+#endif
 
 int main( int argc, char** argv )
 {
+#ifdef Q_OS_WIN
+	WindowsServiceBootstrap bootstrap;
+	if(!bootstrap.isConnected()) return -1;
+#endif
 	VeyonCore::setupApplicationParameters();
 
 	QCoreApplication app( argc, argv );
-	VeyonCore core( &app, VeyonCore::Component::Service, QStringLiteral("Service") );
+	VeyonCore core( &app, VeyonCore::Component::Service, QStringLiteral("Service")
+#ifdef Q_OS_WIN
+		, [&] { bootstrap.progress(); }
+#endif
+	);
 
 	auto& serviceFunctions = core.platform().serviceFunctions();
+#ifdef Q_OS_WIN
+	serviceFunctions.setEarlyStartup(&bootstrap.context);
+#endif
 
 	if( serviceFunctions.runAsService( VeyonServiceControl::name(),
 									   [&]() { serviceFunctions.manageServerInstances(); } ) )

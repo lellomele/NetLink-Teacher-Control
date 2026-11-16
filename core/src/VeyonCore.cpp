@@ -60,7 +60,8 @@
 VeyonCore* VeyonCore::s_instance = nullptr;
 
 
-VeyonCore::VeyonCore( QCoreApplication* application, Component component, const QString& appComponentName ) :
+VeyonCore::VeyonCore( QCoreApplication* application, Component component, const QString& appComponentName,
+					  const std::function<void()>& startupProgress ) :
 	QObject( application ),
 	m_filesystem( new Filesystem ),
 	m_config( nullptr ),
@@ -81,26 +82,34 @@ VeyonCore::VeyonCore( QCoreApplication* application, Component component, const 
 	if(qobject_cast<QGuiApplication*>(application)) QGuiApplication::setApplicationDisplayName(m_applicationName);
 
 	s_instance = this;
+	const auto progress=[&] { if(startupProgress) startupProgress(); };
 
 	initPlatformPlugin();
+	progress();
 
 	initConfiguration();
+	progress();
 
 	initSession();
 
 	initLogging( appComponentName );
+	progress();
 
 	initLocaleAndTranslation();
 
 	initCryptoCore();
+	progress();
 
 	initAuthenticationCredentials();
 
 	initPlugins();
+	progress();
 
 	initManagers();
+	progress();
 
 	initSystemInfo();
+	progress();
 
 	Q_EMIT initialized(); // clazy:exclude=incorrect-emit
 }

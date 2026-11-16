@@ -6,9 +6,9 @@ Suite NetLink per la gestione delle aule Windows, basata su **Veyon 4.7.5**.
 Integra controllo remoto, InternetGuard WFP, Appello, profili classe–aula,
 ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
 
-**Versione preliminare 1.0.0-alpha.37: usare consapevolmente.**
+**Versione preliminare 1.0.0-alpha.38: usare consapevolmente.**
 
-**[Scarica l’installer Windows x64 — ultima release (alpha.37)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.37/NetLink-1.0.0-alpha.37-win64-setup.exe)**
+**[Scarica l’installer Windows x64 — ultima release (alpha.38)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.38/NetLink-1.0.0-alpha.38-win64-setup.exe)**
 
 ## Funzionalità
 
@@ -67,8 +67,10 @@ ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
   o scadute sono indicate come non disponibili. Non servono altre porte.
   Un canale temporaneo abbinato esplicitamente consente lo scambio di rapporti.
 - **Avvio del servizio Windows:** configurazione automatica verificata e ripristino
-  nativo limitato dopo crash/errori di avvio. L'installer rileva gli errori di verifica;
-  restano supportati l'avvio manuale intenzionale e lo stop regolare dell'amministratore.
+  nativo limitato dopo crash/errori di avvio. Un controllo indipendente dopo **3 minuti**
+  (oppure **5 minuti**, o disattivato) avvia il servizio soltanto se è fermo e impostato
+  su Automatico. Se è già attivo non lo riavvia; Manuale/Disabilitato e manutenzione
+  vengono rispettati. Massimo tre richieste di avvio, con pausa di due minuti dopo un errore.
 
 ## Installazione e aggiornamento
 
@@ -85,6 +87,20 @@ ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
    le scelte installate. Non occorre disinstallare o rigenerare chiavi funzionanti.
 4. Se l'installer segnala file in uso o rimozioni pendenti, riavviare Windows e
    rieseguire il pacchetto. Non sostituire singole DLL e non saltare file.
+
+Il controllo dopo il boot usa l'attività Windows **NetLink Service Startup Check**,
+eseguita come SYSTEM da `netlink-startup-check.exe`; non apre porte e non richiede
+un utente connesso. Non ritarda il normale avvio automatico: è un controllo di recupero,
+non un avvio con precedenza sugli altri servizi. Windows può eseguirlo più tardi su un PC
+molto occupato. La scelta è conservata negli aggiornamenti; per installazioni silenziose
+usare `/S /StartupCheck=3`, `/StartupCheck=5` oppure `/StartupCheck=off`.
+I rapporti dei controlli sono in `C:\ProgramData\NetLink\StartupCheck`.
+Un servizio Manuale/Disabilitato non viene corretto automaticamente; un arresto volontario
+di un servizio ancora Automatico prima del controllo può invece essere recuperato.
+
+L'utilità separata [NetLink Service Check 1.1.0](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.38/NetLink-Service-Check-1.1.0.exe) consente di analizzare
+gli errori Windows, impostare l'avvio Automatico e scegliere il controllo a 3 o 5 minuti.
+Il controllo del servizio non certifica il funzionamento di video o autenticazione.
 
 Il riferimento è **Windows 10 a 64 bit**. Le dipendenze sono incluse.
 La suite include Qt 5.15.19 con patch KDE: non occorre installare Qt separatamente.

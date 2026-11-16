@@ -5,6 +5,9 @@ build_veyon_application(veyon-service ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 
 add_windows_resource(veyon-service)
 make_graphical_app(veyon-service)
+if(VEYON_BUILD_WINDOWS)
+    target_link_libraries(veyon-service PRIVATE advapi32)
+endif()
 
 if(VEYON_BUILD_LINUX)
 	configure_file(${CMAKE_CURRENT_SOURCE_DIR}/veyon.service.in ${CMAKE_CURRENT_BINARY_DIR}/veyon.service @ONLY)

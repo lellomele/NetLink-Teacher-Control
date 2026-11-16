@@ -1,4 +1,11 @@
 if(VEYON_BUILD_WINDOWS)
+    add_executable(netlink-startup-check StartupCheck.cpp ${CMAKE_CURRENT_BINARY_DIR}/netlink-startup-check.rc)
+    set_target_properties(netlink-startup-check PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+    target_compile_features(netlink-startup-check PRIVATE cxx_std_17)
+    target_compile_options(netlink-startup-check PRIVATE -fexceptions)
+    target_compile_definitions(netlink-startup-check PRIVATE UNICODE _UNICODE _WIN32_WINNT=0x0601)
+    target_link_libraries(netlink-startup-check PRIVATE advapi32 shell32 ole32 oleaut32 uuid taskschd)
+    target_link_options(netlink-startup-check PRIVATE -static -municode)
     # Recovery must work without Qt, the installed runtime, or extra software.
     add_executable(netlink-maintenance Maintenance.cpp ${CMAKE_CURRENT_BINARY_DIR}/netlink-maintenance.rc)
     set_target_properties(netlink-maintenance PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)

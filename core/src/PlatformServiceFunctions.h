@@ -32,6 +32,16 @@ class PlatformServiceFunctions
 {
 public:
 	using ServiceEntryPoint = std::function<void(void)>;
+	// The executable connects to the SCM before loading Qt plugins. Qt objects
+	// remain on the application thread; only the native dispatcher runs elsewhere.
+	struct EarlyStartup {
+		void* statusHandle=nullptr;
+		unsigned long checkpoint=0;
+		using ControlHandler=std::function<unsigned long(unsigned long,unsigned long,void*)>;
+		std::function<bool(const ServiceEntryPoint&,const ControlHandler&)> run;
+	};
+	void setEarlyStartup(EarlyStartup* startup) { m_earlyStartup=startup; }
+	EarlyStartup* earlyStartup() const { return m_earlyStartup; }
 
 	enum class StartMode {
 		Disabled,
@@ -54,5 +64,8 @@ public:
 	virtual bool runAsService( const QString& name, const ServiceEntryPoint& serviceEntryPoint ) = 0;
 	virtual void manageServerInstances() = 0;
 	virtual QVariantMap serviceDetails(const QString& name) {Q_UNUSED(name) return {};}
+
+private:
+	EarlyStartup* m_earlyStartup=nullptr; // borrowed until runAsService returns
 
 };

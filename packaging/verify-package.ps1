@@ -1,4 +1,4 @@
-param([string]$Package='dist/NetLink-1.0.0-alpha.37-win64',[string]$Manifest='dist/package-manifest.json',[string]$BuildSuffix='')
+param([string]$Package='dist/NetLink-1.0.0-alpha.38-win64',[string]$Manifest='dist/package-manifest.json',[string]$BuildSuffix='')
 $ErrorActionPreference='Stop'
 $repoRoot=Split-Path $PSScriptRoot
 $packageRoot=(Resolve-Path -LiteralPath (Join-Path $repoRoot $Package)).Path
@@ -21,9 +21,9 @@ foreach($file in $files) {
     if($file.Extension -eq '.sys' -or $file.Name -match '^(Qt[56]Test\.dll|.*tests.*\.exe|.*interception.*|DeskDupEngine.*)$'){throw "Forbidden runtime artifact: $($file.Name)"}
     if($file.Name -match '^veyon-.*\.exe$'){throw "Legacy executable in renamed payload: $($file.Name)"}
 }
-foreach($name in @('netlink-master.exe','netlink-configurator.exe','netlink-service.exe','netlink-server.exe','netlink-worker.exe','netlink-cli.exe','netlink-wcli.exe','netlink-companion.exe','netlink-maintenance.exe')) {
+foreach($name in @('netlink-master.exe','netlink-configurator.exe','netlink-service.exe','netlink-server.exe','netlink-worker.exe','netlink-cli.exe','netlink-wcli.exe','netlink-companion.exe','netlink-maintenance.exe','netlink-startup-check.exe')) {
     $file=Get-Item -LiteralPath (Join-Path $packageRoot $name)
-    if($file.VersionInfo.FileVersion -ne "4.7.5-netlink.1.0.0-alpha.37$BuildSuffix" -or $file.VersionInfo.OriginalFilename -ne $name){throw "Wrong application version/identity: $name"}
+    if($file.VersionInfo.FileVersion -ne "4.7.5-netlink.1.0.0-alpha.38$BuildSuffix" -or $file.VersionInfo.OriginalFilename -ne $name){throw "Wrong application version/identity: $name"}
 }
 $fullHashes=@(Get-Content -LiteralPath (Join-Path $packageRoot 'payload.sha256'))
 foreach($name in @('Qt5Core.dll','Qt5Gui.dll','Qt5Widgets.dll','Qt5Network.dll','platforms/qwindows.dll','imageformats/qjpeg.dll')) {

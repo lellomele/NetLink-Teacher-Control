@@ -37,6 +37,7 @@
 #include "WindowsInputDeviceFunctions.h"
 #include "WtsSessionManager.h"
 #include "WindowsServicePolicy.h"
+#include "SessionProcessSupervisor.h"
 #include <QMutexLocker>
 
 
@@ -53,6 +54,9 @@ public:
 
 	void start( DWORD wtsSessionId, const ServiceDataManager::Token& token )
 	{
+		if(isRunning()) return;
+		// Release a signalled process handle before replacing it on a retry.
+		stop();
 		const auto baseProcessId = WtsSessionManager::findWinlogonProcessId( wtsSessionId );
 		const auto user = WtsSessionManager::querySessionInformation( wtsSessionId, WtsSessionManager::SessionInfo::UserName );
 
@@ -113,9 +117,11 @@ WindowsServiceCore* WindowsServiceCore::s_instance = nullptr;
 
 
 WindowsServiceCore::WindowsServiceCore( const QString& name,
-										const PlatformServiceFunctions::ServiceEntryPoint& serviceEntryPoint ) :
+										const PlatformServiceFunctions::ServiceEntryPoint& serviceEntryPoint,
+										PlatformServiceFunctions::EarlyStartup* earlyStartup ) :
 	m_name( WindowsCoreFunctions::toWCharArray( name ) ),
-	m_serviceEntryPoint( serviceEntryPoint )
+	m_serviceEntryPoint( serviceEntryPoint ),
+	m_earlyStartup(earlyStartup)
 {
 	s_instance = this;
 }
@@ -141,6 +147,18 @@ WindowsServiceCore* WindowsServiceCore::instance()
 
 bool WindowsServiceCore::runAsService()
 {
+	if(m_earlyStartup) {
+		// The delegate can receive INTERROGATE as soon as it is published.
+		// Seed the status before publishing it, not in the later ServiceMain.
+		m_statusHandle=static_cast<SERVICE_STATUS_HANDLE>(m_earlyStartup->statusHandle);
+		m_checkpoint=m_earlyStartup->checkpoint;
+		m_status.dwServiceType=SERVICE_WIN32_OWN_PROCESS;
+		m_status.dwCurrentState=SERVICE_START_PENDING;
+		m_status.dwCheckPoint=m_checkpoint;m_status.dwWaitHint=ServiceStartTimeout;
+		const auto dispatched=m_earlyStartup->run([this] { serviceMain(); },
+			[this](unsigned long code,unsigned long type,void* data) { return serviceCtrl(code,type,data,nullptr); });
+		return dispatched && m_serviceError.loadAcquire()==NO_ERROR;
+	}
 	static const std::array<SERVICE_TABLE_ENTRY, 2> dispatchTable = { {
 		{ m_name.data(), serviceMainStatic },
 		{ nullptr, nullptr }
@@ -179,7 +197,7 @@ void WindowsServiceCore::manageServerInstances()
 
 void WindowsServiceCore::manageServersForAllSessions()
 {
-	QMap<WtsSessionManager::SessionId, VeyonServerProcess*> serverProcesses;
+	SessionProcessSupervisor<WtsSessionManager::SessionId,VeyonServerProcess> serverProcesses;
 
 	const auto activeSessionOnly = m_sessionManager.mode() == PlatformSessionManager::Mode::Active;
 
@@ -205,38 +223,15 @@ void WindowsServiceCore::manageServersForAllSessions()
 			wtsSessionIds.removeAll( consoleSessionId );
 		}
 
-		for( auto it = serverProcesses.begin(); it != serverProcesses.end(); )
-		{
-			if( wtsSessionIds.contains( it.key() ) == false )
-			{
-				delete it.value();
-				if( it.key() != consoleSessionId || excludeConsoleSession )
-				{
-					m_sessionManager.closeSession( QString::number(it.key() ) );
-				}
-				it = serverProcesses.erase( it );
-			}
-			else
-			{
-				++it;
-			}
-		}
-
-		for( auto wtsSessionId : wtsSessionIds )
-		{
-			if( serverProcesses.contains( wtsSessionId ) == false )
-			{
-				if( wtsSessionId != consoleSessionId || includeConsoleSession )
-				{
-					m_sessionManager.openSession( QString::number(wtsSessionId) );
-				}
-
-				auto serverProcess = new VeyonServerProcess;
-				serverProcess->start( wtsSessionId, m_dataManager->token() );
-
-				serverProcesses[wtsSessionId] = serverProcess;
-			}
-		}
+		serverProcesses.reconcile(wtsSessionIds,
+			[&](WtsSessionManager::SessionId id) {
+				if(id!=consoleSessionId || includeConsoleSession) m_sessionManager.openSession(QString::number(id));
+			},
+			[&](WtsSessionManager::SessionId id) {
+				if(id!=consoleSessionId || excludeConsoleSession) m_sessionManager.closeSession(QString::number(id));
+			},
+			[&](VeyonServerProcess& process,WtsSessionManager::SessionId id) { process.start(id,m_dataManager->token()); },
+			[&] {return m_serviceStopRequested.loadAcquire()!=0;});
 
 		std::array<HANDLE, 2> events{m_sessionChangeEvent, m_stopServiceEvent};
 		if(WaitForMultipleObjects(events.size(), events.data(), FALSE, SessionPollingInterval)==WAIT_FAILED) {
@@ -249,7 +244,7 @@ void WindowsServiceCore::manageServersForAllSessions()
 
 	SetEvent( m_serverShutdownEvent );
 
-	qDeleteAll(serverProcesses);
+	serverProcesses.clear();
 }
 
 
@@ -276,8 +271,9 @@ void WindowsServiceCore::manageServerForConsoleSession()
 				do
 				{
 					SetEvent( m_serverShutdownEvent );
+					if(WaitForSingleObject(m_stopServiceEvent,100)==WAIT_OBJECT_0) break;
 				}
-				while( lastServerStart.elapsed() < MinimumServerUptimeTime && veyonServerProcess.isRunning() );
+				while( lastServerStart.isValid() && lastServerStart.elapsed() < MinimumServerUptimeTime && veyonServerProcess.isRunning() );
 
 				veyonServerProcess.stop();
 			}
@@ -342,7 +338,9 @@ void WindowsServiceCore::serviceMain()
 {
 	DWORD context = 1;
 
-	m_statusHandle = RegisterServiceCtrlHandlerEx( m_name.data(), serviceCtrlStatic, &context );
+	m_statusHandle = m_earlyStartup ? static_cast<SERVICE_STATUS_HANDLE>(m_earlyStartup->statusHandle) :
+		RegisterServiceCtrlHandlerEx( m_name.data(), serviceCtrlStatic, &context );
+	if(m_earlyStartup) m_checkpoint=m_earlyStartup->checkpoint;
 
 	if( m_statusHandle == nullptr )
 	{
@@ -373,6 +371,17 @@ void WindowsServiceCore::serviceMain()
 	QElapsedTimer startup;startup.start();
 	vInfo()<<"Service initialization started";
 	m_dataManager.reset(new ServiceDataManager);
+	if(!m_dataManager->waitUntilReady(ServiceStartTimeout)) {
+		m_serviceError.storeRelease(ERROR_SERVICE_REQUEST_TIMEOUT);
+		vCritical()<<"Service data IPC was not ready; refusing a false RUNNING status";
+		m_dataManager.reset();closeControlEvents();reportStatus(SERVICE_STOPPED,m_serviceError.loadAcquire(),0);return;
+	}
+	reportStatus(SERVICE_START_PENDING,NO_ERROR,ServiceStartTimeout);
+	if(!m_sessionManager.waitUntilReady(ServiceStartTimeout)) {
+		m_serviceError.storeRelease(ERROR_SERVICE_REQUEST_TIMEOUT);
+		vCritical()<<"Session map IPC was not ready; refusing a false RUNNING status";
+		m_dataManager.reset();closeControlEvents();reportStatus(SERVICE_STOPPED,m_serviceError.loadAcquire(),0);return;
+	}
 	if(m_sessionManager.mode()!=PlatformSessionManager::Mode::Active ||
 	   (WtsSessionManager::activeSessions().size()<=1 && WtsSessionManager::activeConsoleSession()!=WtsSessionManager::InvalidSession))
 		m_sessionManager.openSession(QStringLiteral("0 (console)"));

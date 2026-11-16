@@ -35,7 +35,8 @@
 class WindowsServiceCore
 {
 public:
-	WindowsServiceCore( const QString& name, const PlatformServiceFunctions::ServiceEntryPoint& serviceEntryPoint );
+	WindowsServiceCore( const QString& name, const PlatformServiceFunctions::ServiceEntryPoint& serviceEntryPoint,
+						PlatformServiceFunctions::EarlyStartup* earlyStartup=nullptr );
 	~WindowsServiceCore();
 
 	static WindowsServiceCore* instance();
@@ -58,6 +59,7 @@ private:
 
 	QSharedPointer<wchar_t> m_name;
 	const PlatformServiceFunctions::ServiceEntryPoint& m_serviceEntryPoint;
+	PlatformServiceFunctions::EarlyStartup* m_earlyStartup=nullptr;
 
 	static WindowsServiceCore* s_instance;
 	SERVICE_STATUS m_status{};
@@ -77,6 +79,6 @@ private:
 
 	static constexpr auto SessionPollingInterval = 5000;
 	static constexpr auto MinimumServerUptimeTime = 10000;
-	static constexpr auto ServiceStartTimeout = 45000;
+	static constexpr auto ServiceStartTimeout = 120000;
 
 } ;

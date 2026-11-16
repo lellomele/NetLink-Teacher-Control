@@ -4,11 +4,11 @@ if($BuildSuffix -and $BuildSuffix-notmatch'^-[a-zA-Z0-9][a-zA-Z0-9.-]*$'){throw 
 $repoRoot=Split-Path $PSScriptRoot
 $buildRoot=(Resolve-Path (Join-Path $repoRoot $Build)).Path
 $distRoot=Join-Path $repoRoot 'dist'
-$packageRoot=Join-Path $distRoot "NetLink-1.0.0-alpha.37$BuildSuffix-win64"
+$packageRoot=Join-Path $distRoot "NetLink-1.0.0-alpha.38$BuildSuffix-win64"
 foreach($component in @('master','configurator','service','server','worker','cli','wcli','companion')) {
     $directory=if($component-eq'wcli'){'cli'}else{$component}
     $binary=Get-Item -LiteralPath (Join-Path $buildRoot "$directory/netlink-$component.exe")
-    if($binary.VersionInfo.FileVersion-ne"4.7.5-netlink.1.0.0-alpha.37$BuildSuffix") {
+    if($binary.VersionInfo.FileVersion-ne"4.7.5-netlink.1.0.0-alpha.38$BuildSuffix") {
         throw "Build/package version mismatch before copying: $($binary.Name)"
     }
 }
@@ -21,6 +21,7 @@ foreach($component in @('master','configurator','service','server','worker','cli
 }
 Copy-Item -LiteralPath (Join-Path $buildRoot 'core/veyon-core.dll') -Destination $packageRoot
 Copy-Item -LiteralPath (Join-Path $buildRoot 'packaging/netlink-maintenance.exe') -Destination $packageRoot
+Copy-Item -LiteralPath (Join-Path $buildRoot 'packaging/netlink-startup-check.exe') -Destination $packageRoot
 Get-ChildItem -LiteralPath (Join-Path $buildRoot 'plugins') -Recurse -File -Filter '*.dll' | ForEach-Object {
     $destination=if($_.Name.StartsWith('lib') -or $_.Name-eq'vnchooks.dll'){$packageRoot}else{Join-Path $packageRoot 'plugins'}
     Copy-Item -LiteralPath $_.FullName -Destination $destination

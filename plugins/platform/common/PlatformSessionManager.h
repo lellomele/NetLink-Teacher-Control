@@ -26,6 +26,8 @@
 
 #include <QMutex>
 #include <QThread>
+#include <QSemaphore>
+#include <QAtomicInt>
 
 #include "PlatformSessionFunctions.h"
 
@@ -50,6 +52,10 @@ public:
 
 	PlatformSessionManager( QObject* parent = nullptr );
 	~PlatformSessionManager() override;
+	bool waitUntilReady(int milliseconds) {
+		if(!m_startupReady.tryAcquire(1,milliseconds)) return false;
+		m_startupReady.release();return m_listening.loadAcquire()!=0;
+	}
 
 	SessionId openSession( const PlatformSessionId& platformSessionId );
 	void closeSession( const PlatformSessionId& platformSessionId );
@@ -88,5 +94,7 @@ private:
 
 	QMutex m_mutex;
 	QVariantMap m_sessions;
+	QSemaphore m_startupReady;
+	QAtomicInt m_listening{0};
 
 };

@@ -45,7 +45,7 @@ ServiceDataManager::~ServiceDataManager()
 {
 	vDebug();
 
-	quit();
+	requestInterruption();quit();
 	wait();
 }
 
@@ -114,18 +114,21 @@ ServiceDataManager::Token ServiceDataManager::serviceDataTokenFromEnvironment()
 
 void ServiceDataManager::run()
 {
-	m_server = new QLocalServer;
+	QLocalServer server;
+	m_server = &server;
 	m_server->setSocketOptions( QLocalServer::UserAccessOption );
 
 	if( m_server->listen( serverName() ) == false )
 	{
 		vCritical() << "can't listen" << m_server->errorString();
+		m_startupReady.release();m_server=nullptr;
 		return;
 	}
 
 	connect( m_server, &QLocalServer::newConnection, m_server, [this]() { acceptConnection(); } );
-
-	QThread::run();
+	m_listening.storeRelease(1);m_startupReady.release();
+	if(!isInterruptionRequested()) QThread::run();
+	m_listening.storeRelease(0);m_server=nullptr;
 }
 
 

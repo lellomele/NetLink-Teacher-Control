@@ -4,6 +4,7 @@
 #undef QT_USE_QSTRINGBUILDER
 #include <QtTest>
 #include <QFileDialog>
+#include <QFileSystemModel>
 #include <QFontDatabase>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -19,6 +20,7 @@
 #include <QStyleFactory>
 #include <QTableWidget>
 #include <QTreeView>
+#include <QTimer>
 #include <QTemporaryDir>
 #include <memory>
 #include "ClassProfiles.h"
@@ -45,16 +47,30 @@ public:
 class ClassProfileTests : public QObject {
     Q_OBJECT
     QTemporaryDir directory;
+    // Never enumerate the user's real Documents/cloud/network folders from an
+    // offscreen file-dialog fixture, especially in a concurrent DPI matrix.
+    void usePrivateFileDirectory(ClassProfiles& profiles) {profiles.m_path=directory.filePath("fixture.json");}
     SchoolClassProfile sample() const {return {"3A","Laboratorio 1",{{QUuid("c1d6fba0-63db-465a-8314-51d846a52fd5"),"PC-01","192.0.2.4","Anna Rossi"}}};}
     static ComputerControlInterface::Pointer client(const QUuid& id,const QString& host="192.0.2.4") {return ComputerControlInterface::Pointer::create(Computer(id,"PC-01",host,{},"Laboratorio 1"));}
     static bool acceptPath(QDialog* dialog,const QString& path) {
         auto chooser=dialog->findChild<QFileDialog*>("profileFileDialog");if(!chooser) return false;
+        chooser->setOption(QFileDialog::DontUseCustomDirectoryIcons);
         chooser->setDirectory(QFileInfo(path).absolutePath());
-        QTest::qWait(150);
+        // The offscreen QFileSystemModel loads asynchronously. A fixed sleep
+        // can race its first enumeration and block accept() in a modal warning.
+        auto model=chooser->findChild<QFileSystemModel*>();
+        if(model && QFileInfo::exists(path) &&
+           !QTest::qWaitFor([&]{return model->index(path).isValid();},10000)) return false;
         auto filename=chooser->findChild<QLineEdit*>("fileNameEdit");if(!filename) return false;
-        filename->setText(QFileInfo(path).fileName());
+        filename->setText(QDir::toNativeSeparators(path));
         QSignalSpy selected(chooser,&QFileDialog::fileSelected);
+        QTimer deadline;deadline.setSingleShot(true);
+        QObject::connect(&deadline,&QTimer::timeout,chooser,[chooser] {
+            for(auto warning:chooser->findChildren<QMessageBox*>()) warning->reject();
+            chooser->reject();
+        });deadline.start(10000);
         const bool invoked=QMetaObject::invokeMethod(chooser,"accept",Qt::DirectConnection);
+        deadline.stop();
         if(selected.isEmpty()) qWarning()<<"File chooser did not accept"<<chooser->selectedFiles()<<chooser->isVisible();
         return invoked && selected.count()==1;
     }
@@ -359,7 +375,7 @@ private Q_SLOTS:
         // The stored address is only a hint. A recreated PC with identical IP/name is not matched.
         profile.assignments.append({QUuid::createUuid(),"PC-01","192.0.2.1","Missing student"});
         fixture.model.item(0)->child(0)->setData("192.0.2.99",NetworkObjectModel::HostAddressRole);
-        profiles.show("load");QTRY_VERIFY(profiles.m_dialog->findChild<QFileDialog*>("profileFileDialog"));
+        usePrivateFileDirectory(profiles);profiles.show("load");QTRY_VERIFY(profiles.m_dialog->findChild<QFileDialog*>("profileFileDialog"));
         const auto path=directory.filePath("group-profile.json");QVERIFY(profile.save(path));QVERIFY(acceptPath(profiles.m_dialog,path));
         QTRY_VERIFY(profiles.m_dialog->findChild<QMessageBox*>("profileLoadConfirmation"));
         auto confirmation=profiles.m_dialog->findChild<QMessageBox*>("profileLoadConfirmation");
@@ -407,7 +423,7 @@ private Q_SLOTS:
     }
     void saveCapturesGroupWithoutChangingClientDeclarations() {
         DirectoryFixture fixture;ProfileMaster master;auto ci=client(fixture.a);ci->setStudentName("Anna");master.clients={ci};
-        ClassProfiles profiles(master);fixture.bind(profiles);profiles.m_profile.className="3A";profiles.show("save");
+        ClassProfiles profiles(master);fixture.bind(profiles);profiles.m_profile.className="3A";usePrivateFileDirectory(profiles);profiles.show("save");
         QTRY_VERIFY(profiles.m_dialog->findChild<QFileDialog*>("profileFileDialog"));
         const auto path=directory.filePath("all-group.json");QVERIFY(acceptPath(profiles.m_dialog,path));
         QTRY_VERIFY(!profiles.m_dirty);QTRY_VERIFY(QFile::exists(path));SchoolClassProfile read;
@@ -459,7 +475,7 @@ private Q_SLOTS:
         ProfileMaster master;auto ci=client(sample().assignments[0].computerId);master.clients={ci};
         ClassProfiles profiles(master);profiles.show();QCOMPARE(profiles.profile().assignments.size(),1);
         profiles.m_dialog->reject();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
-        ClassProfiles direct(master);direct.show("load");QTRY_VERIFY(direct.m_dialog->findChild<QFileDialog*>("profileFileDialog"));
+        ClassProfiles direct(master);usePrivateFileDirectory(direct);direct.show("load");QTRY_VERIFY(direct.m_dialog->findChild<QFileDialog*>("profileFileDialog"));
         QVERIFY(direct.profile().assignments.isEmpty());QVERIFY(!direct.m_dirty);QVERIFY(!direct.m_dialog->findChild<QMessageBox*>());
     }
     void profileChangesRejectLateRepliesAndDoNotInventAttendance() {
@@ -486,12 +502,12 @@ private Q_SLOTS:
         QVERIFY(!dialog->windowTitle().contains(NetLinkUi::copyrightText()));
         table->item(0,1)->setText("Nome modificato");QCOMPARE(ci->expectedStudentName(),QString("Nome modificato"));QVERIFY(profiles.m_dirty);
         dialog->reject();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);QVERIFY(!profiles.m_dialog);QCOMPARE(profiles.profile().assignments[0].student,QString("Nome modificato"));
-        profiles.show("save");QTRY_VERIFY(profiles.m_dialog->findChild<QFileDialog*>("profileFileDialog"));const auto path=directory.filePath("ui-saved.json");QVERIFY(acceptPath(profiles.m_dialog,path));
+        usePrivateFileDirectory(profiles);profiles.show("save");QTRY_VERIFY(profiles.m_dialog->findChild<QFileDialog*>("profileFileDialog"));const auto path=directory.filePath("ui-saved.json");QVERIFY(acceptPath(profiles.m_dialog,path));
         QTRY_VERIFY_WITH_TIMEOUT(!profiles.m_dirty,4000);SchoolClassProfile read;QVERIFY(SchoolClassProfile::load(path,read));QCOMPARE(read.assignments[0].student,QString("Nome modificato"));
-        dialog=profiles.m_dialog;profiles.show("csv");QVERIFY(dialog->findChild<QFileDialog*>("profileFileDialog"));QVERIFY(acceptPath(dialog,directory.filePath("profile.csv")));QTRY_VERIFY_WITH_TIMEOUT(QFile::exists(directory.filePath("profile.csv")),4000);
+        dialog=profiles.m_dialog;usePrivateFileDirectory(profiles);profiles.show("csv");QVERIFY(dialog->findChild<QFileDialog*>("profileFileDialog"));QVERIFY(acceptPath(dialog,directory.filePath("profile.csv")));QTRY_VERIFY_WITH_TIMEOUT(QFile::exists(directory.filePath("profile.csv")),4000);
     }
     void invalidLoadDoesNotClearActiveNames() {
-        ProfileMaster master;const auto profile=sample();auto ci=client(profile.assignments[0].computerId);master.clients={ci};ClassProfiles profiles(master);profiles.activate(profile);profiles.show("load");
+        ProfileMaster master;const auto profile=sample();auto ci=client(profile.assignments[0].computerId);master.clients={ci};ClassProfiles profiles(master);profiles.activate(profile);usePrivateFileDirectory(profiles);profiles.show("load");
         const auto path=directory.filePath("bad.json");QFile bad(path);QVERIFY(bad.open(QIODevice::WriteOnly));bad.write("{}");bad.close();
         QTRY_VERIFY(profiles.m_dialog->findChild<QFileDialog*>("profileFileDialog"));QVERIFY(acceptPath(profiles.m_dialog,path));QTRY_VERIFY_WITH_TIMEOUT(profiles.m_dialog->findChild<QMessageBox*>(),4000);
         QCOMPARE(ci->expectedStudentName(),QString("Anna Rossi"));QCOMPARE(profiles.profile().className,QString("3A"));
@@ -499,17 +515,17 @@ private Q_SLOTS:
     void successfulLoadAndClosedReadCannotOverwriteNewClass() {
         ProfileMaster master;auto a=sample(),b=a;b.className="4B";b.assignments[0].student="Luca Bianchi";
         auto ci=client(a.assignments[0].computerId);master.clients={ci};ClassProfiles profiles(master);profiles.activate(a);
-        const auto path=directory.filePath("class-b.json");QVERIFY(b.save(path));profiles.show("load");
+        const auto path=directory.filePath("class-b.json");QVERIFY(b.save(path));usePrivateFileDirectory(profiles);profiles.show("load");
         QTRY_VERIFY(profiles.m_dialog->findChild<QFileDialog*>("profileFileDialog"));QVERIFY(acceptPath(profiles.m_dialog,path));
         QTRY_COMPARE_WITH_TIMEOUT(profiles.profile().className,QString("4B"),4000);QCOMPARE(ci->expectedStudentName(),QString("Luca Bianchi"));
         QTRY_VERIFY(!profiles.m_dialog->findChild<QFileDialog*>("profileFileDialog"));
-        profiles.show("load");QVERIFY(acceptPath(profiles.m_dialog,path));profiles.m_dialog->reject();profiles.activate(a);
+        usePrivateFileDirectory(profiles);profiles.show("load");QVERIFY(acceptPath(profiles.m_dialog,path));profiles.m_dialog->reject();profiles.activate(a);
         QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);QTest::qWait(250);
         QCOMPARE(profiles.profile().className,QString("3A"));QCOMPARE(ci->expectedStudentName(),QString("Anna Rossi"));
     }
     void csvEscapesFormulasAndKeepsDeclaredAndAssignedSeparate() {
         ProfileMaster master;auto profile=sample();profile.assignments[0].student="=1+2";auto ci=client(profile.assignments[0].computerId);master.clients={ci};
-        ClassProfiles profiles(master);profiles.activate(profile);ci->setStudentName("Anna; \"Rossi\"");profiles.show("csv");
+        ClassProfiles profiles(master);profiles.activate(profile);ci->setStudentName("Anna; \"Rossi\"");usePrivateFileDirectory(profiles);profiles.show("csv");
         QTRY_VERIFY(profiles.m_dialog->findChild<QFileDialog*>("profileFileDialog"));const auto path=directory.filePath("escaped.csv");QVERIFY(acceptPath(profiles.m_dialog,path));
         QTRY_VERIFY_WITH_TIMEOUT(QFile::exists(path),4000);QFile csv(path);QVERIFY(csv.open(QIODevice::ReadOnly));const auto bytes=csv.readAll();
         QVERIFY(bytes.startsWith("\xef\xbb\xbf"));QVERIFY(bytes.contains("\"'=1+2\""));QVERIFY(bytes.contains("\"Anna; \"\"Rossi\"\"\""));QVERIFY(bytes.contains("different from assignment"));

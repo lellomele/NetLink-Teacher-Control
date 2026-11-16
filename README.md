@@ -6,9 +6,9 @@ NetLink is a Windows classroom-management suite based on **Veyon 4.7.5**.
 It integrates remote control, WFP InternetGuard, student names, class–room profiles,
 automatic client discovery and Companion diagnostics, without external plugins.
 
-**Pre-release 1.0.0-alpha.37: use with awareness of its limitations.**
+**Pre-release 1.0.0-alpha.38: use with awareness of its limitations.**
 
-**[Download Windows x64 installer — latest release (alpha.37)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.37/NetLink-1.0.0-alpha.37-win64-setup.exe)**
+**[Download Windows x64 installer — latest release (alpha.38)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.38/NetLink-1.0.0-alpha.38-win64-setup.exe)**
 
 ## Features
 
@@ -65,8 +65,10 @@ automatic client discovery and Companion diagnostics, without external plugins.
   are clearly marked unavailable. No additional ports are needed.
   An explicitly paired temporary channel transfers diagnostic reports.
 - **Windows service startup:** verified automatic-start configuration and bounded
-  native recovery after crashes/startup errors. Installer verification catches failures;
-  intentional manual-start settings and normal administrator stops remain supported.
+  native recovery after crashes/startup errors. An independent check after **3 minutes**
+  (or **5 minutes**, or disabled) starts the service only if stopped and configured
+  as Automatic. Running services are not restarted; Manual/Disabled and maintenance
+  are respected. At most three start requests, with two-minute pauses after failures.
 
 ## Installation and updates
 
@@ -83,6 +85,19 @@ automatic client discovery and Companion diagnostics, without external plugins.
    No prior uninstall or key regeneration is needed.
 4. If files are in use or removal is pending, restart Windows and run the
    package again. Do not replace individual DLLs or skip files.
+
+The boot check uses the Windows **NetLink Service Startup Check** task, running
+`netlink-startup-check.exe` as SYSTEM without a logged-in user or additional ports.
+It does not delay normal automatic startup and does not give NetLink precedence over
+other services. Windows may run it later on a busy PC. Updates preserve the selected
+delay; unattended setup accepts `/S /StartupCheck=3`, `/StartupCheck=5` or `/StartupCheck=off`.
+Check reports are in `C:\ProgramData\NetLink\StartupCheck`.
+Manual/Disabled services are never repaired automatically. An intentionally stopped
+service that is still Automatic may be started when the boot check runs.
+
+The separate [NetLink Service Check 1.1.0](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.38/NetLink-Service-Check-1.1.0.exe) utility diagnoses Windows
+startup errors, sets Automatic startup and configures the 3/5-minute check.
+Service status alone does not certify working video or authentication.
 
 The reference platform is **64-bit Windows 10**. Dependencies are bundled.
 The suite includes Qt 5.15.19 with KDE patches; no separate Qt installation is needed.
