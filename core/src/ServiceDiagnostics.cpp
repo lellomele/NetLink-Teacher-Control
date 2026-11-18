@@ -37,6 +37,7 @@ QByteArray ServiceDiagnostics::encode(const Snapshot& snapshot) {
         {"external",snapshot.external},{"internalPort",snapshot.internalPort},{"backend",int(snapshot.backend)},
         {"frameAgeMs",double(qBound<qint64>(-1,snapshot.frameAgeMs,MaximumFrameAge))}};
     if(validVersion(snapshot.netlinkVersion)) object.insert("netlinkVersion",snapshot.netlinkVersion);
+    if(snapshot.workerChannel!=WorkerChannel::NotReported) object.insert("workerListening",snapshot.workerChannel==WorkerChannel::Listening);
     return QJsonDocument(object).toJson(QJsonDocument::Compact);
 }
 bool ServiceDiagnostics::decode(const QByteArray& bytes,Snapshot* snapshot) {
@@ -55,6 +56,8 @@ bool ServiceDiagnostics::decode(const QByteArray& bytes,Snapshot* snapshot) {
     // Missing, future or malformed optional metadata must not invalidate the
     // established VNC diagnostic fields. Keep the original schema and envelope.
     if(version.isString() && validVersion(version.toString())) result.netlinkVersion=version.toString();
+    const auto channel=object.value("workerListening");
+    if(channel.isBool()) result.workerChannel=channel.toBool()?WorkerChannel::Listening:WorkerChannel::Unavailable;
     *snapshot=result;return true;
 }
 QString ServiceDiagnostics::tooltip(const Snapshot& s,qint64 elapsedMs) {
@@ -78,6 +81,8 @@ QString ServiceDiagnostics::tooltip(const Snapshot& s,qint64 elapsedMs) {
         .arg(validVersion(s.netlinkVersion)?s.netlinkVersion:NetLinkUi::text("unavailable")).toHtmlEscaped());
     if(s.backend==Backend::Unreachable)
         result+=QStringLiteral("<br><b>%1</b>").arg(NetLinkUi::text("VNC backend unavailable: check the plugin and internal port on the client.").toHtmlEscaped());
+    if(s.workerChannel==WorkerChannel::Unavailable)
+        result+=QStringLiteral("<br><b>%1</b>").arg(NetLinkUi::text("Service active; local worker channel unavailable. Check the worker port on the client.").toHtmlEscaped());
     result+=QStringLiteral("<br><small>%1</small>").arg(NetLinkUi::text("Forwarding is not proof of display; an unchanged desktop may send no new frames.").toHtmlEscaped());
     return result;
 }

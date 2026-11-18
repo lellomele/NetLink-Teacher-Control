@@ -56,6 +56,7 @@ ComputerControlServer::ComputerControlServer( QObject* parent ) :
 					  this )
 {
 	m_serviceDiagnosticsClock.start();
+	connect(&m_featureWorkerManager,&FeatureWorkerManager::listenerRestored,this,&ComputerControlServer::updateTrayIconToolTip);
 	updateTrayIconToolTip();
 
 	// make app terminate once the VNC server thread has finished
@@ -157,8 +158,9 @@ bool ComputerControlServer::handleFeatureMessage(ComputerControlClient* client)
 		const auto previous=socket->property("netlinkDiagnosticsAt");
 		if(previous.isValid() && now-previous.toLongLong()<1000) return true;
 		socket->setProperty("netlinkDiagnosticsAt",now);
-		const auto snapshot=client->serviceDiagnostics(m_vncServer.pluginName(),m_vncServer.externalBackend(),
+		auto snapshot=client->serviceDiagnostics(m_vncServer.pluginName(),m_vncServer.externalBackend(),
 			m_vncServer.serverPort(),m_backendChecked,m_backendAvailable);
+		snapshot.workerChannel=m_featureWorkerManager.listenerReady()?ServiceDiagnostics::WorkerChannel::Listening:ServiceDiagnostics::WorkerChannel::Unavailable;
 		sendFeatureMessageReply(MessageContext{socket,client},FeatureMessage(ServiceDiagnostics::uid(),ServiceDiagnostics::Reply)
 			.addArgument(0,featureMessage.argument(0)).addArgument(1,ServiceDiagnostics::encode(snapshot)));
 		return true;

@@ -6,9 +6,9 @@ NetLink is a Windows classroom-management suite based on **Veyon 4.7.5**.
 It integrates remote control, WFP InternetGuard, student names, class–room profiles,
 automatic client discovery and Companion diagnostics, without external plugins.
 
-**Pre-release 1.0.0-alpha.38: use with awareness of its limitations.**
+**Pre-release 1.0.0-alpha.39: use with awareness of its limitations.**
 
-**[Download Windows x64 installer — latest release (alpha.38)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.38/NetLink-1.0.0-alpha.38-win64-setup.exe)**
+**[Download Windows x64 installer — latest release (alpha.39)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.39/NetLink-1.0.0-alpha.39-win64-setup.exe)**
 
 ## Features
 
@@ -95,6 +95,11 @@ Check reports are in `C:\ProgramData\NetLink\StartupCheck`.
 Manual/Disabled services are never repaired automatically. An intentionally stopped
 service that is still Automatic may be started when the boot check runs.
 
+If the Console reports “service active; local worker channel unavailable”, the
+server is responding but the worker cannot connect yet. NetLink retries on the
+same local port. Once the conflict clears, the notification icon can return
+without a service restart if it is enabled and a user is signed in.
+
 The separate [NetLink Service Check 1.1.0](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.38/NetLink-Service-Check-1.1.0.exe) utility diagnoses Windows
 startup errors, sets Automatic startup and configures the 3/5-minute check.
 Service status alone does not certify working video or authentication.
@@ -110,6 +115,9 @@ Uninstall can keep or remove settings, removes the entire program directory
 and preserves external keys. It stops if keys are inside that directory:
 move them to a protected location first.
 Settings backups are in `C:\ProgramData\NetLink\Recovery`.
+If an interrupted save needs recovery, open Configurator as administrator with
+the Windows account that performed the save. No edit or extra save is required.
+If conflicting data is reported, keep the recovery record and the keys intact.
 
 Full procedure: [installation, uninstall and recovery](docs/INSTALLATION.md).
 

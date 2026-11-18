@@ -52,8 +52,8 @@ Var StartupOff
  !define LOCKNAME "Global\NetLinkInstallerMaintenance"
  RequestExecutionLevel admin
 !endif
-Name "NetLink 1.0.0 alpha.38${NETLINK_BUILD_SUFFIX}"
-OutFile "${OUTPUT}\NetLink-1.0.0-alpha.38${NETLINK_BUILD_SUFFIX}-win64-setup.exe"
+Name "NetLink 1.0.0 alpha.39${NETLINK_BUILD_SUFFIX}"
+OutFile "${OUTPUT}\NetLink-1.0.0-alpha.39${NETLINK_BUILD_SUFFIX}-win64-setup.exe"
 InstallDir "$PROGRAMFILES64\Veyon School"
 SetCompressor /SOLID lzma
 AllowSkipFiles off
@@ -75,10 +75,10 @@ Page custom StartupPageCreate StartupPageLeave
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "Italian"
-VIProductVersion "1.0.0.38"
+VIProductVersion "1.0.0.39"
 VIAddVersionKey /LANG=1040 "ProductName" "NetLink"
 VIAddVersionKey /LANG=1040 "FileDescription" "NetLink installer (pre-release)"
-VIAddVersionKey /LANG=1040 "FileVersion" "1.0.0-alpha.38${NETLINK_BUILD_SUFFIX}"
+VIAddVersionKey /LANG=1040 "FileVersion" "1.0.0-alpha.39${NETLINK_BUILD_SUFFIX}"
 VIAddVersionKey /LANG=1040 "LegalCopyright" "Copyright (c) 2025-26 prof. Ing. Raffaele Mele; Veyon e contributori"
 Function .onInit
  System::Call 'kernel32::CreateMutexW(p 0, i 0, w "${LOCKNAME}") p .r0 ?e'
@@ -471,22 +471,7 @@ Section "-NetLink installation"
    MessageBox MB_ICONSTOP "Registrazione servizio non riuscita. Installazione incompleta." /SD IDOK
    Abort
  ${EndIf}
- ClearErrors
- ExecWait '"$INSTDIR\netlink-wcli.exe" config set Windows/UseInterceptionDriver false' $0
- !insertmacro TraceFixtureCli "config interception"
- ${If} ${Errors}
- ${OrIf} $0 != 0
-   MessageBox MB_ICONSTOP "Configurazione/firewall non riusciti. Verifica nel Configurator." /SD IDOK
-   Abort
- ${EndIf}
- ClearErrors
- ExecWait '"$INSTDIR\netlink-wcli.exe" config set UltraVNC/DeskDupEngine false' $0
- !insertmacro TraceFixtureCli "config capture"
- ${If} ${Errors}
- ${OrIf} $0 != 0
-   MessageBox MB_ICONSTOP "Configurazione acquisizione schermo non riuscita." /SD IDOK
-   Abort
- ${EndIf}
+ ; Unsupported drivers are disabled by this build, not by rewriting shared settings.
  ${GetParameters} $R0
  ${GetOptions} $R0 "/Master=" $R1
  ${If} $R1 != ""
@@ -565,8 +550,8 @@ Section "-NetLink installation"
  Delete "$SMPROGRAMS\Veyon School\Configurator.lnk"
  RMDir "$SMPROGRAMS\Veyon School"
  !endif
- WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayName" "NetLink 1.0.0 alpha.38${NETLINK_BUILD_SUFFIX}"
- WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayVersion" "1.0.0-alpha.38${NETLINK_BUILD_SUFFIX}"
+ WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayName" "NetLink 1.0.0 alpha.39${NETLINK_BUILD_SUFFIX}"
+ WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayVersion" "1.0.0-alpha.39${NETLINK_BUILD_SUFFIX}"
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "InstallationRole" "$InstallationRole"
  WriteRegDWORD ${APPREGROOT} "${APPREGKEY}" "InstallCompanion" $InstallCompanion
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'

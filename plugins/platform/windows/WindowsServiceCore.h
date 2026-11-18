@@ -66,7 +66,6 @@ private:
 	SERVICE_STATUS_HANDLE m_statusHandle{nullptr};
 	HANDLE m_sessionChangeEvent{nullptr};
 	HANDLE m_stopServiceEvent{nullptr};
-	HANDLE m_serverShutdownEvent{nullptr};
 	QAtomicInt m_serviceStopRequested{0};
 	QAtomicInt m_sessionChanged{0};
 	QAtomicInteger<quint32> m_serviceError{0};
@@ -78,7 +77,6 @@ private:
 	PlatformSessionManager m_sessionManager{};
 
 	static constexpr auto SessionPollingInterval = 5000;
-	static constexpr auto MinimumServerUptimeTime = 10000;
 	static constexpr auto ServiceStartTimeout = 120000;
 
 } ;

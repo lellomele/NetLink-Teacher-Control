@@ -9,7 +9,7 @@ if(WITH_TESTS)
         disjointConfiguratorAndDiscoveryEditsAreMergedWithoutChangingKeys overlappingEditsAreRejectedWithoutWritingAnyField
         failedWriteNeverClaimsSuccessOrClearsExistingData interruptedWritesRecoverBeforeExposingSettings
         clearAndUnsetAreCheckedAndDoNotResurrectRemovedValues twoProcessesCannotBothCommitTheSameExpectedRevision
-        processCrashRecoversPartialWrite pureImportPlanRejectsLatePortDecoratedDuplicateAndIsAtomic preferenceFlushAdvancesBaselineAndCanRemoveNewValues
+        processCrashRecoversPartialWrite readerWaitsForShortWriterAndTimesOutForLongWriter pureImportPlanRejectsLatePortDecoratedDuplicateAndIsAtomic preferenceFlushAdvancesBaselineAndCanRemoveNewValues
         -o "${CMAKE_CURRENT_BINARY_DIR}/netlink-configuration-repository-results.txt,txt")
     set_tests_properties(netlink-configuration-repository-tests PROPERTIES TIMEOUT 40)
     if(WIN32)

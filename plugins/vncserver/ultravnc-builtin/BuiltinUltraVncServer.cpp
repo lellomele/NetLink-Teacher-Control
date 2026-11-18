@@ -30,7 +30,7 @@
 #include "UltraVncConfigurationWidget.h"
 #include "VeyonConfiguration.h"
 
-extern int WinVNCAppMain();
+extern int NetLinkWinVNCAppMain(HANDLE stopEvent);
 
 static BuiltinUltraVncServer* vncServerInstance = nullptr;
 
@@ -89,7 +89,9 @@ BOOL ultravnc_veyon_load_int( LPCSTR valname, LONG *out )
 	}
 	if( strcmp( valname, "DeskDupEngine" ) == 0 )
 	{
-		*out = vncServerInstance->configuration().ultraVncDeskDupEngineEnabled() ? 1 : 0;
+		// The legacy capture engine is not shipped. Preserve the shared Veyon
+		// preference without trying to load an unsupported DLL.
+		*out = 0;
 		return true;
 	}
 	if( strcmp( valname, "MaxCpu2" ) == 0 )
@@ -237,7 +239,7 @@ bool BuiltinUltraVncServer::runServer( int serverPort, const Password& password 
 		FreeLibrary( hSHCore );
 	}
 
-	return WinVNCAppMain() == 1;
+	return m_logoffEventFilter && NetLinkWinVNCAppMain(m_logoffEventFilter->stopHandle())==1;
 }
 
 

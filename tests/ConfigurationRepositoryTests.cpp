@@ -63,7 +63,7 @@ private Q_SLOTS:
         QVERIFY(!unavailable.save(staged,error));
     }
     void interruptedWritesRecoverBeforeExposingSettings_data() {
-        QTest::addColumn<QString>("stage");for(const auto name:{"before","partial","complete","corrupt"}) QTest::newRow(name)<<QString(name);
+        QTest::addColumn<QString>("stage");for(const auto name:{"before","partial","complete","corrupt","third-value","third-field","third-deletion"}) QTest::newRow(name)<<QString(name);
     }
     void interruptedWritesRecoverBeforeExposingSettings() {
         QFETCH(QString,stage);const auto path=temp.filePath(stage+".ini");QSettings settings(path,QSettings::IniFormat);
@@ -72,13 +72,23 @@ private Q_SLOTS:
         settings.setValue("_NetLinkTransaction/RecoveryV1",stage=="corrupt"?QByteArray("invalid"):journal(before,after));
         if(stage=="partial" || stage=="complete") settings.setValue("A","new_a");
         if(stage=="complete") settings.setValue("B","new_b");
+        if(stage=="third-value") settings.setValue("B","independent edit");
+        if(stage=="third-field") settings.setValue("C","unrelated field");
+        if(stage=="third-deletion") settings.remove("A");
         settings.sync();
+        Configuration::SettingsTransaction::Values original;QString error;
+        QVERIFY(Configuration::SettingsTransaction::read(settings,original,error));
         TestStore store(path);Configuration::Object loaded(&store);
-        if(stage=="corrupt") {QVERIFY(!loaded.property("netlinkConfigurationReadError").toString().isEmpty());QVERIFY(loaded.data().isEmpty());return;}
+        if(stage=="corrupt" || stage.startsWith("third-")) {
+            QVERIFY(!loaded.property("netlinkConfigurationReadError").toString().isEmpty());QVERIFY(loaded.data().isEmpty());
+            Configuration::SettingsTransaction::Values actual;QVERIFY(Configuration::SettingsTransaction::read(settings,actual,error));
+            QCOMPARE(actual,original);QVERIFY(settings.contains("_NetLinkTransaction/RecoveryV1"));return;
+        }
         QVERIFY2(store.errorString().isEmpty(),qPrintable(store.errorString()));
         QCOMPARE(loaded.value("A",{},{}).toString(),stage=="complete"?QString("new_a"):QString("old_a"));
         QCOMPARE(loaded.value("B",{},{}).toString(),stage=="complete"?QString("new_b"):QString("old_b"));
-        QString error;loaded.setValue("C","saved",{});QVERIFY(store.save(loaded,error));
+        settings.sync();QVERIFY(!settings.contains("_NetLinkTransaction/RecoveryV1")); // no edit required
+        QVERIFY(store.save(loaded,error));
         QSettings checked(path,QSettings::IniFormat);QVERIFY(!checked.contains("_NetLinkTransaction/RecoveryV1"));
     }
     void clearAndUnsetAreCheckedAndDoNotResurrectRemovedValues() {
@@ -112,6 +122,19 @@ private Q_SLOTS:
         Configuration::Object loaded(&store);QVERIFY2(store.errorString().isEmpty(),qPrintable(store.errorString()));
         QCOMPARE(loaded.value("A",{},{}).toString(),QString("old_a"));QCOMPARE(loaded.value("B",{},{}).toString(),QString("old_b"));
     }
+    void readerWaitsForShortWriterAndTimesOutForLongWriter() {
+        for(const auto hold:{300,3200}) {
+            const auto dir=temp.filePath(QString::number(hold));QVERIFY(QDir().mkpath(dir));
+            QFile marker(dir+"/.audit-fixture");QVERIFY(marker.open(QIODevice::WriteOnly));marker.close();
+            TestStore store(dir+"/shared.ini");QVERIFY(store.writeValue("Value","preserve"));
+            QProcess child;child.start(QCoreApplication::applicationFilePath(),{"--hold-lock",dir,QString::number(hold)});
+            QTRY_VERIFY_WITH_TIMEOUT(QFile::exists(dir+"/holding"),2000);
+            Configuration::Object loaded(&store);
+            if(hold==300) {QVERIFY2(store.errorString().isEmpty(),qPrintable(store.errorString()));QCOMPARE(loaded.value("Value",{},{}).toString(),QString("preserve"));}
+            else {QVERIFY(!store.errorString().isEmpty());QVERIFY(loaded.data().isEmpty());}
+            QVERIFY(child.state()==QProcess::NotRunning || child.waitForFinished(5000));QCOMPARE(child.exitCode(),0);
+        }
+    }
 #ifdef Q_OS_WIN
     void nativeRegistryRecoveryIsProtectedAndRetainsOldValues() {
         const auto name="fixture-"+QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -127,8 +150,9 @@ private Q_SLOTS:
         settings.setValue("A","new_a");settings.setValue("B","old_b");settings.setValue("_NetLinkTransaction/RecoveryV1",protectedRecord);settings.sync();
         Configuration::Object loaded(&store);const auto error=store.errorString();
         const auto a=loaded.value("A",{},{}).toString(),b=loaded.value("B",{},{}).toString();
+        settings.sync();const bool retired=!settings.contains("_NetLinkTransaction/RecoveryV1");
         settings.clear();settings.sync(); // Only this randomly named HKCU test subtree.
-        QVERIFY2(error.isEmpty(),qPrintable(error));QCOMPARE(a,QString("old_a"));QCOMPARE(b,QString("old_b"));
+        QVERIFY2(error.isEmpty(),qPrintable(error));QVERIFY(retired);QCOMPARE(a,QString("old_a"));QCOMPARE(b,QString("old_b"));
     }
 #endif
     void pureImportPlanRejectsLatePortDecoratedDuplicateAndIsAtomic() {
@@ -140,6 +164,40 @@ private Q_SLOTS:
 };
 int main(int argc,char** argv) {
     QCoreApplication app(argc,argv);const auto arguments=app.arguments();
+#ifdef Q_OS_WIN
+    // Opt-in guest-only reboot fixture: never opens the product registry tree.
+    if(arguments.size()==4 && arguments[1]=="--vm-recovery") {
+        const auto id=QUuid(arguments[3]);
+        if(qEnvironmentVariable("COMPUTERNAME")!="NETLINK-RMTEST" || id.isNull() || id.toString(QUuid::WithoutBraces)!=arguments[3]) return 20;
+        QSettings s(QSettings::NativeFormat,QSettings::SystemScope,"NetLinkLifecycleFixture",arguments[3]);
+        Configuration::SettingsLock lock(s,2000);if(!lock.locked()) return 21;
+        using namespace Configuration::SettingsTransaction;
+        const Values before{{"A","old_a"},{"B","old_b"}},after{{"A","new_a"},{"B","new_b"}};
+        const QString key="_NetLinkTransaction/RecoveryV1";const auto mode=arguments[2];QString err;Values values;
+        if(mode=="seed") {
+            if(!s.allKeys().isEmpty()) return 22;
+            const auto record=recoveryRecord(s,before,after);if(!record.startsWith("NLE1")) return 23;
+            s.setValue("A","new_a");s.setValue("B","old_b");s.setValue(key,record);s.sync();
+            return s.status()==QSettings::NoError?0:24;
+        }
+        if(mode=="denied") {
+            const auto marker=s.value(key).toByteArray();
+            return !marker.isEmpty() && !recover(s,err) && !err.isEmpty() && s.value(key).toByteArray()==marker &&
+                s.value("A")=="new_a" && s.value("B")=="old_b"?0:25;
+        }
+        if(mode=="owner" || mode=="clean") {
+            if(s.contains(key)!=(mode=="owner")) return 26;
+            return recover(s,err) && !s.contains(key) && read(s,values,err) && values==before?0:27;
+        }
+        return 28;
+    }
+#endif
+    if(arguments.size()==4 && arguments[1]=="--hold-lock") {
+        const auto dir=arguments[2];const int hold=arguments[3].toInt();
+        if(!QFile::exists(dir+"/.audit-fixture") || (hold!=300 && hold!=3200)) return 9;
+        QSettings settings(dir+"/shared.ini",QSettings::IniFormat);Configuration::SettingsLock lock(settings);if(!lock.locked()) return 8;
+        QFile ready(dir+"/holding");if(!ready.open(QIODevice::WriteOnly)) return 7;ready.close();QThread::msleep(hold);return 0;
+    }
     if(arguments.size()==4 && arguments[1]=="--interrupt") {
         const auto directory=arguments[2];if(!QFile::exists(directory+"/.audit-fixture") || arguments[3]!="fixture") return 9;
         QSettings settings(directory+"/shared.ini",QSettings::IniFormat);Configuration::SettingsLock lock(settings);if(!lock.locked()) return 8;

@@ -11,7 +11,7 @@ namespace Configuration {
 // Cooperating writers/readers serialize one physical settings store. No key files.
 class VEYON_CORE_EXPORT SettingsLock {
 public:
-    explicit SettingsLock(const QSettings& settings);
+    explicit SettingsLock(const QSettings& settings, int waitMs=0);
     ~SettingsLock();
     bool locked() const;
     SettingsLock(const SettingsLock&)=delete;

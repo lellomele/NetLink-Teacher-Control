@@ -18,6 +18,24 @@ class WorkerLifecycleTests : public QObject {
         void setMinimumFramebufferUpdateInterval(const MessageContext&,int) override {}
     };
 private Q_SLOTS:
+    void occupiedLoopbackRecoversWithoutRestartOrSpawningWorkers() {
+        Server server;FeatureWorkerManager manager(server,nullptr,false);server.manager=&manager;
+        QTcpServer holder;QVERIFY(holder.listen(QHostAddress::LocalHost,0));const auto port=holder.serverPort();
+        QSignalSpy restored(&manager,&FeatureWorkerManager::listenerRestored);manager.initializeListener(port);
+        QVERIFY(!manager.listenerReady());QVERIFY(manager.m_listenRetry.isActive());
+        const auto uid=QUuid::createUuid();QVERIFY(!manager.startManagedSystemWorker(uid));
+        QVERIFY(!manager.startUnmanagedSessionWorker(uid));manager.sendMessageToUnmanagedSessionWorker(FeatureMessage(uid,1));
+        QVERIFY(manager.m_workers.isEmpty());QVERIFY(manager.m_retryGenerations.isEmpty());
+        holder.close();QTRY_VERIFY_WITH_TIMEOUT(manager.listenerReady(),5000);
+        QCOMPARE(manager.m_tcpServer.serverPort(),port);QCOMPARE(manager.m_tcpServer.serverAddress(),QHostAddress(QHostAddress::LocalHost));
+        QCOMPARE(restored.count(),1);QVERIFY(!manager.m_listenRetry.isActive());QVERIFY(manager.m_workers.isEmpty());
+    }
+    void invalidPortCannotWrapOrRequestAnEphemeralListener() {
+        Server server;FeatureWorkerManager manager(server,nullptr,false);
+        for(qint64 bad:{-1,0,65536}) {
+            manager.initializeListener(bad);QVERIFY(!manager.listenerReady());QVERIFY(!manager.m_listenRetry.isActive());
+        }
+    }
     void launchWithoutAuthenticatedIpcCannotRemainRunningForever() {
         Server server;FeatureWorkerManager manager(server,nullptr,false);server.manager=&manager;const auto uid=QUuid::createUuid();
         FeatureWorkerManager::Worker worker;worker.token="first-attempt";manager.m_workers.insert(uid,worker);

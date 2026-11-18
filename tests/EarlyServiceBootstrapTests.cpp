@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include <windows.h>
 #include <QtTest>
+#include <QProcess>
 #include <mutex>
 #include <vector>
 #include "PlatformServiceFunctions.h"
@@ -30,6 +31,7 @@ BOOL WINAPI fakeReport(SERVICE_STATUS_HANDLE,SERVICE_STATUS* state) {
 #undef SetServiceStatus
 #include "../packaging/StartupCheckPolicy.h"
 #include "../plugins/platform/common/SessionProcessSupervisor.h"
+#include "WindowsSessionStopLoop.h"
 class EarlyServiceBootstrapTests:public QObject {
     Q_OBJECT
 private Q_SLOTS:
@@ -81,6 +83,36 @@ private Q_SLOTS:
         sessions={2,3};stopping=true;reconcile();QCOMPARE(opens,2);QCOMPARE(starts,5);
         supervisor.clear();
     }
+    void stopSignalsAreIsolatedStickyAndSurviveLateOpen(){
+        WindowsSessionStop::Event first,second,a,b,late,standalone,bad;
+        QVERIFY(first.create());QVERIFY(second.create());QVERIFY(first.name()!=second.name());
+        QVERIFY(a.open(first.name(),SYNCHRONIZE));QVERIFY(b.open(second.name(),SYNCHRONIZE));
+        QVERIFY(first.signal());QVERIFY(late.open(first.name(),SYNCHRONIZE));
+        QCOMPARE(WaitForSingleObject(a.handle(),0),DWORD(WAIT_OBJECT_0));
+        QCOMPARE(WaitForSingleObject(late.handle(),0),DWORD(WAIT_OBJECT_0));
+        QCOMPARE(WaitForSingleObject(b.handle(),0),DWORD(WAIT_TIMEOUT));
+        QVERIFY(standalone.open({},SYNCHRONIZE));QVERIFY(second.signal());
+        QCOMPARE(WaitForSingleObject(b.handle(),0),DWORD(WAIT_OBJECT_0));
+        QCOMPARE(WaitForSingleObject(standalone.handle(),0),DWORD(WAIT_TIMEOUT));
+        QVERIFY(!bad.open(QStringLiteral("unexpected-name"),SYNCHRONIZE));QVERIFY(!bad.handle());
+        QVERIFY(!bad.open(WindowsSessionStop::prefix()+QUuid::createUuid().toString(QUuid::WithoutBraces),SYNCHRONIZE));
+    }
+    void twoSupervisedProcessesStopIndependently() {
+        WindowsSessionStop::Event first,second;QVERIFY(first.create());QVERIFY(second.create());
+        QProcess a,b;const auto exe=QCoreApplication::applicationFilePath();
+        a.start(exe,{QStringLiteral("--stop-waiter"),first.name()});b.start(exe,{QStringLiteral("--stop-loop"),second.name()});
+        QVERIFY(a.waitForStarted());QVERIFY(b.waitForStarted());
+        QVERIFY(first.signal());QVERIFY(a.waitForFinished(5000));QCOMPARE(a.exitCode(),0);
+        QVERIFY(!b.waitForFinished(200));QVERIFY(second.signal());QVERIFY(b.waitForFinished(5000));QCOMPARE(b.exitCode(),0);
+    }
 };
-QTEST_GUILESS_MAIN(EarlyServiceBootstrapTests)
+int main(int argc,char** argv) {
+    QCoreApplication app(argc,argv);const auto args=app.arguments();
+    if(args.size()==3 && args.at(1)==QStringLiteral("--stop-waiter")) {
+        WindowsSessionStop::Event stop;if(!stop.open(args.at(2),SYNCHRONIZE)) return 2;
+        return WaitForSingleObject(stop.handle(),8000)==WAIT_OBJECT_0?0:3;
+    }
+    if(args.size()==3 && args.at(1)==QStringLiteral("--stop-loop")) return WindowsSessionStop::waitInEventLoop(args.at(2))?0:4;
+    EarlyServiceBootstrapTests tests;return QTest::qExec(&tests,argc,argv);
+}
 #include "EarlyServiceBootstrapTests.moc"

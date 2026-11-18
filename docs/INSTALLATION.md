@@ -81,9 +81,9 @@ they use the same ports. When detected, the original service's automatic
 startup is disabled with confirmation; its startup type can be restored
 during uninstall. Uninstall does not automatically restart the original service.
 
-The fork disables Interception and DeskDupEngine in shared configuration.
-Uninstall does not reimport the previous configuration: use the original
-Configurator and your backup to restore original settings.
+This distribution uses neither Interception nor DeskDupEngine. Starting with
+alpha.39, setup leaves their shared Veyon preferences untouched. Values already
+changed by older installers are not reconstructed.
 
 ## Backups and repair
 

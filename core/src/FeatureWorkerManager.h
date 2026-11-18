@@ -29,6 +29,7 @@
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QSet>
+#include <QTimer>
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
 #include <QRecursiveMutex>
@@ -57,10 +58,16 @@ public:
 	void sendMessageToUnmanagedSessionWorker( const FeatureMessage& message );
 
 	bool isWorkerRunning( Feature::Uid featureUid );
+	bool listenerReady() const {return m_tcpServer.isListening();}
+
+Q_SIGNALS:
+	void listenerRestored();
 
 private:
 	friend class WorkerLifecycleTests;
 	FeatureWorkerManager(VeyonServerInterface& server, QObject* parent, bool initializeRuntime);
+	void initializeListener(qint64 port);
+	void tryListen();
 	void watchStartup(Feature::Uid featureUid, const QString& token);
 	void expireStartup(Feature::Uid featureUid, const QString& token);
 	void acceptConnection();
@@ -78,6 +85,9 @@ private:
 
 	VeyonServerInterface& m_server;
 	QTcpServer m_tcpServer;
+	QTimer m_listenRetry;
+	quint16 m_listenPort=0;
+	int m_listenAttempts=0;
 	QSet<QTcpSocket*> m_pendingHandshakes;
 
 	struct Worker

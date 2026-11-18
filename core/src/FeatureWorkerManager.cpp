@@ -49,15 +49,12 @@ FeatureWorkerManager::FeatureWorkerManager(VeyonServerInterface& server, QObject
 	m_server( server ),
 	m_tcpServer( this )
 {
-	if(!initializeRuntime) return; // isolated lifecycle fixtures, no live configuration/listener
 	connect( &m_tcpServer, &QTcpServer::newConnection,
 			 this, &FeatureWorkerManager::acceptConnection );
-
-	if( !m_tcpServer.listen( QHostAddress::LocalHost,
-							 static_cast<quint16>( VeyonCore::config().featureWorkerManagerPort() + VeyonCore::sessionId() ) ) )
-	{
-		vCritical() << "can't listen on localhost!";
-	}
+	m_listenRetry.setSingleShot(true);
+	connect(&m_listenRetry,&QTimer::timeout,this,&FeatureWorkerManager::tryListen);
+	if(!initializeRuntime) return; // isolated fixtures provide their own loopback port
+	initializeListener(qint64(VeyonCore::config().featureWorkerManagerPort())+VeyonCore::sessionId());
 
 	auto pendingMessagesTimer = new QTimer( this );
 	connect( pendingMessagesTimer, &QTimer::timeout, this, &FeatureWorkerManager::sendPendingMessages );
@@ -65,10 +62,38 @@ FeatureWorkerManager::FeatureWorkerManager(VeyonServerInterface& server, QObject
 	pendingMessagesTimer->start( 100 );
 }
 
+void FeatureWorkerManager::initializeListener(qint64 port)
+{
+	if(port<1 || port>65535) {
+		vCritical()<<"Worker channel unavailable: invalid configured session port"<<port;
+		return; // never let port 0 select an unconfigured ephemeral endpoint
+	}
+	m_listenPort=quint16(port);
+	tryListen();
+}
 
+void FeatureWorkerManager::tryListen()
+{
+	if(!m_listenPort || listenerReady()) return;
+	if(m_tcpServer.listen(QHostAddress::LocalHost,m_listenPort)) {
+		if(m_listenAttempts) {
+			m_listenAttempts=0;
+			vInfo()<<"Local worker channel restored on port"<<m_listenPort;
+			Q_EMIT listenerRestored();
+		}
+		return;
+	}
+	static constexpr int delaysMs[]={2000,5000,15000,30000,60000};
+	if(!m_listenAttempts) vWarning()<<"Service active; local worker channel unavailable on port"<<m_listenPort
+		<<m_tcpServer.errorString()<<"; retrying on the same loopback port";
+	const int index=qMin(m_listenAttempts,4);
+	m_listenAttempts=qMin(m_listenAttempts+1,5);
+	m_listenRetry.start(delaysMs[index]); // one outstanding retry, at most once/minute thereafter
+}
 
 FeatureWorkerManager::~FeatureWorkerManager()
 {
+	m_listenRetry.stop();
 	m_tcpServer.close();
 	// Disconnect pending sockets before member destruction can trigger callbacks.
 	for(auto socket:qAsConst(m_pendingHandshakes)) {
@@ -95,6 +120,7 @@ bool FeatureWorkerManager::startManagedSystemWorker( Feature::Uid featureUid )
 		return false;
 	}
 
+	if(!listenerReady()) return false;
 	stopWorker( featureUid );
 
 	Worker worker;
@@ -139,6 +165,7 @@ bool FeatureWorkerManager::startUnmanagedSessionWorker( Feature::Uid featureUid 
 		return false;
 	}
 
+	if(!listenerReady()) return false;
 	stopWorker( featureUid );
 
 	Worker worker;
@@ -256,6 +283,7 @@ void FeatureWorkerManager::sendMessageToManagedSystemWorker( const FeatureMessag
 
 void FeatureWorkerManager::sendMessageToUnmanagedSessionWorker( const FeatureMessage& message )
 {
+	if(!listenerReady()) return; // do not queue or replay user commands issued during an outage
 	const auto generation=++m_retryGeneration;
 	m_retryGenerations[message.featureUid()]=generation;
 	retrySessionMessage(message, 6, generation);

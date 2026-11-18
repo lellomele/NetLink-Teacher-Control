@@ -84,9 +84,9 @@ servizi: usano le stesse porte. Se rilevato, l'avvio automatico del servizio
 originale viene disabilitato con conferma; il tipo di avvio è ripristinabile
 alla disinstallazione. Il servizio originale non viene riavviato automaticamente.
 
-Il fork disabilita Interception e DeskDupEngine nella configurazione condivisa.
-Disinstallare non reimporta la configurazione precedente: per tornare
-alle impostazioni originarie usare il Configurator originale e il proprio backup.
+Interception e DeskDupEngine non sono usati da questa distribuzione. Dalla
+alpha.39 l'installer non riscrive le relative preferenze condivise con Veyon.
+I valori già modificati da installer precedenti non vengono ricostruiti.
 
 ## Backup e riparazione
 

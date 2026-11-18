@@ -22,7 +22,8 @@ struct SettingsLock::State {
     std::unique_ptr<QLockFile> file;
 #endif
 };
-SettingsLock::SettingsLock(const QSettings& settings):m_state(new State) {
+SettingsLock::SettingsLock(const QSettings& settings,int waitMs):m_state(new State) {
+    const int timeout=qBound(0,waitMs,2000);
 #ifdef Q_OS_WIN
     const auto hash=QCryptographicHash::hash(SettingsTransaction::identity(settings).toUtf8(),QCryptographicHash::Sha256).toHex();
     const QString name=QStringLiteral("Global\\NetLink.Configuration.")+QString::fromLatin1(hash);
@@ -31,10 +32,10 @@ SettingsLock::SettingsLock(const QSettings& settings):m_state(new State) {
     if(!ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;0x00100001;;;AU)",SDDL_REVISION_1,&descriptor,nullptr)) return;
     SECURITY_ATTRIBUTES attributes{sizeof(SECURITY_ATTRIBUTES),descriptor,FALSE};
     m_state->handle=CreateMutexExW(&attributes,reinterpret_cast<LPCWSTR>(name.utf16()),0,SYNCHRONIZE|MUTEX_MODIFY_STATE);LocalFree(descriptor);
-    if(m_state->handle) {const auto result=WaitForSingleObject(m_state->handle,0);m_state->owned=result==WAIT_OBJECT_0 || result==WAIT_ABANDONED;}
+    if(m_state->handle) {const auto result=WaitForSingleObject(m_state->handle,DWORD(timeout));m_state->owned=result==WAIT_OBJECT_0 || result==WAIT_ABANDONED;}
 #else
     m_state->file.reset(new QLockFile(settings.fileName()+QStringLiteral(".netlink-transaction.lock")));
-    m_state->file->tryLock(0);
+    m_state->file->tryLock(timeout);
 #endif
 }
 SettingsLock::~SettingsLock() {
@@ -104,6 +105,29 @@ static QByteArray protect(const QSettings& settings,const QByteArray& bytes,bool
 #endif
     return bytes;
 }
+// The caller owns the store lock. Never retire a different writer's marker.
+static bool retire(QSettings& settings,const QByteArray& journal,QString& error) {
+    settings.sync();
+    if(settings.status()==QSettings::NoError && settings.value(Journal).toByteArray()==journal) {
+        settings.remove(Journal);
+        settings.sync();
+        if(settings.status()==QSettings::NoError && !settings.contains(Journal)) return true;
+    }
+    error=NetLinkUi::text("Could not close the recovery record. Reopen Configurator as administrator before retrying.");
+    return false;
+}
+static bool sameField(const Values& a,const Values& b,const QString& key) {
+    return a.contains(key)==b.contains(key) && a.value(key)==b.value(key);
+}
+// Interrupted writes may contain any combination of old/new field states,
+// including additions and deletions. Anything else may be an independent edit.
+static bool canRollBack(const Values& current,const Values& before,const Values& after) {
+    const auto known=[&](const QString& key) {return sameField(current,before,key) || sameField(current,after,key);};
+    for(auto it=current.cbegin();it!=current.cend();++it) if(!known(it.key())) return false;
+    for(auto it=before.cbegin();it!=before.cend();++it) if(!known(it.key())) return false;
+    for(auto it=after.cbegin();it!=after.cend();++it) if(!known(it.key())) return false;
+    return true;
+}
 bool recover(QSettings& settings,QString& error) {
     Values current;if(!read(settings,current,error)) return false;
     if(!settings.contains(Journal)) return true;
@@ -111,27 +135,28 @@ bool recover(QSettings& settings,QString& error) {
     if(raw.size()>MaximumJournal+16384) {error=NetLinkUi::text("Configuration recovery data is invalid. No settings were changed. Contact the administrator.");return false;}
     Values before,after;if(!decode(protect(settings,raw,true),before,after)) {error=NetLinkUi::text("Configuration recovery is unavailable. Reopen Configurator as administrator with the Windows account that saved it. No partial configuration was loaded.");return false;}
     if(current!=before && current!=after) {
+        if(!canRollBack(current,before,after)) {
+            error=NetLinkUi::text("Configuration differs from both recovery snapshots. No settings were changed. Preserve the recovery record and contact the administrator.");
+            return false;
+        }
         if(!apply(settings,current,before)) {error=NetLinkUi::text("Configuration recovery is pending. Run Configurator as administrator; no partial configuration was loaded.");return false;}
         Values checked;if(!read(settings,checked,error) || checked!=before) {error=NetLinkUi::text("Could not verify configuration recovery. No partial configuration was loaded.");return false;}
     }
-    // Recovery can require the Windows identity that created the protected record.
-    // A completed before/after state is never rolled back unnecessarily.
-    return true;
+    return retire(settings,raw,error);
 }
 QByteArray recoveryRecord(const QSettings& settings,const Values& before,const Values& after) {
     const auto bytes=encode(before,after);return bytes.isEmpty()?QByteArray{}:protect(settings,bytes,false);
 }
 bool commit(QSettings& settings,const Values& before,const Values& after,QString& error) {
-    if(before==after) return true;
+    // Also safe for direct no-op callers; a no-op cannot bypass pending recovery.
+    if(before==after) return recover(settings,error);
     const auto journal=recoveryRecord(settings,before,after);
     if(journal.isEmpty()) {error=NetLinkUi::text("Could not prepare configuration recovery. Nothing was saved.");return false;}
     settings.setValue(Journal,journal);settings.sync();
     if(settings.status()!=QSettings::NoError || settings.value(Journal).toByteArray()!=journal) {error=NetLinkUi::text("Could not prepare configuration recovery. Nothing was saved.");return false;}
     if(!apply(settings,before,after)) {error=NetLinkUi::text("Configuration write failed. Recovery data was retained; reopen Configurator as administrator before retrying.");return false;}
     Values checked;if(!read(settings,checked,error) || checked!=after) {error=NetLinkUi::text("Configuration verification failed. Recovery data was retained.");return false;}
-    settings.remove(Journal);settings.sync();
-    if(settings.status()!=QSettings::NoError) {error=NetLinkUi::text("Configuration was written but recovery cleanup failed. Reopen Configurator before retrying.");return false;}
-    return true;
+    return retire(settings,journal,error);
 }
 bool merge(const Values& baseline,const Values& desired,const Values& current,Values& merged,QString& error) {
     merged=current;QSet<QString> keys;for(auto it=baseline.cbegin();it!=baseline.cend();++it) keys.insert(it.key());for(auto it=desired.cbegin();it!=desired.cend();++it) keys.insert(it.key());

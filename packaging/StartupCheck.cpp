@@ -183,7 +183,7 @@ int run() {
     running.value=CreateMutexW(&attributes,TRUE,RunName);auto error=GetLastError();
     if(!running.value||error==ERROR_ALREADY_EXISTS){LocalFree(descriptor);return running.value?0:ERROR_ACCESS_DENIED;}
     stop.value=CreateEventW(&attributes,TRUE,FALSE,StopName);error=GetLastError();LocalFree(descriptor);require(stop.value,"Create check cancellation event");require(error!=ERROR_ALREADY_EXISTS,"Unexpected cancellation object");
-    Log log;log.write("NetLink startup check alpha.38; at most 3 start attempts; pause 120 seconds.");
+    Log log;log.write("NetLink startup check; at most 3 start attempts; pause 120 seconds.");
     if(maintenance()){log.write("Skipped: installer/uninstaller is active.");return 0;}
     Service manager;manager.value=OpenSCManagerW(nullptr,nullptr,SC_MANAGER_CONNECT);require(manager.value,"Open service manager");
     Service service;service.value=OpenServiceW(manager.value,L"VeyonSchoolService",SERVICE_QUERY_CONFIG|SERVICE_QUERY_STATUS|SERVICE_START);

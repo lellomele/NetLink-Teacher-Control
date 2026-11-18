@@ -23,6 +23,9 @@
  */
 
 #include <QEventLoop>
+#ifdef Q_OS_WIN
+#include "WindowsSessionStopLoop.h"
+#endif
 
 #include "AuthenticationCredentials.h"
 #include "ExternalVncServer.h"
@@ -72,7 +75,13 @@ bool ExternalVncServer::runServer( int serverPort, const Password& password )
 	Q_UNUSED(serverPort);
 	Q_UNUSED(password);
 
+#ifdef Q_OS_WIN
+	if(!WindowsSessionStop::waitInEventLoop(qEnvironmentVariable(WindowsSessionStop::variable()))) {
+		vCritical()<<"Cannot open external VNC session stop event"<<GetLastError();return false;
+	}
+#else
 	QEventLoop().exec();
+#endif
 
 	return true;
 }

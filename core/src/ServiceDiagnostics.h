@@ -6,9 +6,11 @@
 namespace ServiceDiagnostics {
 enum Command { Query=1, Reply=2 };
 enum class Backend { Unchecked, TcpAvailable, Ready, Connecting, Unreachable };
+enum class WorkerChannel : quint8 { NotReported, Listening, Unavailable };
 struct Snapshot {
     QString plugin;
     bool external=false;
+    WorkerChannel workerChannel=WorkerChannel::NotReported;
     int internalPort=0;
     Backend backend=Backend::Unchecked;
     qint64 frameAgeMs=-1;

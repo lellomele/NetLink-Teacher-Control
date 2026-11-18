@@ -6,9 +6,9 @@ Suite NetLink per la gestione delle aule Windows, basata su **Veyon 4.7.5**.
 Integra controllo remoto, InternetGuard WFP, Appello, profili classe–aula,
 ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
 
-**Versione preliminare 1.0.0-alpha.38: usare consapevolmente.**
+**Versione preliminare 1.0.0-alpha.39: usare consapevolmente.**
 
-**[Scarica l’installer Windows x64 — ultima release (alpha.38)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.38/NetLink-1.0.0-alpha.38-win64-setup.exe)**
+**[Scarica l’installer Windows x64 — ultima release (alpha.39)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.39/NetLink-1.0.0-alpha.39-win64-setup.exe)**
 
 ## Funzionalità
 
@@ -102,6 +102,11 @@ L'utilità separata [NetLink Service Check 1.1.0](https://github.com/lellomele/N
 gli errori Windows, impostare l'avvio Automatico e scegliere il controllo a 3 o 5 minuti.
 Il controllo del servizio non certifica il funzionamento di video o autenticazione.
 
+Se la Console indica «servizio attivo; canale locale del worker non disponibile»,
+il server risponde ma il worker non può ancora collegarsi. NetLink riprova sulla
+stessa porta locale: risolto il conflitto, l’icona può tornare senza riavviare il
+servizio, se è abilitata e un utente ha effettuato l’accesso.
+
 Il riferimento è **Windows 10 a 64 bit**. Le dipendenze sono incluse.
 La suite include Qt 5.15.19 con patch KDE: non occorre installare Qt separatamente.
 
@@ -113,6 +118,10 @@ La disinstallazione può mantenere oppure eliminare le impostazioni; rimuove
 l'intera cartella del programma e conserva le chiavi esterne. Se le chiavi sono
 dentro la cartella da rimuovere, si ferma: trasferirle prima in un percorso protetto.
 I backup delle impostazioni sono in `C:\ProgramData\NetLink\Recovery`.
+Se un salvataggio interrotto richiede il recupero, aprire Configurator come
+amministratore con l’account Windows che lo aveva eseguito. Non serve modificare
+o risalvare un’impostazione. In caso di dati in conflitto, non cancellare il
+registro di recupero né le chiavi.
 
 Procedura completa: [installazione, disinstallazione e recupero](docs/INSTALLATION.it.md).
 

@@ -27,16 +27,18 @@
 #include <windows.h>
 
 #include <QAbstractNativeEventFilter>
+#include "WindowsSessionStop.h"
 
 // event filter which makes ICA recognize logoff events etc.
 class LogoffEventFilter : public QAbstractNativeEventFilter
 {
 public:
 	LogoffEventFilter();
+	HANDLE stopHandle() const {return m_stop.handle();}
 
 	bool nativeEventFilter( const QByteArray& eventType, void* message, long* result) override;
 
 private:
-	HANDLE m_shutdownEventHandle;
+	WindowsSessionStop::Event m_stop;
 
 };

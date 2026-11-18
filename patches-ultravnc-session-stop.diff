@@ -1,0 +1,72 @@
+diff --git a/winvnc/winvnc/winvnc.cpp b/winvnc/winvnc/winvnc.cpp
+index 479ae291..a759406a 100644
+--- a/winvnc/winvnc/winvnc.cpp
++++ b/winvnc/winvnc/winvnc.cpp
+@@ -1338,10 +1338,11 @@ DWORD WINAPI imp_desktop_thread(LPVOID lpParam)
+ #ifdef ULTRAVNC_VEYON_SUPPORT
+ 	while( fShutdownOrdered == false )
+ 	{
+-		DWORD result = WaitForSingleObject(hShutdownEvent, 100);
+-		if (WAIT_OBJECT_0 == result)
++		const DWORD result = WaitForSingleObject(hShutdownEvent, 100);
++		if (result != WAIT_TIMEOUT)
+ 		{
+-			ResetEvent(hShutdownEvent);
++			if (result == WAIT_FAILED)
++				vnclog.Print(LL_INTERR, VNCLOG("NetLink session stop wait failed: %lu\n"), GetLastError());
+ 			fShutdownOrdered = true;
+ 		}
+ 	}
+@@ -1387,6 +1388,16 @@ DWORD WINAPI imp_desktop_thread(LPVOID lpParam)
+ // Under NT, WinVNC can also run as a service.  The WinVNCServerMain routine,
+ // defined in the vncService header, is used instead when running as a service.
+ 
++#ifdef ULTRAVNC_VEYON_SUPPORT
++int NetLinkWinVNCAppMain(HANDLE stopEvent)
++{
++	if (!stopEvent || !DuplicateHandle(GetCurrentProcess(), stopEvent, GetCurrentProcess(),
++		&hShutdownEvent, SYNCHRONIZE, FALSE, 0))
++		return 0;
++	return WinVNCAppMain();
++}
++#endif
++
+ int WinVNCAppMain()
+ {
+ 	vnclog.Print(-1, VNCLOG("WinVNCAPPMain-----Application started\n"));
+@@ -1427,8 +1438,12 @@ int WinVNCAppMain()
+ 
+ 	// sf@2007 - New impersonation thread stuff for tray icon & menu
+ 	// Subscribe to shutdown event
++#ifndef ULTRAVNC_VEYON_SUPPORT
+ 	hShutdownEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, "Global\\SessionEventUltra");
+ 	if (hShutdownEvent) ResetEvent(hShutdownEvent);
++#else
++	if (!hShutdownEvent) return 0; // never enter a wait loop without a valid handle
++#endif
+ 	//vnclog.Print(LL_STATE, VNCLOG("***************** SDEvent created \n"));
+ 	// Create the timer that looks periodicaly for shutdown event
+ 	mmRes = -1;
+@@ -1447,6 +1462,12 @@ int WinVNCAppMain()
+ 			WaitForSingleObject( threadHandle, INFINITE );
+ 			CloseHandle(threadHandle);
+ 		}
++#ifdef ULTRAVNC_VEYON_SUPPORT
++		else {
++			vnclog.Print(LL_INTERR, VNCLOG("NetLink desktop thread creation failed: %lu\n"), GetLastError());
++			fShutdownOrdered = true;
++		}
++#endif
+ 		vnclog.Print(LL_STATE, VNCLOG("################## Closing Imp Thread\n"));
+ 	}
+ 	fShutdownOrdered = true;
+@@ -1456,7 +1477,7 @@ int WinVNCAppMain()
+ 		delete instancehan;
+ #endif
+ 
+-	if (hShutdownEvent)CloseHandle(hShutdownEvent);	
++	if (hShutdownEvent) {CloseHandle(hShutdownEvent); hShutdownEvent = NULL;}
+ 	vnclog.Print(LL_STATE, VNCLOG("################## SHUTING DOWN SERVER ####################\n"));
+ 
+ 	//adzm 2009-06-20
+

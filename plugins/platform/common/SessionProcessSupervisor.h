@@ -25,6 +25,7 @@ public:
             if(!it->second->isRunning()) start(*it->second,id);
         }
     }
+    void requestStopAll(){for(auto& entry:children) entry.second->requestStop();}
     void clear(){children.clear();}
 private:
     std::map<Id,std::unique_ptr<Process>> children;

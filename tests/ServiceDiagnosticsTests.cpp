@@ -24,6 +24,15 @@ class ServiceDiagnosticsTests : public QObject {
         return DiagnosticReply(id,data);
     }
 private Q_SLOTS:
+    void workerChannelIsOptionalAndUnavailableIsVisible() {
+        auto input=sample();ServiceDiagnostics::Snapshot out;
+        for(auto value:{ServiceDiagnostics::WorkerChannel::NotReported,ServiceDiagnostics::WorkerChannel::Listening,ServiceDiagnostics::WorkerChannel::Unavailable}){
+            input.workerChannel=value;auto bytes=ServiceDiagnostics::encode(input);
+            QCOMPARE(QJsonDocument::fromJson(bytes).object().contains("workerListening"),value!=ServiceDiagnostics::WorkerChannel::NotReported);
+            QVERIFY(ServiceDiagnostics::decode(bytes,&out));QVERIFY(out.workerChannel==value);
+            QCOMPARE(ServiceDiagnostics::tooltip(out).contains("worker",Qt::CaseInsensitive),value==ServiceDiagnostics::WorkerChannel::Unavailable);
+        }
+    }
     void initTestCase() {QLocale::setDefault(QLocale("en_US"));}
     void versionIsAnOptionalCompatibleSchemaOneExtension() {
         auto old=sample();const auto legacy=ServiceDiagnostics::encode(old);

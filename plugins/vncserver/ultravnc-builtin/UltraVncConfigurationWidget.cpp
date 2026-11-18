@@ -40,6 +40,8 @@ UltraVncConfigurationWidget::UltraVncConfigurationWidget( UltraVncConfiguration&
 
 	FOREACH_ULTRAVNC_CONFIG_PROPERTY(INIT_WIDGET_FROM_PROPERTY);
 	FOREACH_ULTRAVNC_CONFIG_PROPERTY(CONNECT_WIDGET_TO_PROPERTY);
+	ui->ultraVncDeskDupEngineEnabled->setEnabled(false);
+	ui->ultraVncDeskDupEngineEnabled->setToolTip(tr("Not included in this NetLink build. The stored preference is preserved."));
 }
 
 

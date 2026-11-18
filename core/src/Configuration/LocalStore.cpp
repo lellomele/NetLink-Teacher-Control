@@ -22,7 +22,7 @@ struct LockedSettings {
     // QSettings may retry a deferred write in its destructor: release it BEFORE the lock.
     std::unique_ptr<SettingsLock> lock;
     std::unique_ptr<QSettings> settings;
-    explicit LockedSettings(QSettings* source):settings(source) {lock.reset(new SettingsLock(*source));}
+    explicit LockedSettings(QSettings* source,int waitMs=0):settings(source) {lock.reset(new SettingsLock(*source,waitMs));}
 };
 }
 LocalStore::LocalStore(Scope scope):Store(Store::LocalBackend,scope){}
@@ -61,7 +61,9 @@ static bool decode(const Values& values,Object& object,QString& error) {
 }
 static QString busy() {return NetLinkUi::text("Configuration is busy or its lock is inaccessible. Nothing was saved. Close other configuration operations and retry.");}
 void LocalStore::load(Object* object) {
-    m_error.clear();LockedSettings transaction(createSettingsObject());auto* settings=transaction.settings.get();
+    // At boot, multiple sessions and the service may read the same settings.
+    // Tolerate a short transaction, without loading defaults or waiting indefinitely.
+    m_error.clear();LockedSettings transaction(createSettingsObject(),2000);auto* settings=transaction.settings.get();
     Values raw;Object loaded;
     if(!transaction.lock->locked()) m_error=busy();
     else if(SettingsTransaction::recover(*settings,m_error) && SettingsTransaction::read(*settings,raw,m_error)) decode(raw,loaded,m_error);

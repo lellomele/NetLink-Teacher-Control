@@ -55,7 +55,7 @@ function RunInstaller([string]$file,[string]$arguments,[int]$expectedExit=0) {
     if(Test-Path -LiteralPath $errorFile){Remove-Item -LiteralPath $errorFile}
     $process=Start-Process -FilePath $file -ArgumentList $arguments -WindowStyle Hidden -PassThru
     try {if(!$process.WaitForExit(60000)){$process.Kill();throw "Installer fixture deadline exceeded: $file $arguments"}; if($process.ExitCode-ne$expectedExit){$detail=if(Test-Path -LiteralPath $errorFile){Get-Content -LiteralPath $errorFile -Raw}else{'no helper error'}; $trace=Join-Path $root 'installer-cli-trace.txt'; if(Test-Path -LiteralPath $trace){$detail+="`n"+((Get-Content -LiteralPath $trace | Select-Object -Last 12)-join"`n")}; throw "Installer fixture failed after $script:successfulInstalls successful installs: exit $($process.ExitCode), expected $expectedExit; command '$file $arguments'; $detail"}}finally{$process.Dispose()}
-    if($expectedExit-eq0 -and (Split-Path $file -Leaf)-eq'NetLink-1.0.0-alpha.38-win64-setup.exe'){$script:successfulInstalls++}
+    if($expectedExit-eq0 -and (Split-Path $file -Leaf)-eq'NetLink-1.0.0-alpha.39-win64-setup.exe'){$script:successfulInstalls++}
 }
 function WaitRemoval {
     $deadline=[DateTime]::UtcNow.AddSeconds(20)
@@ -113,7 +113,7 @@ function CheckComponents([string]$role,[bool]$companion=$false) {
 try {
     & (Join-Path $Toolchain 'bin/makensis.exe') '/INPUTCHARSET' 'UTF8' "/DNETLINK_INSTALLER_FIXTURE" "/DFIXTURE_ID=$id" "/DFIXTURE_ROOT=$root" "/DFIXTURE_REGKEY=$registry" "/DREPOROOT=$repoRoot" "/DOUTPUT=$root" "/DPAYLOAD=$payload" (Join-Path $repoRoot 'packaging/veyon-school.nsi') | Out-Null
     if($LASTEXITCODE-ne0){throw 'Full installer fixture compilation failed'}
-    $installer=Join-Path $root 'NetLink-1.0.0-alpha.38-win64-setup.exe'
+    $installer=Join-Path $root 'NetLink-1.0.0-alpha.39-win64-setup.exe'
     $oldHashes=@{};Get-ChildItem -LiteralPath $app -File | ForEach-Object {$oldHashes[$_.Name]=(Get-FileHash -LiteralPath $_.FullName).Hash}
     $loaded=Start-Process -FilePath $Helper -ArgumentList ('hold-image "'+$app+'"') -WindowStyle Hidden -PassThru
     try {
@@ -231,9 +231,9 @@ try {
     $settings.Dispose()
     if((Get-FileHash -LiteralPath (Join-Path $root 'keys/netlink_test')).Hash-ne$keyHash -or (Get-Acl -LiteralPath (Join-Path $root 'keys/netlink_test')).Sddl-ne$keyAcl){throw 'Key contents/ACL changed'}
     $calls=@(Get-Content -LiteralPath (Join-Path $root 'cli-actions.txt'))
-    # Five successful commands per completed install; the intentional verify
-    # failure logs its four preceding commands but not the rejected verify.
-    if($calls.Count-ne($script:successfulInstalls*5+4) -or @($calls | Where-Object {$_-match'config export|service stop|service unregister'}).Count){throw 'CLI call count/sequence mismatch or old/uninstall CLI unexpectedly executed'}
+    # Registration, start and verify only; no implicit config writes. The
+    # intentional verification failure logs the two preceding commands.
+    if($calls.Count-ne($script:successfulInstalls*3+2) -or @($calls | Where-Object {$_-match'^config |service stop|service unregister'}).Count){throw 'Unexpected configuration write or CLI call count/sequence mismatch'}
     Write-Output 'PASS: mapped DLL and in-use optional EXEs block copying/removal; fresh Client without Companion, all four component combinations, add/remove Companion, older metadata migration, role/component persistence, invalid arguments, manifests, NetLink Start shortcuts, interrupted installation, failed service verification, purge/reinstall/uninstall verified; settings and key hash/ACL preserved. Service/firewall deliberately simulated.'
 } finally {
     # Exact test-only HKCU subtree. Never enumerate or delete product settings.
