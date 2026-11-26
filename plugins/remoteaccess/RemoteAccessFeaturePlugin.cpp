@@ -25,6 +25,7 @@
 #include <QApplication>
 #include <QBuffer>
 #include <QClipboard>
+#include <QTimer>
 
 #include "AuthenticationCredentials.h"
 #include "FeatureWorkerManager.h"
@@ -131,8 +132,11 @@ bool RemoteAccessFeaturePlugin::handleFeatureMessage(ComputerControlInterface::P
 	{
 		for (auto it = m_vncViews.constBegin(), end = m_vncViews.constEnd(); it != end; ++it)
 		{
-			if (it->first && it->second->computerControlInterface() == computerControlInterface)
+			const auto id=message.argument(Argument::RequestId).toUuid();
+			if (!id.isNull() && it->first && it->first->property("pendingClipboard").toUuid()==id &&
+			    qobject_cast<RemoteAccessWidget*>(it->first.data())->isActiveWindow() && !it->second->viewOnly() && it->second->computerControlInterface()==computerControlInterface)
 			{
+				it->first->setProperty("pendingClipboard",{});
 				loadClipboardData(message);
 			}
 		}
@@ -160,7 +164,13 @@ bool RemoteAccessFeaturePlugin::handleFeatureMessage(VeyonServerInterface &serve
 	}
 	else if (message.featureUid() == m_clipboardExchangeFeature.uid())
 	{
-		loadClipboardData(message);
+		const auto id=message.argument(Argument::RequestId).toUuid();
+		if(!id.isNull()) {
+			FeatureMessage reply(m_clipboardExchangeFeature.uid());
+			reply.addArgument(Argument::RequestId,id);
+			{ QMutexLocker lock(&m_clipboardDataMutex); storeClipboardData(&reply,m_clipboardText,m_clipboardImage); }
+			server.sendFeatureMessageReply(messageContext,reply);
+		} else loadClipboardData(message);
 		return true;
 	}
 
@@ -189,23 +199,7 @@ bool RemoteAccessFeaturePlugin::handleFeatureMessage(VeyonWorkerInterface &worke
 
 
 
-void RemoteAccessFeaturePlugin::sendAsyncFeatureMessages(VeyonServerInterface& server,
-														 const MessageContext& messageContext)
-{
-	const auto clipboardDataVersion = messageContext.ioDevice()->property(clipboardDataVersionProperty()).toInt();
 
-	if (clipboardDataVersion != m_clipboardDataVersion)
-	{
-		FeatureMessage message{m_clipboardExchangeFeature.uid()};
-
-		m_clipboardDataMutex.lock();
-		storeClipboardData(&message, m_clipboardText, m_clipboardImage);
-		m_clipboardDataMutex.unlock();
-
-		server.sendFeatureMessageReply(messageContext, message);
-		messageContext.ioDevice()->setProperty(clipboardDataVersionProperty(), m_clipboardDataVersion);
-	}
-}
 
 
 
@@ -344,11 +338,14 @@ void RemoteAccessFeaturePlugin::createRemoteAccessWindow(const ComputerControlIn
 	auto widget = new RemoteAccessWidget(computerControlInterface, viewOnly,
 										  remoteViewEnabled() && remoteControlEnabled());
 
-	// forward clipboard changes as long as the widget exists
-	connect(QGuiApplication::clipboard(), &QClipboard::dataChanged, widget, [=]()
-			 {
-				 sendClipboardData(widget->computerControlInterface());
-			 });
+	connect(widget,&RemoteAccessWidget::clipboardTransfer,widget,[=](bool receive){
+		if(widget->vncView()->viewOnly() || VeyonCore::config().disabledFeatures().contains(m_clipboardExchangeFeature.uid().toString())) return;
+		if(!receive) { sendClipboardData(computerControlInterface); return; }
+		const auto id=QUuid::createUuid();widget->setProperty("pendingClipboard",id);
+		FeatureMessage request(m_clipboardExchangeFeature.uid());request.addArgument(Argument::RequestId,id);
+		computerControlInterface->sendFeatureMessage(request);
+		QTimer::singleShot(5000,widget,[widget,id]{if(widget->property("pendingClipboard").toUuid()==id) widget->setProperty("pendingClipboard",{});});
+	});
 
 	connect(widget, &QObject::destroyed, this, [this](QObject* view) {
 		for (auto it = m_vncViews.begin(); it != m_vncViews.end();) // clazy:exclude=detaching-member

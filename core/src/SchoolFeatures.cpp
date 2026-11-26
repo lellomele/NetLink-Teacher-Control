@@ -2,6 +2,7 @@
 #undef QT_NO_CAST_FROM_ASCII
 #undef QT_USE_QSTRINGBUILDER
 #include "SchoolFeatures.h"
+#include "HostAddress.h"
 #include "SchoolNetworkPolicy.h"
 #include "SchoolPolicyResolver.h"
 #include "SchoolDiscoveryKnownHosts.h"
@@ -144,7 +145,7 @@ SchoolFeatures::SchoolFeatures(QObject* parent,bool initializeRuntime) : QObject
     };
     m_discoveryImport.save=[](const QJsonArray& before,const QJsonArray& after,QString& error) {
         Configuration::LocalStore store(Configuration::LocalStore::System);
-        if(!store.compareAndWriteValue("NetworkObjects",before,after,"BuiltinDirectory",error)) return false;
+        if(!store.compareAndWriteValue("NetworkObjects",VeyonCore::config().hasValue("NetworkObjects","BuiltinDirectory") ? QVariant::fromValue(before) : QVariant{},after,"BuiltinDirectory",error)) return false;
         VeyonCore::config().setValue("NetworkObjects",after,"BuiltinDirectory");return true;
     };
     if(VeyonCore::component()==VeyonCore::Component::Service) {
@@ -287,7 +288,8 @@ void SchoolFeatures::policy(const ComputerControlInterfaceList& clients,bool blo
 void SchoolFeatures::beginPolicyResolution(const ComputerControlInterfaceList& clients,const QStringList& resources) {
     if(m_resolution || clients.isEmpty() || clients.size()>256) return;
     QStringList hosts;
-    for(const auto& ci:clients) {if(!ci) return;hosts.append(ci->computer().hostAddress());}
+    for(const auto& ci:clients) {if(!ci) return;const auto endpoint=ci->computer().hostAddress();const auto host=QHostAddress(endpoint).isNull()?HostAddress::parseHost(endpoint):endpoint;
+        if(host.isEmpty()){for(const auto& item:clients)if(item)item->setNetworkPolicyStatus(tr("Invalid destination: %1").arg(endpoint));return;}hosts.append(host);}
     auto resolver=new SchoolPolicyResolver(hosts,resources,this);m_resolution=resolver;m_resolutionClients=clients;
     for(const auto& ci:clients) ci->setNetworkPolicyStatus(NetLinkUi::text("resolving computers..."));
     connect(resolver,&SchoolPolicyResolver::finished,this,[this,resolver](bool complete,const QStringList& addresses) {

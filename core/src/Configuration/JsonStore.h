@@ -40,11 +40,13 @@ public:
 	void flush( const Object *obj ) override;
 	bool isWritable() const override;
 	void clear() override;
+	QString errorString() const { return m_error; }
 
 private:
 	QString configurationFilePath() const;
 
 	QString m_file;
+	QString m_error;
 
 } ;
 

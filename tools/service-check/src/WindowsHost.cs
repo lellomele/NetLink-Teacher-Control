@@ -179,10 +179,10 @@ namespace NetLinkServiceCheck {
     Marshal.WriteInt32(ptr,1);Require(ChangeServiceConfig2(s,4,ptr));
    }finally{Marshal.FreeHGlobal(ptr);Marshal.FreeHGlobal(empty);Marshal.FreeHGlobal(actions);}
   });}
-  public void Start(){Write(s=>{
+  public void Start(){bool fresh;using(var lease=new System.Threading.Mutex(false,@"Global\NetLinkInstallerMaintenance",out fresh)){if(!fresh)throw new InvalidOperationException("Manutenzione già in corso.");System.Threading.Mutex prep;if(System.Threading.Mutex.TryOpenExisting(@"Global\NetLinkUpgradePreparation",out prep)){prep.Dispose();throw new InvalidOperationException("Preparazione aggiornamento in corso.");}Write(s=>{
    if(!StartService(s,0,IntPtr.Zero)){var error=Marshal.GetLastWin32Error();if(error!=1056)throw new Win32Exception(error);}
    var clock=Stopwatch.StartNew();while(clock.ElapsedMilliseconds<120000){var status=ReadStatus(s);if(status.State==4)return;if(status.State==1)throw new Win32Exception((int)(status.Exit==0?1067:status.Exit));Thread.Sleep(200);}
    throw new Win32Exception(1460);
-  });}
+  });}}
  }
 }

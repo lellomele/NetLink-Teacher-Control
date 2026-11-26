@@ -2,7 +2,9 @@
 
 # NetLink · Controllo servizio
 
-Utilità portatile Windows x64 per analizzare il servizio locale NetLink, correggerne il tipo di avvio e avviarlo su richiesta. Versione 1.1.0, interfaccia italiana. Non serve installare Qt.
+Utilità portatile Windows x64 per analizzare il servizio locale NetLink, correggerne il tipo di avvio e avviarlo su richiesta. Versione 1.2.0, interfaccia italiana. Non serve installare Qt.
+
+L’analisi distingue attività registrata, ultima esecuzione e risultato osservato nel relativo log: servizio già in esecuzione, tentativo di recupero, controllo saltato oppure errore. Se il log non è correlabile, lo segnala senza attribuire un recupero.
 
 ## Uso
 

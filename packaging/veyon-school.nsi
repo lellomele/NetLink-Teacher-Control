@@ -21,6 +21,7 @@ Var StartupDelay
 Var Startup3
 Var Startup5
 Var StartupOff
+Var LegacyImage
 ; Fixture-only trace preserves ExecWait's exit code and error flag verbatim.
 !macro TraceFixtureCli ACTION
  !ifdef NETLINK_INSTALLER_FIXTURE
@@ -52,8 +53,8 @@ Var StartupOff
  !define LOCKNAME "Global\NetLinkInstallerMaintenance"
  RequestExecutionLevel admin
 !endif
-Name "NetLink 1.0.0 alpha.39${NETLINK_BUILD_SUFFIX}"
-OutFile "${OUTPUT}\NetLink-1.0.0-alpha.39${NETLINK_BUILD_SUFFIX}-win64-setup.exe"
+Name "NetLink 1.0.0 alpha.40${NETLINK_BUILD_SUFFIX}"
+OutFile "${OUTPUT}\NetLink-1.0.0-alpha.40${NETLINK_BUILD_SUFFIX}-win64-setup.exe"
 InstallDir "$PROGRAMFILES64\Veyon School"
 SetCompressor /SOLID lzma
 AllowSkipFiles off
@@ -75,10 +76,10 @@ Page custom StartupPageCreate StartupPageLeave
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "Italian"
-VIProductVersion "1.0.0.39"
+VIProductVersion "1.0.0.40"
 VIAddVersionKey /LANG=1040 "ProductName" "NetLink"
 VIAddVersionKey /LANG=1040 "FileDescription" "NetLink installer (pre-release)"
-VIAddVersionKey /LANG=1040 "FileVersion" "1.0.0-alpha.39${NETLINK_BUILD_SUFFIX}"
+VIAddVersionKey /LANG=1040 "FileVersion" "1.0.0-alpha.40${NETLINK_BUILD_SUFFIX}"
 VIAddVersionKey /LANG=1040 "LegalCopyright" "Copyright (c) 2025-26 prof. Ing. Raffaele Mele; Veyon e contributori"
 Function .onInit
  System::Call 'kernel32::CreateMutexW(p 0, i 0, w "${LOCKNAME}") p .r0 ?e'
@@ -194,18 +195,7 @@ Function .onInit
    refuse_legacy:
    Abort "Il servizio Veyon originale deve essere fermato prima dell’installazione."
    stop_legacy:
-   ReadRegDWORD $1 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "OriginalServiceStart"
-   ${If} ${Errors}
-     ReadRegDWORD $1 HKLM "SYSTEM\CurrentControlSet\Services\VeyonService" "Start"
-     WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "OriginalServiceStart" $1
-     ReadRegStr $1 HKLM "SYSTEM\CurrentControlSet\Services\VeyonService" "ImagePath"
-     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "OriginalServiceImage" $1
-   ${EndIf}
-   ExecWait '"$SYSDIR\sc.exe" stop VeyonService' $0
-   ExecWait '"$SYSDIR\sc.exe" config VeyonService start= disabled' $0
-   ${If} $0 != 0
-     Abort "Impossibile disabilitare il servizio originale: installazione interrotta."
-   ${EndIf}
+   StrCpy $LegacyImage $0
  ${EndIf}
  !endif
 FunctionEnd
@@ -414,8 +404,30 @@ Section "-NetLink installation"
  !insertmacro CheckInstallerReady "check-pending" ""
  !insertmacro RunMaintenance "backup" "Backup delle impostazioni non riuscito; nessun file è stato sostituito"
  !insertmacro RunStartup "--quiesce"
+ !ifdef NETLINK_INSTALLER_FIXTURE
  !insertmacro RunMaintenance "quiesce" "Impossibile arrestare il servizio per verificare i file; chiudere le applicazioni e riavviare"
  !insertmacro CheckInstallerReady "check-files" ' "$PLUGINSDIR\replacement.sha256"'
+ !else
+ !insertmacro CheckInstallerReady "quiesce-check" ' "$PLUGINSDIR\replacement.sha256"'
+ ${If} $LegacyImage != ""
+   ReadRegStr $0 HKLM "SYSTEM\CurrentControlSet\Services\VeyonService" "ImagePath"
+   ${If} $0 != $LegacyImage
+     Abort "Il servizio Veyon è cambiato. Ripeti la verifica."
+   ${EndIf}
+   ReadRegDWORD $1 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "OriginalServiceStart"
+   ${If} ${Errors}
+     ReadRegDWORD $1 HKLM "SYSTEM\CurrentControlSet\Services\VeyonService" "Start"
+     WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "OriginalServiceStart" $1
+     ReadRegStr $1 HKLM "SYSTEM\CurrentControlSet\Services\VeyonService" "ImagePath"
+     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VeyonSchool" "OriginalServiceImage" $1
+   ${EndIf}
+   ExecWait '"$SYSDIR\sc.exe" stop VeyonService' $0
+   ExecWait '"$SYSDIR\sc.exe" config VeyonService start= disabled' $0
+   ${If} $0 != 0
+     Abort "Impossibile disabilitare il servizio originale: installazione interrotta."
+   ${EndIf}
+ ${EndIf}
+ !endif
  !insertmacro RunMaintenance "stop" "Impossibile arrestare/rimuovere il servizio precedente; chiudere le applicazioni e riavviare"
  ; The full replacement plan also probes the Master EXE before removing it.
  ; Do not defer this removal to reboot: a Client install must not report success
@@ -550,8 +562,8 @@ Section "-NetLink installation"
  Delete "$SMPROGRAMS\Veyon School\Configurator.lnk"
  RMDir "$SMPROGRAMS\Veyon School"
  !endif
- WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayName" "NetLink 1.0.0 alpha.39${NETLINK_BUILD_SUFFIX}"
- WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayVersion" "1.0.0-alpha.39${NETLINK_BUILD_SUFFIX}"
+ WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayName" "NetLink 1.0.0 alpha.40${NETLINK_BUILD_SUFFIX}"
+ WriteRegStr ${APPREGROOT} "${APPREGKEY}" "DisplayVersion" "1.0.0-alpha.40${NETLINK_BUILD_SUFFIX}"
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "InstallationRole" "$InstallationRole"
  WriteRegDWORD ${APPREGROOT} "${APPREGKEY}" "InstallCompanion" $InstallCompanion
  WriteRegStr ${APPREGROOT} "${APPREGKEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'

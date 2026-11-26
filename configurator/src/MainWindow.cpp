@@ -226,7 +226,9 @@ void MainWindow::loadSettingsFromFile()
 	if( !fileName.isEmpty() )
 	{
 		// write current configuration to output file
-		Configuration::JsonStore( Configuration::JsonStore::System, fileName ).load( &VeyonCore::config() );
+		Configuration::JsonStore store(Configuration::JsonStore::System,fileName);
+		store.load(&VeyonCore::config());
+		if(!store.errorString().isEmpty()) { QMessageBox::critical(this,tr("Configuration"),store.errorString()); return; }
 		reset( true );
 		configurationChanged();	// give user a chance to apply possible changes
 	}
@@ -249,7 +251,9 @@ void MainWindow::saveSettingsToFile()
 		bool configChangedPrevious = m_configChanged;
 
 		// write current configuration to output file
-		Configuration::JsonStore( Configuration::JsonStore::System, fileName ).flush( &VeyonCore::config() );
+		Configuration::JsonStore store(Configuration::JsonStore::System,fileName);
+		store.flush(&VeyonCore::config());
+		if(!store.errorString().isEmpty()) { QMessageBox::critical(this,tr("Configuration"),store.errorString()); return; }
 
 		m_configChanged = configChangedPrevious;
 		ui->buttonBox->setEnabled( m_configChanged );

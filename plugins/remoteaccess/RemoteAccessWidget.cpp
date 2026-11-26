@@ -59,6 +59,14 @@ RemoteAccessWidgetToolBar::RemoteAccessWidgetToolBar( RemoteAccessWidget* parent
 	updateScreens();
 
 	auto shortcutMenu = m_sendShortcutButton->menu();
+	if(startViewOnly == false || showViewOnlyToggleButton) {
+		for(bool receive : {false,true}) {
+			auto action=shortcutMenu->addAction(receive ? tr("Copy clipboard from this PC") : tr("Send clipboard to this PC"));
+			connect(shortcutMenu,&QMenu::aboutToShow,action,[=]{action->setEnabled(!vncView->viewOnly());});
+			connect(action,&QAction::triggered,parent,[=]{if(!vncView->viewOnly()) Q_EMIT parent->clipboardTransfer(receive);});
+		}
+		shortcutMenu->addSeparator();
+	}
 #if QT_VERSION < 0x050600
 #warning Building legacy compat code for unsupported version of Qt
 	connect( shortcutMenu->addAction( tr( "Ctrl+Alt+Del" ) ), &QAction::triggered,

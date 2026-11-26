@@ -6,6 +6,7 @@ if(WITH_TESTS)
     set_default_target_properties(netlink-configuration-repository-tests)
     target_link_libraries(netlink-configuration-repository-tests PRIVATE veyon-core Qt${QT_MAJOR_VERSION}::Test)
     add_test(NAME netlink-configuration-repository-tests COMMAND netlink-configuration-repository-tests
+        absentDirectoryIsNotTheOldSnapshot malformedJsonDoesNotChangeObject
         disjointConfiguratorAndDiscoveryEditsAreMergedWithoutChangingKeys overlappingEditsAreRejectedWithoutWritingAnyField
         failedWriteNeverClaimsSuccessOrClearsExistingData interruptedWritesRecoverBeforeExposingSettings
         clearAndUnsetAreCheckedAndDoNotResurrectRemovedValues twoProcessesCannotBothCommitTheSameExpectedRevision

@@ -12,8 +12,8 @@ using System.Windows.Forms;
 [assembly:AssemblyProduct("NetLink Service Check")]
 [assembly:AssemblyCompany("prof. Ing. Raffaele Mele")]
 [assembly:AssemblyCopyright("© 2026 prof. Ing. Raffaele Mele")]
-[assembly:AssemblyVersion("1.1.0.0")]
-[assembly:AssemblyFileVersion("1.1.0.0")]
+[assembly:AssemblyVersion("1.2.0.0")]
+[assembly:AssemblyFileVersion("1.2.0.0")]
 namespace NetLinkServiceCheck {
  public sealed class MainForm:Form {
   readonly Engine engine;Snapshot current;
@@ -31,13 +31,13 @@ namespace NetLinkServiceCheck {
   readonly Timer timer=new Timer{Interval=15000};readonly ToolTip tips=new ToolTip{AutoPopDelay=9000,InitialDelay=500,ReshowDelay=150};
   public MainForm():this(new WindowsHost(),true){}
   public MainForm(IHost host,bool automatic) {
-   engine=new Engine(host);Text="NetLink · Controllo servizio 1.1.0";Font=new Font("Segoe UI",10);BackColor=Color.FromArgb(241,245,250);
+   engine=new Engine(host);Text="NetLink · Controllo servizio 1.2.0";Font=new Font("Segoe UI",10);BackColor=Color.FromArgb(241,245,250);
    AutoScaleMode=AutoScaleMode.Dpi;AutoScaleDimensions=new SizeF(96,96);StartPosition=FormStartPosition.CenterScreen;ClientSize=new Size(1040,720);MinimumSize=new Size(700,470);
    Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-   var menu=new MenuStrip{BackColor=BackColor};var info=new ToolStripMenuItem("Informazioni");menu.Items.Add(info);info.Click+=(s,e)=>MessageBox.Show(this,"NetLink Service Check 1.1.0\r\n© 2026 prof. Ing. Raffaele Mele\r\nGPL-2.0-or-later\r\n\r\nControlla esclusivamente il servizio locale NetLink.\r\nNon modifica altri servizi, configurazione o chiavi NetLink.","Informazioni",MessageBoxButtons.OK,MessageBoxIcon.Information);MainMenuStrip=menu;
+   var menu=new MenuStrip{BackColor=BackColor};var info=new ToolStripMenuItem("Informazioni");menu.Items.Add(info);info.Click+=(s,e)=>MessageBox.Show(this,"NetLink Service Check 1.2.0\r\n© 2026 prof. Ing. Raffaele Mele\r\nGPL-2.0-or-later\r\n\r\nControlla esclusivamente il servizio locale NetLink.\r\nNon modifica altri servizi, configurazione o chiavi NetLink.","Informazioni",MessageBoxButtons.OK,MessageBoxIcon.Information);MainMenuStrip=menu;
    var root=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=5,Padding=new Padding(18)};
    root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));root.RowStyles.Add(new RowStyle(SizeType.AutoSize));root.RowStyles.Add(new RowStyle(SizeType.AutoSize));root.RowStyles.Add(new RowStyle(SizeType.Percent,100));root.RowStyles.Add(new RowStyle(SizeType.AutoSize));root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-   var heading=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,WrapContents=true};headline.Text="NetLink · Controllo servizio";heading.Controls.Add(headline);heading.Controls.Add(new Label{Text="v1.1.0 · Windows x64",AutoSize=true,ForeColor=Color.DimGray,Margin=new Padding(18,9,0,0)});root.Controls.Add(heading,0,0);
+   var heading=new FlowLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,WrapContents=true};headline.Text="NetLink · Controllo servizio";heading.Controls.Add(headline);heading.Controls.Add(new Label{Text="v1.2.0 · Windows x64",AutoSize=true,ForeColor=Color.DimGray,Margin=new Padding(18,9,0,0)});root.Controls.Add(heading,0,0);
    var intro=new TableLayoutPanel{AutoSize=true,Dock=DockStyle.Fill,ColumnCount=1,Padding=new Padding(0,6,0,10)};
    var help=new Label{Text="Prima analizza, poi scegli se correggere. Automatico senza ritardo non significa precedenza garantita sugli altri servizi.\r\nSe parte solo dopo l'avvio di Windows, valuta gli eventi: un avvio ritardato può essere più adatto.",AutoSize=true,MaximumSize=new Size(950,0),ForeColor=Color.FromArgb(65,82,105)};
    intro.Controls.Add(help);intro.Controls.Add(summary);root.Controls.Add(intro,0,1);
@@ -94,7 +94,7 @@ namespace NetLinkServiceCheck {
    if(dialog.ShowDialog(this)!=DialogResult.OK)return;
    try {string text=Path.GetExtension(dialog.FileName).Equals(".json",StringComparison.OrdinalIgnoreCase)?new JavaScriptSerializer().Serialize(current):Report(current);File.WriteAllText(dialog.FileName,text,new UTF8Encoding(false));status.Text="Rapporto salvato: "+dialog.FileName;}catch(Exception e){MessageBox.Show(this,e.Message,"Salvataggio non riuscito",MessageBoxButtons.OK,MessageBoxIcon.Error);}
   }}
-  public static string Report(Snapshot s){var b=new StringBuilder("NetLink Service Check 1.1.0\r\n");b.AppendLine("PC: "+Environment.MachineName);b.AppendLine("Analisi: "+s.Checked.ToString("o"));b.AppendLine("Ultimo avvio Windows: "+s.Boot.ToString("o"));b.AppendLine("Servizio: "+s.Name+" / "+s.Display);b.AppendLine("Comando: "+s.Image);b.AppendLine("Account: "+s.Account+" | Gruppo: "+s.Group);b.AppendLine("Versione: "+s.Version);foreach(var c in Engine.Checks(s)){b.AppendLine();b.AppendLine(c.Title+" — "+c.State);b.AppendLine(c.Detail);}b.AppendLine("\r\nEVENTI RACCOLTI (massimo 30, ricerca limitata agli ultimi 7 giorni)");foreach(var e in s.Events)b.AppendLine(e.Time.ToString("o")+" | "+e.Id+" | "+e.Message);b.AppendLine("\r\nNessuna chiave di autenticazione o password è stata raccolta. I rapporti contengono percorsi e nomi locali: controllali prima di condividerli.");return b.ToString();}
+  public static string Report(Snapshot s){var b=new StringBuilder("NetLink Service Check 1.2.0\r\n");b.AppendLine("PC: "+Environment.MachineName);b.AppendLine("Analisi: "+s.Checked.ToString("o"));b.AppendLine("Ultimo avvio Windows: "+s.Boot.ToString("o"));b.AppendLine("Servizio: "+s.Name+" / "+s.Display);b.AppendLine("Comando: "+s.Image);b.AppendLine("Account: "+s.Account+" | Gruppo: "+s.Group);b.AppendLine("Versione: "+s.Version);foreach(var c in Engine.Checks(s)){b.AppendLine();b.AppendLine(c.Title+" — "+c.State);b.AppendLine(c.Detail);}b.AppendLine("\r\nEVENTI RACCOLTI (massimo 30, ricerca limitata agli ultimi 7 giorni)");foreach(var e in s.Events)b.AppendLine(e.Time.ToString("o")+" | "+e.Id+" | "+e.Message);b.AppendLine("\r\nNessuna chiave di autenticazione o password è stata raccolta. I rapporti contengono percorsi e nomi locali: controllali prima di condividerli.");return b.ToString();}
  }
  static class Program {
   [STAThread] static int Main(string[] args){

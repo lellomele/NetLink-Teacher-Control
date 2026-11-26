@@ -24,6 +24,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QSaveFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 
@@ -78,16 +79,23 @@ static void loadJsonTree( Object* obj, const QJsonObject& jsonParent, const QStr
 
 void JsonStore::load( Object* obj )
 {
+	m_error.clear();
 	QFile jsonFile( configurationFilePath() );
 	if( !jsonFile.open( QFile::ReadOnly ) )
 	{
-		vWarning() << "could not open" << jsonFile.fileName();
+		m_error=jsonFile.errorString();
 		return;
 	}
 
-	QJsonDocument jsonDoc = QJsonDocument::fromJson( jsonFile.readAll() );
-
-	loadJsonTree( obj, jsonDoc.object(), {} );
+	QJsonParseError parse;
+	const auto doc = QJsonDocument::fromJson(jsonFile.readAll(), &parse);
+	if(jsonFile.error()!=QFile::NoError || !doc.isObject()) {
+		m_error=jsonFile.error()!=QFile::NoError ? jsonFile.errorString() : parse.error!=QJsonParseError::NoError ? parse.errorString() : QObject::tr("Expected a JSON object.");
+		return;
+	}
+	Object imported;
+	loadJsonTree(&imported, doc.object(), {});
+	*obj += imported;
 }
 
 
@@ -131,25 +139,19 @@ static QJsonObject saveJsonTree( const Object::DataMap& dataMap )
 
 void JsonStore::flush( const Object* obj )
 {
-	QFile outfile( configurationFilePath() );
-	if( !outfile.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
-	{
-		vCritical() << "could not write to configuration file" << configurationFilePath();
-		return;
-	}
-
-	outfile.write( QJsonDocument( saveJsonTree( obj->data() ) ).toJson() );
+	m_error.clear();
+	QSaveFile outfile(configurationFilePath());
+	outfile.setDirectWriteFallback(false);
+	const auto bytes=QJsonDocument(saveJsonTree(obj->data())).toJson();
+	if(!outfile.open(QIODevice::WriteOnly) || outfile.write(bytes)!=bytes.size() || !outfile.commit()) m_error=outfile.errorString();
 }
 
 
 
 bool JsonStore::isWritable() const
 {
-	QFile outfile( configurationFilePath() );
-	outfile.open( QFile::WriteOnly | QFile::Append );
-	outfile.close();
-
-	return QFileInfo( configurationFilePath() ).isWritable();
+	const QFileInfo path(configurationFilePath());
+	return path.exists()?path.isFile() && path.isWritable():QFileInfo(path.absolutePath()).isWritable();
 
 }
 
@@ -157,9 +159,8 @@ bool JsonStore::isWritable() const
 
 void JsonStore::clear()
 {
-	// truncate configuration file
-	QFile outfile( configurationFilePath() );
-	outfile.open( QIODevice::WriteOnly | QIODevice::Truncate );
+	Object empty;
+	flush(&empty);
 }
 
 

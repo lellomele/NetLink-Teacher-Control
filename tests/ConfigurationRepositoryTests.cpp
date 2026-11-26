@@ -10,6 +10,7 @@
 #include <QDataStream>
 #include <QCryptographicHash>
 #include "Configuration/LocalStore.h"
+#include "Configuration/JsonStore.h"
 #include "Configuration/Object.h"
 #include "Configuration/SettingsTransaction.h"
 #include "DiscoveryImportController.h"
@@ -27,6 +28,19 @@ class ConfigurationRepositoryTests : public QObject {
     Q_OBJECT
     QTemporaryDir temp;
 private Q_SLOTS:
+    void absentDirectoryIsNotTheOldSnapshot() {
+        TestStore s(temp.filePath("removed.ini"));QString error;
+        QVERIFY(!s.compareAndWriteValue("NetworkObjects",QJsonArray{"old"},QJsonArray{"new"},"BuiltinDirectory",error));
+        QVERIFY(s.compareAndWriteValue("NetworkObjects",QVariant{},QJsonArray{"first"},"BuiltinDirectory",error));
+        QVERIFY(!s.compareAndWriteValue("NetworkObjects",QVariant{},QJsonArray{"overwrite"},"BuiltinDirectory",error));
+    }
+    void malformedJsonDoesNotChangeObject() {
+        const auto path=temp.filePath("bad-export.json");QFile f(path);QVERIFY(f.open(QIODevice::WriteOnly));f.write("{");f.close();
+        Configuration::Object o;o.setValue("Keep","unchanged",{});auto original=o.data();
+        Configuration::JsonStore store(Configuration::Store::System,path);store.load(&o);QVERIFY(!store.errorString().isEmpty());QCOMPARE(o.data(),original);
+        store.flush(&o);QVERIFY(store.errorString().isEmpty());Configuration::Object copy;store.load(&copy);QCOMPARE(copy.data(),original);
+        Configuration::JsonStore invalid(Configuration::Store::System,temp.path());invalid.flush(&o);QVERIFY(!invalid.errorString().isEmpty());
+    }
     void disjointConfiguratorAndDiscoveryEditsAreMergedWithoutChangingKeys() {
         TestStore store(temp.filePath("merge.ini"));QString error;
         QVERIFY(store.writeValue("NetworkObjects",QJsonArray{"original"},"BuiltinDirectory"));

@@ -178,7 +178,8 @@ QJsonArray listeners(int port,int workerPort,QJsonObject& report) {
             DWORD localPort=0,pid=0;QString address;
             if(family==AF_INET) {const auto entry=reinterpret_cast<MIB_TCPTABLE_OWNER_PID*>(buffer.data())->table[i];localPort=ntohs(static_cast<u_short>(entry.dwLocalPort));pid=entry.dwOwningPid;address=QHostAddress(ntohl(entry.dwLocalAddr)).toString();}
             else {const auto entry=reinterpret_cast<MIB_TCP6TABLE_OWNER_PID*>(buffer.data())->table[i];localPort=ntohs(static_cast<u_short>(entry.dwLocalPort));pid=entry.dwOwningPid;Q_IPV6ADDR ip{};memcpy(ip.c,entry.ucLocalAddr,16);address=QHostAddress(ip).toString();}
-            if(int(localPort)!=port && localPort!=3702 && int(localPort)!=workerPort) continue;
+			const auto owner=imagePath(pid); const auto executable=QFileInfo(owner).fileName();
+			if(int(localPort)!=port && localPort!=3702 && int(localPort)!=workerPort && !NetLinkIdentity::matchesDiagnosticName(executable,NetLinkIdentity::Application::Server))continue;
             result.append(QJsonObject{{"address",address},{"port",int(localPort)},{"pid",int(pid)},{"image",imagePath(pid)}});
         }
     }
@@ -296,7 +297,7 @@ QJsonObject collect() {
     auto keyList=keys(settings["Authentication/PublicKeyBaseDir"].toString(),"public",report,privateBase);for(const auto& key:keys(privateBase,"private",report)) keyList.append(key);report["keys"]=keyList;
     QJsonArray services;auto manager=OpenSCManagerW(nullptr,nullptr,SC_MANAGER_CONNECT);
     if(manager) {for(const auto name:{L"VeyonSchoolService",L"VeyonService",L"BFE",L"MpsSvc"}) services.append(service(manager,name));CloseServiceHandle(manager);}else error(report,QString("Servizi non leggibili (Windows %1).").arg(GetLastError()));report["services"]=services;
-    const auto sessionOffset=settings["Service/MultiSession"].toBool()?report["identity"].toObject()["sessionId"].toInt():0;
+	const int sessionOffset=0; // Windows session IDs are not NetLink port offsets.
     report["listeners"]=listeners(settings["Network/VeyonServerPort"].toInt(11100)+sessionOffset,settings["Network/FeatureWorkerManagerPort"].toInt(11300)+sessionOffset,report);report["firewall"]=firewall();report["processes"]=suiteProcesses(report);
     report["health"]=collectHealth();
 #else
@@ -372,7 +373,9 @@ QStringList recommendations(const QJsonObject& report,const QString& role) {
     if(report.contains("listeners")) {
         const int port=settings["Network/VeyonServerPort"].toInt(11100);bool found=false,network=false;
         for(const auto& value:report["listeners"].toArray()) {const auto listener=value.toObject();if(listener["port"].toInt()!=port) continue;found=true;const QHostAddress address(listener["address"].toString());if(!address.isNull() && !address.isLoopback()) network=true;}
-        if(!found && running(services,"VeyonSchoolService")) result<<QString("ATTENZIONE: servizio avviato, ma nessun listener TCP rilevato sulla porta %1. Verificare porta configurata, avvio del processo server e possibili conflitti.").arg(port);
+        QStringList observed;for(const auto& value:report["listeners"].toArray()){const auto l=value.toObject();const auto p=l["port"].toInt();if(p!=port && !QHostAddress(l["address"].toString()).isLoopback() && (NetLinkIdentity::matchesDiagnosticName(QFileInfo(l["image"].toString()).fileName(),NetLinkIdentity::Application::Server) || (settings["Service/MultiSession"].toBool() && p>port && p<port+100)))observed<<QString::number(p);}
+        observed.removeDuplicates();if(!found && !observed.isEmpty()) result<<QString("Porta base %1; listener osservati: %2. Associazione alla sessione non determinata.").arg(port).arg(observed.join(", "));
+        else if(!found && running(services,"VeyonSchoolService")) result<<QString("ATTENZIONE: servizio avviato, ma nessun listener TCP rilevato sulla porta %1. Verificare porta configurata, avvio del processo server e possibili conflitti.").arg(port);
         else if(found && !network) result<<QString("ATTENZIONE: porta %1 in ascolto solo su loopback. Può funzionare da questo PC, ma non dal docente; verificare anche il processo effettivamente avviato.").arg(port);
         else if(found) result<<QString("Porta %1 in ascolto anche su un'interfaccia di rete. Non garantisce che il firewall la consenta o che l'autenticazione riesca.").arg(port);
     }

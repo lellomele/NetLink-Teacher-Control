@@ -102,7 +102,7 @@ bool LocalStore::compareAndWriteValue(const QString& key,const QVariant& expecte
     LockedSettings transaction(createSettingsObject());auto* settings=transaction.settings.get();
     if(!transaction.lock->locked()) {error=busy();return false;}
     Values current;if(!SettingsTransaction::recover(*settings,error) || !SettingsTransaction::read(*settings,current,error)) return false;
-    if(current.value(path,serialized(expected))!=serialized(expected)) {error=NetLinkUi::text("The computer list changed in another application. Nothing was imported. Reload the Console and retry.");return false;}
+    if(current.contains(path)!=expected.isValid() || (current.contains(path) && current.value(path)!=serialized(expected))) {error=NetLinkUi::text("The computer list changed in another application. Nothing was imported. Reload the Console and retry.");return false;}
     auto after=current;after.insert(path,serialized(value));const auto ok=SettingsTransaction::commit(*settings,current,after,error);m_error=error;return ok;
 }
 bool LocalStore::writeValue(const QString& key,const QVariant& value,const QString& parent) {

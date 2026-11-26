@@ -45,12 +45,33 @@ namespace NetLinkServiceCheck {
    if(File.Exists(Helper))return Helper;
    var suite=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"Veyon School","netlink-startup-check.exe");return File.Exists(suite)?suite:null;
   }
+  static bool Eligible(Snapshot s){return s.Trusted&&s.ConfigKnown&&String.Equals(s.Account,"LocalSystem",StringComparison.OrdinalIgnoreCase)&&String.Equals(s.Image.Trim('"'),Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),@"Veyon School\netlink-service.exe"),StringComparison.OrdinalIgnoreCase);}
+  internal static string Decision(string log) {
+   bool attempt=false;string outcome="esito non registrato";
+   foreach(var line in log.Split('\n')) {
+    if(line.Contains("Start request ")){attempt=true;outcome="tentativo di avvio, esito non ancora confermato";}
+    else if(line.Contains("Service running;"))outcome=attempt?"servizio osservato in esecuzione dopo un tentativo":"servizio già in esecuzione, nessun intervento";
+    else if(line.Contains("Skipped")||line.Contains("Cancelled"))outcome="controllo saltato o annullato";
+    else if(line.Contains("Stopped:")||line.Contains("StartService failed")||line.Contains("Service unavailable")||line.Contains("Service remains pending"))outcome="servizio non recuperato: "+line.Trim().Substring(line.IndexOf(' ')+1);
+   }
+   return outcome;
+  }
+  static string LastDecision(DateTime run) {
+   try{
+    var dir=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),@"NetLink\StartupCheck");NoLinks(dir);
+    FileInfo latest=null;foreach(var f in new DirectoryInfo(dir).EnumerateFiles("*.log")){Guid id;if(!Guid.TryParse(Path.GetFileNameWithoutExtension(f.Name),out id)||f.Length>65536||(f.Attributes&FileAttributes.ReparsePoint)!=0)continue;
+     if(latest==null||f.LastWriteTimeUtc>latest.LastWriteTimeUtc)latest=f;}
+    if(latest!=null && Math.Abs((latest.CreationTimeUtc-run.ToUniversalTime()).TotalSeconds)<45){NoLinks(latest.FullName);using(var fs=new FileStream(latest.FullName,FileMode.Open,FileAccess.Read,FileShare.ReadWrite)){var data=new byte[65536];int used=0,n;while(used<data.Length&&(n=fs.Read(data,used,data.Length-used))>0)used+=n;return " Diagnostica: "+Decision(System.Text.Encoding.UTF8.GetString(data,0,used))+".";}}
+   }catch(IOException){}catch(UnauthorizedAccessException){}return " Nessun log associabile con certezza a questa esecuzione.";
+  }
+  static string LastExecution(){dynamic sched=Activator.CreateInstance(Type.GetTypeFromProgID("Schedule.Service"));try{sched.Connect();dynamic task=sched.GetFolder(@"\").GetTask("NetLink Service Startup Check");DateTime t=task.LastRunTime;int result=task.LastTaskResult;return t.Year<2000||result==267011?" Mai eseguita.":" Ultima esecuzione "+t.ToString("g")+"; risultato Windows "+result+". Il codice zero da solo non prova che sia servito avviare il servizio."+LastDecision(t);}finally{System.Runtime.InteropServices.Marshal.FinalReleaseComObject(sched);}}
   static void ReadStartupCheck(Snapshot snapshot) {
    try {
     var path=ExistingHelper();if(path==null){snapshot.StartupInfo="Controllo nativo non installato. Puoi configurarlo con questa utilità anche su NetLink precedente ad alpha.38.";return;}
     var text=ExecuteHelper(path,"--status");int delay;bool task=text.EndsWith("task=present",StringComparison.Ordinal);
     var parts=text.Split(';');if(parts.Length!=2||!parts[0].StartsWith("delay=",StringComparison.Ordinal)||!Int32.TryParse(parts[0].Substring(6),out delay)||(delay!=0&&delay!=3&&delay!=5))throw new InvalidDataException("Risposta diagnostica inattesa.");
-    snapshot.StartupDelay=delay;snapshot.StartupTask=task;snapshot.StartupInfo="Attività Windows: NetLink Service Startup Check. "+(task?"Eseguita come SYSTEM, senza una finestra o un utente connesso.":"Attività assente; il servizio continua a usare il normale avvio Windows.");
+    snapshot.StartupTask=task;snapshot.StartupDelay=delay;snapshot.StartupInfo=task?"Attività registrata."+LastExecution():"Attività assente.";
+    if(task&&!Eligible(snapshot)){snapshot.StartupDelay=-1;snapshot.StartupInfo+=" Servizio non idoneo al recupero; non cambiare identità per forzarlo.";}
    }catch(Exception error){snapshot.StartupInfo=Engine.Explain(error);}
   }
   static void EnsureProtectedDirectory(string path) {
@@ -67,13 +88,14 @@ namespace NetLinkServiceCheck {
    if(minutes!=0&&minutes!=3&&minutes!=5)throw new ArgumentOutOfRangeException("minutes");
    bool created;using(var maintenance=new System.Threading.Mutex(false,"Global\\NetLinkInstallerMaintenance",out created)) {
    if(!created)throw new InvalidOperationException("Installazione, disinstallazione o configurazione del controllo già in corso. Riprova al termine.");
-   var current=Read();if(!current.Exists||!current.Trusted||!current.ConfigKnown)throw new InvalidOperationException("Servizio NetLink non riconosciuto.");
+   var current=Read();if(!current.Exists||!current.Trusted||!current.ConfigKnown || (minutes!=0 && !Eligible(current)))throw new InvalidOperationException("Servizio NetLink non riconosciuto.");
    // A portable EXE in Downloads must never become a SYSTEM task action.
    // Immutable hash directories also avoid replacing a running older helper.
    EnsureProtectedDirectory(ToolsRoot);EnsureProtectedDirectory(HelperRoot);
    var payload=Payload();if(Hash(payload)!=StartupPayload.Sha256)throw new InvalidDataException("Controllo incluso danneggiato.");
    if(File.Exists(Helper)){Protected(Helper,false);if(Hash(File.ReadAllBytes(Helper))!=StartupPayload.Sha256)throw new InvalidOperationException("È già presente un'altra versione del controllo nativo in NetLink Service Tools. Non viene sovrascritta: usa l'installer NetLink aggiornato o rimuovi il vecchio controllo da amministratore.");}
    else {using(var file=new FileStream(Helper,FileMode.CreateNew,FileAccess.Write,FileShare.None))file.Write(payload,0,payload.Length);var security=File.GetAccessControl(Helper);security.SetOwner(new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid,null));File.SetAccessControl(Helper,security);}
+   if(minutes!=0)ExecuteHelper(Helper,"--eligible");
    ExecuteHelper(Helper,"--configure "+(minutes==0?"off":minutes.ToString()));
    }
   }

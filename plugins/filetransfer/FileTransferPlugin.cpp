@@ -23,6 +23,15 @@
  */
 
 #include <QDesktopServices>
+#include <QTimer>
+#include <QLabel>
+#include <QLayout>
+#include <QRegularExpression>
+#ifdef Q_OS_WIN
+#include <qt_windows.h>
+#else
+#include <unistd.h>
+#endif
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMessageBox>
@@ -54,6 +63,9 @@ FileTransferPlugin::FileTransferPlugin( QObject* parent ) :
 	m_features( { m_fileTransferFeature } ),
 	m_configuration( &VeyonCore::config() )
 {
+	m_receiveIdle.setSingleShot(true);
+	m_receiveIdle.setInterval(120000);
+	connect(&m_receiveIdle,&QTimer::timeout,this,[this]{m_currentFile.reset();m_currentTransferId=QUuid();});
 }
 
 
@@ -151,6 +163,9 @@ bool FileTransferPlugin::startFeature( VeyonMasterInterface& master, const Featu
 								{ { argToString(Argument::Files), files } }, computerControlInterfaces ) )
 			{
 				auto dialog = new FileTransferDialog( m_fileTransferController, master.mainWindow() );
+				auto report=new QLabel(tr("Progress indicates sending; only a client receipt confirms saving."),dialog);
+				report->setTextFormat(Qt::PlainText);report->setWordWrap(true);dialog->layout()->addWidget(report);
+				connect(this,&FileTransferPlugin::deliveryStatus,report,[report](const QString& line){report->setText(QString(report->text()+QLatin1Char('\n')+line).right(8192));});
 				connect( dialog, &QDialog::finished, dialog, &QDialog::deleteLater );
 				dialog->exec();
 			}
@@ -172,14 +187,22 @@ bool FileTransferPlugin::handleFeatureMessage( VeyonServerInterface& server,
 
 	if( m_fileTransferFeature.uid() == message.featureUid() )
 	{
-		if( message.command() == FileTransferFinishCommand )
-		{
-			VeyonCore::builtinFeatures().systemTrayIcon().showMessage( m_fileTransferFeature.displayName(),
-																   tr( "Received file \"%1\"." ).
-																	   arg( message.argument( Argument::Filename ).toString() ),
-																   server.featureWorkerManager() );
+		const auto id=message.argument(Argument::TransferId).toUuid();
+		if(message.command()==Receipt) {
+			if(messageContext.connection() || !messageContext.ioDevice() || !messageContext.ioDevice()->property("workerAuthenticated").toBool()) return true;
+			auto origin=m_origins.take(id);if(origin.connection() && origin.ioDevice()) server.sendFeatureMessageReply(origin,message);
+			return true;
 		}
-
+		if(!messageContext.connection()) return true;
+		if(message.command()!=OpenTransferFolder) {
+			if(id.isNull()) return true;
+			if(message.command()==FileTransferStartCommand) {
+				for(auto i=m_origins.begin();i!=m_origins.end();) {if(!i->connection()) i=m_origins.erase(i);else ++i;}
+				if(m_origins.size()>=256 || m_origins.contains(id))return true;
+				m_origins.insert(id,messageContext);
+			} else if(m_origins.value(id).connection()!=messageContext.connection())return true;
+			if(message.command()==FileTransferCancelCommand)m_origins.remove(id);
+		}
 		// forward message to worker
 		server.featureWorkerManager().sendMessageToUnmanagedSessionWorker( message );
 
@@ -199,65 +222,39 @@ bool FileTransferPlugin::handleFeatureMessage( VeyonWorkerInterface& worker, con
 	{
 		switch( message.command() )
 		{
-		case FileTransferStartCommand:
-			m_currentFile.close();
-
-			m_currentFileName = destinationDirectory() + QDir::separator() + message.argument( Argument::Filename ).toString();
-			m_currentFile.setFileName( m_currentFileName );
-			if( m_currentFile.exists() && message.argument( Argument::OverwriteExistingFile ).toBool() == false )
-			{
-				QMessageBox::critical( nullptr, m_fileTransferFeature.displayName(),
-									   tr( "Could not receive file \"%1\" as it already exists." ).
-									   arg( m_currentFile.fileName() ) );
-				return true;
-			}
-
-			if( VeyonCore::platform().filesystemFunctions().openFileSafely(
-					&m_currentFile,
-					QFile::WriteOnly | QFile::Truncate,
-					QFile::ReadOwner | QFile::WriteOwner | QFile::ReadGroup | QFile::WriteGroup | QFile::ReadOther ) )
-			{
-				m_currentTransferId = message.argument( Argument::TransferId ).toUuid();
-			}
-			else
-			{
-				QMessageBox::critical( nullptr, m_fileTransferFeature.displayName(),
-									   tr( "Could not receive file \"%1\" as it could not be opened for writing!" ).
-									   arg( m_currentFile.fileName() ) );
-			}
-			return true;
-
+		case FileTransferStartCommand: {
+			const auto id=message.argument(Argument::TransferId).toUuid();const auto name=message.argument(Argument::Filename).toString();
+			auto refuse=[&]{worker.sendFeatureMessageReply(FeatureMessage(m_fileTransferFeature.uid(),Receipt).addArgument(Argument::TransferId,id).addArgument(Argument::Committed,false));};
+			static const QRegularExpression reserved(QStringLiteral("^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:[.]|$)"),QRegularExpression::CaseInsensitiveOption);
+			if(m_currentFile || id.isNull() || name.isEmpty() || name.contains(QLatin1Char('/')) || name.contains(QLatin1Char('\\')) || name.contains(QLatin1Char(':')) || name.endsWith(QLatin1Char('.')) || name.endsWith(QLatin1Char(' ')) || reserved.match(name).hasMatch()){refuse();return true;}
+			m_overwrite=message.argument(Argument::OverwriteExistingFile).toBool();const auto dir=destinationDirectory();m_currentFileName=QDir(dir).filePath(name);
+			if(!m_overwrite && QFileInfo::exists(m_currentFileName)){refuse();return true;}
+			m_currentFile.reset(new QTemporaryFile(QDir(dir).filePath(QStringLiteral(".netlink-XXXXXX"))));
+			if(!m_currentFile->open()){m_currentFile.reset();refuse();return true;}
+			bool ok=false;m_expectedSize=message.argument(Argument::ExpectedSize).toLongLong(&ok);if(!ok)m_expectedSize=-1;
+			m_currentTransferId=id;m_receiveIdle.start();return true;
+		}
 		case FileTransferContinueCommand:
-			if( message.argument( Argument::TransferId ).toUuid() == m_currentTransferId )
-			{
-				m_currentFile.write( message.argument( Argument::DataChunk ).toByteArray() );
-			}
-			else
-			{
-				vWarning() << "received chunk for unknown transfer ID";
-			}
-			return true;
-
 		case FileTransferCancelCommand:
-			if( message.argument( Argument::TransferId ).toUuid() == m_currentTransferId )
-			{
-				m_currentFile.remove();
+		case FileTransferFinishCommand: {
+			const auto id=message.argument(Argument::TransferId).toUuid();if(!m_currentFile || id!=m_currentTransferId)return true;
+			bool committed=false;
+			if(message.command()==FileTransferContinueCommand){const auto chunk=message.argument(Argument::DataChunk).toByteArray();if((m_expectedSize<0 || chunk.size()<=m_expectedSize-m_currentFile->pos()) && m_currentFile->write(chunk)==chunk.size()){m_receiveIdle.start();return true;}}
+			else if(message.command()==FileTransferFinishCommand && (m_expectedSize<0 || m_expectedSize==m_currentFile->pos()) && m_currentFile->flush()){
+				const auto tmp=m_currentFile->fileName();m_currentFile->setAutoRemove(false);m_currentFile.reset();
+#ifdef Q_OS_WIN
+				committed=MoveFileExW(reinterpret_cast<LPCWSTR>(tmp.utf16()),reinterpret_cast<LPCWSTR>(m_currentFileName.utf16()),MOVEFILE_WRITE_THROUGH|(m_overwrite?MOVEFILE_REPLACE_EXISTING:0));
+#else
+				committed=m_overwrite ? ::rename(QFile::encodeName(tmp),QFile::encodeName(m_currentFileName))==0 : ::link(QFile::encodeName(tmp),QFile::encodeName(m_currentFileName))==0;
+				if(committed && !m_overwrite)QFile::remove(tmp);
+#endif
+				if(!committed)QFile::remove(tmp);
 			}
-			else
-			{
-				vWarning() << "received chunk for unknown transfer ID";
-			}
+			m_receiveIdle.stop();m_currentFile.reset();m_currentTransferId=QUuid();
+			if(message.command()!=FileTransferCancelCommand)worker.sendFeatureMessageReply(FeatureMessage(m_fileTransferFeature.uid(),Receipt).addArgument(Argument::TransferId,id).addArgument(Argument::Committed,committed));
+			if(committed && message.argument(Argument::OpenFileInApplication).toBool())QDesktopServices::openUrl(QUrl::fromLocalFile(m_currentFileName));
 			return true;
-
-		case FileTransferFinishCommand:
-			m_currentFile.close();
-			if( message.argument( Argument::OpenFileInApplication ).toBool() )
-			{
-				QDesktopServices::openUrl( QUrl::fromLocalFile( m_currentFileName ) );
-			}
-			m_currentFile.setFileName( {} );
-			return true;
-
+		}
 		case OpenTransferFolder:
 			QDesktopServices::openUrl( QUrl::fromLocalFile( destinationDirectory() ) );
 			return true;
@@ -273,9 +270,11 @@ bool FileTransferPlugin::handleFeatureMessage( VeyonWorkerInterface& worker, con
 
 
 void FileTransferPlugin::sendStartMessage( QUuid transferId, const QString& fileName,
-										   bool overwriteExistingFile, const ComputerControlInterfaceList& interfaces )
+										   bool overwriteExistingFile, const ComputerControlInterfaceList& interfaces, qint64 size )
 {
+	m_pending.insert(transferId,interfaces);
 	sendFeatureMessage( FeatureMessage( m_fileTransferFeature.uid(), FileTransferStartCommand ).
+						addArgument(Argument::ExpectedSize,size).
 						addArgument( Argument::TransferId, transferId ).
 						addArgument( Argument::Filename, fileName ).
 						addArgument( Argument::OverwriteExistingFile, overwriteExistingFile ),
@@ -298,6 +297,7 @@ void FileTransferPlugin::sendDataMessage( QUuid transferId, const QByteArray& da
 void FileTransferPlugin::sendCancelMessage( QUuid transferId,
 											const ComputerControlInterfaceList& interfaces )
 {
+	m_pending.remove(transferId);
 	sendFeatureMessage( FeatureMessage( m_fileTransferFeature.uid(), FileTransferCancelCommand ).
 						addArgument( Argument::TransferId, transferId ), interfaces );
 }
@@ -307,6 +307,7 @@ void FileTransferPlugin::sendCancelMessage( QUuid transferId,
 void FileTransferPlugin::sendFinishMessage( QUuid transferId, const QString& fileName,
 											bool openFileInApplication, const ComputerControlInterfaceList& interfaces )
 {
+	QTimer::singleShot(15000,this,[this,transferId,fileName]{for(const auto& ci:m_pending.take(transferId)) if(ci) Q_EMIT deliveryStatus(tr("%1 — %2: sent, not confirmed").arg(ci->computer().name(),fileName));});
 	sendFeatureMessage( FeatureMessage( m_fileTransferFeature.uid(), FileTransferFinishCommand ).
 						addArgument( Argument::TransferId, transferId ).
 						addArgument( Argument::Filename, fileName ).
@@ -343,4 +344,9 @@ ConfigurationPage* FileTransferPlugin::createConfigurationPage()
 }
 
 
+bool FileTransferPlugin::handleFeatureMessage(ComputerControlInterface::Pointer client,const FeatureMessage& message) {
+	if(message.featureUid()!=m_fileTransferFeature.uid() || message.command()!=Receipt || !client)return false;
+	auto it=m_pending.find(message.argument(Argument::TransferId).toUuid());
+	if(it!=m_pending.end() && it.value().removeOne(client)){if(it.value().isEmpty())m_pending.erase(it);Q_EMIT deliveryStatus(client->computer().name()+QStringLiteral(": ")+(message.argument(Argument::Committed).toBool()?tr("file saved"):tr("file not saved")));}return true;
+}
 IMPLEMENT_CONFIG_PROXY(FileTransferConfiguration)

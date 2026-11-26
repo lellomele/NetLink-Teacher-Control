@@ -209,11 +209,12 @@ void backup(const fs::path& root) {
     std::wofstream latest(recoveryRoot() / L"latest.txt"); latest << destination.wstring();
     require(bool(latest), "Write recovery location");
 }
-void stopService(const fs::path& root, bool unregister = true) {
+void checkReplacementFiles(const fs::path&,const fs::path&);
+void stopService(const fs::path& root, bool unregister = true, const fs::path& check = {}) {
     SC_HANDLE manager = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT);
     require(manager != nullptr, "Open service manager");
-    SC_HANDLE service = OpenServiceW(manager, L"VeyonSchoolService", SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS | SERVICE_STOP | DELETE);
-    if(!service) { auto error=GetLastError(); CloseServiceHandle(manager); if(error==ERROR_SERVICE_DOES_NOT_EXIST) return; throw Error("Open NetLink service", error); }
+    SC_HANDLE service = OpenServiceW(manager, L"VeyonSchoolService", SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS | SERVICE_STOP | DELETE | (check.empty()?0:SERVICE_START));
+    if(!service) { auto error=GetLastError(); CloseServiceHandle(manager); if(error==ERROR_SERVICE_DOES_NOT_EXIST){if(!check.empty())checkReplacementFiles(root,check);return;} throw Error("Open NetLink service", error); }
     try {
         DWORD size=0; QueryServiceConfigW(service, nullptr, 0, &size); std::vector<BYTE> data(size);
         require(QueryServiceConfigW(service, reinterpret_cast<QUERY_SERVICE_CONFIGW*>(data.data()), size, &size), "Read service owner");
@@ -225,6 +226,8 @@ void stopService(const fs::path& root, bool unregister = true) {
         }
         require(owned, "Service belongs to another location");
         SERVICE_STATUS status{}; require(QueryServiceStatus(service,&status), "Read service status");
+        const bool wasRunning=status.dwCurrentState==SERVICE_RUNNING;
+        if(!check.empty() && !wasRunning && status.dwCurrentState!=SERVICE_STOPPED)throw Error("Service is in transition; retry later",ERROR_BUSY);
         if(status.dwCurrentState != SERVICE_STOPPED && status.dwCurrentState != SERVICE_STOP_PENDING)
             require(ControlService(service, SERVICE_CONTROL_STOP, &status), "Stop NetLink service");
         const auto deadline=GetTickCount64()+30000;
@@ -234,6 +237,7 @@ void stopService(const fs::path& root, bool unregister = true) {
             Sleep(100);
         } while(GetTickCount64()<deadline);
         require(status.dwCurrentState==SERVICE_STOPPED, "Service stop timed out");
+        if(!check.empty())try{checkReplacementFiles(root,check);}catch(...){if(wasRunning)require(StartServiceW(service,0,nullptr),"Restore previous running service");throw;}
         // Pre-copy checks must not unregister an otherwise working installation.
         if(!unregister) { CloseServiceHandle(service); CloseServiceHandle(manager); return; }
         require(DeleteService(service), "Unregister NetLink service");
@@ -456,6 +460,7 @@ int wmain(int argc,wchar_t** argv) {
     try {
         if(argc!=2 && argc!=3) return ERROR_INVALID_PARAMETER;
         const std::wstring action=argv[1]; const auto root=installRoot();
+        if(action==L"quiesce-check" && argc==3){if(pendingRemoval(root))return ERROR_SUCCESS_REBOOT_REQUIRED;stopService(root,false,argv[2]);return 0;}
         if(action==L"check-files" && argc==3) {
             if(pendingRemoval(root)) return ERROR_SUCCESS_REBOOT_REQUIRED;
             checkReplacementFiles(root,argv[2]); return 0;

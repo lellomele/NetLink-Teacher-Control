@@ -31,6 +31,10 @@ static class Tests {
    int minutes;if(!Int32.TryParse(args[1],out minutes))return 2;var host=new WindowsHost();var outcome=new Engine(host).ApplyStartupCheck(host.Read(),minutes);Console.WriteLine(outcome.Message);return outcome.Success?0:1;
   }
   string root=Path.GetFullPath(args[0]);Directory.CreateDirectory(root);
+  Assert(WindowsHost.Decision("Service running; no restart requested.").Contains("nessun intervento"),"already running is not a recovery");
+  Assert(WindowsHost.Decision("Start request 1\nService running; no restart requested.").Contains("dopo un tentativo"),"separate observed running after start request");
+  Assert(WindowsHost.Decision("Start request 1\nSkipped: maintenance").Contains("annullato"),"maintenance is not reported as a recovery");
+  Assert(WindowsHost.Decision("00:00 StartService failed; Windows 5").Contains("non recuperato"),"failed attempt does not claim success");
   var missing=Path.Combine(root,"missing-"+Guid.NewGuid().ToString("N"));WindowsHost.NoLinks(missing,true);Assert(!Directory.Exists(missing),"Missing helper leaf is validated without creating it");
   bool missingRejected=false;try{WindowsHost.NoLinks(missing);}catch(FileNotFoundException){missingRejected=true;}catch(DirectoryNotFoundException){missingRejected=true;}Assert(missingRejected,"Existing-path validation still refuses a missing path");
   missingRejected=false;try{WindowsHost.NoLinks(Path.Combine(missing,"child"),true);}catch(FileNotFoundException){missingRejected=true;}catch(DirectoryNotFoundException){missingRejected=true;}Assert(missingRejected,"Missing ancestor is never accepted for deployment");

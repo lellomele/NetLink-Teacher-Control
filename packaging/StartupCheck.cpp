@@ -151,7 +151,7 @@ void configure(int minutes,bool persist=true) {
     require(effectiveDelay(task.p)==minutes,"Startup task verification failed");
     if(persist)savePreference(minutes);
 }
-bool maintenance(){auto handle=OpenMutexW(SYNCHRONIZE,FALSE,MaintenanceName);if(handle){CloseHandle(handle);return true;}auto error=GetLastError();if(error!=ERROR_FILE_NOT_FOUND)throw Error("Read maintenance state",error);return false;}
+bool maintenance(){for(auto name:{MaintenanceName,L"Global\\NetLinkUpgradePreparation"}){auto handle=OpenMutexW(SYNCHRONIZE,FALSE,name);if(handle){CloseHandle(handle);return true;}auto error=GetLastError();if(error!=ERROR_FILE_NOT_FOUND)throw Error("Read maintenance state",error);}return false;}
 void quiesce(){
     stopRunning();const auto deadline=GetTickCount64()+35000;
     do {auto lease=OpenMutexW(SYNCHRONIZE,FALSE,ConfigurationName);
@@ -232,12 +232,13 @@ int wmain(int argc,wchar_t** argv) {
         const std::wstring action=argv[1];
         if(action==L"--check"&&argc==2)result=run();
         else if(action==L"--configure"&&argc==3){int minutes=StartupCheckPolicy::delay(argv[2]);require(minutes>=0,"Use 3, 5, or off");configure(minutes);}
+        else if(action==L"--eligible"&&argc==2){Service mgr,svc;mgr.value=OpenSCManagerW(nullptr,nullptr,SC_MANAGER_CONNECT);require(mgr.value,"Open SCM");svc.value=OpenServiceW(mgr.value,L"VeyonSchoolService",SERVICE_QUERY_CONFIG);require(svc.value,"Read NetLink service");startType(svc.value);}
         else if(action==L"--remove"&&argc==2)configure(0,false);
         else if(action==L"--quiesce"&&argc==2)quiesce();
         else if(action==L"--status"&&argc==2){Scheduler scheduler;Com<IRegisteredTask> task;bool present=existingOwned(scheduler,task);int selected=preference();if(present)require(effectiveDelay(task.p)==selected,"Task delay differs from the saved preference; configure it again");std::cout<<"delay="<<selected<<"; task="<<(present?"present":"absent")<<"\n";}
         else throw Error("Invalid startup-check arguments",ERROR_INVALID_PARAMETER);
     }catch(const Error& error){std::cerr<<error.what()<<" (Windows "<<error.code<<")\n";result=error.code?int(error.code):ERROR_GEN_FAILURE;
-        if(argc>=2 && std::wstring(argv[1])!=L"--status")try{Log log;log.write(std::string(error.what())+"; Windows "+std::to_string(error.code));}catch(...){}
+        if(argc>=2 && std::wstring(argv[1])!=L"--status" && std::wstring(argv[1])!=L"--eligible")try{Log log;log.write(std::string(error.what())+"; Windows "+std::to_string(error.code));}catch(...){}
     }catch(const std::exception& error){std::cerr<<error.what()<<"\n";result=ERROR_GEN_FAILURE;}
     CoUninitialize();return result;
 }

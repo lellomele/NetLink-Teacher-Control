@@ -2,7 +2,7 @@
 
 # NetLink Service Check
 
-Portable Windows x64 utility to inspect the local NetLink service, configure automatic startup and explicitly start it. Version 1.1.0, Italian interface. No Qt installation is required.
+Portable Windows x64 utility to inspect the local NetLink service, configure automatic startup and explicitly start it. Version 1.2.0, Italian interface. No Qt installation is required.
 
 ## Use
 

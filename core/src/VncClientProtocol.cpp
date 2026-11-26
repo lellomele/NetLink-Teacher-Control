@@ -268,11 +268,12 @@ bool VncClientProtocol::readProtocol()
 
 bool VncClientProtocol::receiveSecurityTypes()
 {
-	if( m_socket->bytesAvailable() >= 2 )
+	if( m_socket->bytesAvailable() >= 1 )
 	{
 		uint8_t securityTypeCount = 0;
 
-		m_socket->read( reinterpret_cast<char *>( &securityTypeCount ), sizeof(securityTypeCount) );
+		if(m_socket->peek(reinterpret_cast<char*>(&securityTypeCount),1)!=1 || m_socket->bytesAvailable()<1+securityTypeCount) return false;
+		m_socket->read(reinterpret_cast<char*>(&securityTypeCount),1);
 
 		if( securityTypeCount == 0 )
 		{
@@ -399,7 +400,7 @@ bool VncClientProtocol::receiveServerInitMessage()
 		m_pixelFormat.greenMax = qFromBigEndian(m_pixelFormat.greenMax);
 		m_pixelFormat.blueMax = qFromBigEndian(m_pixelFormat.blueMax);
 
-		if( static_cast<uint32_t>( m_socket->peek( nameLength ).size() ) == nameLength )
+		if(m_socket->bytesAvailable() >= qint64(sz_rfbServerInitMsg)+nameLength)
 		{
 			m_serverInitMessage = m_socket->read( sz_rfbServerInitMsg + nameLength );
 

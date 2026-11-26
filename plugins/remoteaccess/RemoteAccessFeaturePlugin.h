@@ -40,7 +40,8 @@ public:
 	{
 		HostName,
 		ClipboardText,
-		ClipboardImage
+		ClipboardImage,
+		RequestId
 	};
 	Q_ENUM(Argument)
 
@@ -94,7 +95,7 @@ public:
 
 	bool handleFeatureMessage(VeyonWorkerInterface& worker, const FeatureMessage& message) override;
 
-	void sendAsyncFeatureMessages(VeyonServerInterface& server, const MessageContext& messageContext) override;
+
 
 	QString commandLineModuleName() const override
 	{

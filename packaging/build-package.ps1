@@ -1,14 +1,14 @@
-param([string]$Build='build-school',[string]$Toolchain='C:/msys64/mingw64',[string]$QtPrefix=$Toolchain,[switch]$SkipInstaller,[string]$BuildSuffix='')
+param([string]$Build='build-school',[string]$Toolchain='C:/msys64/mingw64',[string]$QtPrefix=$Toolchain,[switch]$SkipInstaller,[string]$BuildSuffix='',[ValidatePattern('^dist(-[a-z0-9]+)*$')][string]$DistName='dist')
 $ErrorActionPreference='Stop'
 if($BuildSuffix -and $BuildSuffix-notmatch'^-[a-zA-Z0-9][a-zA-Z0-9.-]*$'){throw 'Invalid diagnostic build suffix'}
 $repoRoot=Split-Path $PSScriptRoot
 $buildRoot=(Resolve-Path (Join-Path $repoRoot $Build)).Path
-$distRoot=Join-Path $repoRoot 'dist'
-$packageRoot=Join-Path $distRoot "NetLink-1.0.0-alpha.39$BuildSuffix-win64"
+$distRoot=Join-Path $repoRoot $DistName
+$packageRoot=Join-Path $distRoot "NetLink-1.0.0-alpha.40$BuildSuffix-win64"
 foreach($component in @('master','configurator','service','server','worker','cli','wcli','companion')) {
     $directory=if($component-eq'wcli'){'cli'}else{$component}
     $binary=Get-Item -LiteralPath (Join-Path $buildRoot "$directory/netlink-$component.exe")
-    if($binary.VersionInfo.FileVersion-ne"4.7.5-netlink.1.0.0-alpha.39$BuildSuffix") {
+    if($binary.VersionInfo.FileVersion-ne"4.7.5-netlink.1.0.0-alpha.40$BuildSuffix") {
         throw "Build/package version mismatch before copying: $($binary.Name)"
     }
 }

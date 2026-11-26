@@ -103,5 +103,6 @@ private:
 
 Q_SIGNALS:
 	void screenChangedInRemoteAccessWidget( int newScreen );
+	void clipboardTransfer(bool receive);
 
 } ;

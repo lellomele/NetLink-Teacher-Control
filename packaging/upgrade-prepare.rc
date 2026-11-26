@@ -1,0 +1,23 @@
+#include <windows.h>
+netlinkicon ICON "../branding/netlink.ico"
+1 RT_MANIFEST "upgrade-prepare.manifest"
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION 1,0,0,0
+PRODUCTVERSION 1,0,0,0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+BEGIN
+ BLOCK "StringFileInfo"
+ BEGIN
+ BLOCK "040904E4"
+ BEGIN
+ VALUE "FileVersion","1.0.0\0"
+ VALUE "ProductName","NetLink Prepare Upgrade\0"
+ VALUE "OriginalFilename","NetLink-Prepare-Upgrade.exe\0"
+ END
+ END
+ BLOCK "VarFileInfo"
+ BEGIN
+ VALUE "Translation",0x0409,1252
+ END
+END

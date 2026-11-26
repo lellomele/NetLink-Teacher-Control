@@ -301,6 +301,9 @@ bool MainWindow::initAuthentication()
 	{
 		const auto environmentKey=qEnvironmentVariable("VEYON_AUTH_KEY_NAME");
 		const auto selectedKey=environmentKey.isEmpty()?VeyonCore::config().masterAuthenticationKey():environmentKey;
+		if(environmentKey.isEmpty() && !VeyonCore::config().masterGroupAuthenticationKeys().isEmpty()) {
+			QMessageBox::warning(nullptr,tr("Authentication"),tr("The default key is unavailable. Only computers with a valid assigned key can connect."));return true;
+		}
 		if(!selectedKey.isEmpty()) {
 			QMessageBox::warning(nullptr,NetLinkUi::text("Master authentication key"),NetLinkUi::text("Selected Master private key %1 is missing, unreadable or invalid. Check the launch override, Configurator key selection and file permissions; do not regenerate working keys.").arg(selectedKey));return false;
 		}

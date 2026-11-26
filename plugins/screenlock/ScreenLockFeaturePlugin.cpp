@@ -105,8 +105,8 @@ bool ScreenLockFeaturePlugin::controlFeature( Feature::Uid featureUid, Operation
 
 	if( operation == Operation::Stop )
 	{
-		for(const auto& client:computerControlInterfaces) client->setProperty("netlinkLockToken",QVariant{});
-		sendFeatureMessage( FeatureMessage{ featureUid, StopLockCommand }, computerControlInterfaces );
+		for(const auto& client:computerControlInterfaces){const auto token=client->property("netlinkLockToken").toString();if(token.isEmpty())continue;
+			client->sendFeatureMessage(FeatureMessage{featureUid,StopLockCommand}.addArgument(100,token));client->setProperty("netlinkLockToken",{});}
 
 		return true;
 	}
@@ -187,13 +187,15 @@ bool ScreenLockFeaturePlugin::handleFeatureMessage( VeyonServerInterface& server
 			return true;
 		}
 		if(!messageContext.connection() || !messageContext.ioDevice() || (message.command()!=StartLockCommand && message.command()!=StopLockCommand)) return true;
+		if(m_monitorContext.connection() && m_monitorContext.connection()!=messageContext.connection())return true;
 		if(message.command()==StopLockCommand) {
+			if(!m_monitorToken.isEmpty() && message.argument(100).toString()!=m_monitorToken)return true;
 			m_monitorToken.clear();m_monitorContext=MessageContext{};
 		} else {
 			const auto token=message.argument(100).toString();
 			// Legacy clients omit this additive opt-in: lock/unlock stay compatible.
 			m_monitorToken=token.size()==36 && !QUuid(token).isNull()?token:QString{};
-			m_monitorContext=m_monitorToken.isEmpty()?MessageContext{}:messageContext;
+			m_monitorContext=messageContext;
 			m_monitoredFeature=message.featureUid();m_monitorSequence=0;m_receiveLimit.invalidate();
 		}
 		if( server.featureWorkerManager().isWorkerRunning( message.featureUid() ) == false &&

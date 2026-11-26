@@ -6,9 +6,9 @@ Suite NetLink per la gestione delle aule Windows, basata su **Veyon 4.7.5**.
 Integra controllo remoto, InternetGuard WFP, Appello, profili classe–aula,
 ricerca automatica dei client e diagnostica Companion, senza plugin esterni.
 
-**Versione preliminare 1.0.0-alpha.39: usare consapevolmente.**
+**Versione preliminare 1.0.0-alpha.40: usare consapevolmente.**
 
-**[Scarica l’installer Windows x64 — ultima release (alpha.39)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.39/NetLink-1.0.0-alpha.39-win64-setup.exe)**
+**[Scarica l’installer Windows x64 — ultima release (alpha.40)](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.40/NetLink-1.0.0-alpha.40-win64-setup.exe)**
 
 ## Funzionalità
 
@@ -98,7 +98,7 @@ I rapporti dei controlli sono in `C:\ProgramData\NetLink\StartupCheck`.
 Un servizio Manuale/Disabilitato non viene corretto automaticamente; un arresto volontario
 di un servizio ancora Automatico prima del controllo può invece essere recuperato.
 
-L'utilità separata [NetLink Service Check 1.1.0](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.38/NetLink-Service-Check-1.1.0.exe) consente di analizzare
+L'utilità separata [NetLink Service Check 1.2.0](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.40/NetLink-Service-Check-1.2.0.exe) consente di analizzare
 gli errori Windows, impostare l'avvio Automatico e scegliere il controllo a 3 o 5 minuti.
 Il controllo del servizio non certifica il funzionamento di video o autenticazione.
 
@@ -127,11 +127,11 @@ Procedura completa: [installazione, disinstallazione e recupero](docs/INSTALLATI
 
 ## Utilità facoltativa di rimozione
 
-[Rimozione NetLink / Veyon 1.0.4 — ZIP portatile](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.36/NetLink-Veyon-Removal-1.0.4-win64.zip) rimuove le installazioni riconosciute di NetLink/Veyon anche senza un disinstallatore funzionante. Richiede Windows x64, .NET Framework 4.8 e autorizzazione amministratore. Configurazione e chiavi sono conservate per impostazione predefinita. La rimozione interrompe le sessioni remote e può richiedere un riavvio.
+[Rimozione NetLink / Veyon 1.0.5 — kit Windows](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.40/NetLink-1.0.0-alpha.40-win64-kit.zip) rimuove le installazioni riconosciute di NetLink/Veyon anche senza un disinstallatore funzionante. Richiede Windows x64, .NET Framework 4.8 e autorizzazione amministratore. Configurazione e chiavi sono conservate per impostazione predefinita. La rimozione interrompe le sessioni remote e può richiedere un riavvio.
 
 Il controllo post-riavvio facoltativo è di sola lettura. La pulizia guidata dei residui richiede conferma e un nuovo backup e rifiuta file cambiati o nuove installazioni riconosciute. Driver e residui non identificati non vengono cancellati alla cieca. Lo ZIP comprende le istruzioni in italiano e inglese; il programma non è firmato. È un'utilità separata dall'installer della suite e **non serve per i normali aggiornamenti sul posto**.
 
-[Eseguibile](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.36/NetLink-Veyon-Removal.exe) · [Sorgenti](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.36/NetLink-Veyon-Removal-1.0.4-source.zip) · [SHA-256](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.36/SHA256SUMS-1.0.4.txt)
+[Eseguibile](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.40/NetLink-Veyon-Removal-1.0.5.exe) · [Sorgenti](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.40/NetLink-1.0.0-alpha.40-utility-sources.zip) · [SHA-256](https://github.com/lellomele/NetLink-Teacher-Control/releases/download/netlink-1.0.0-alpha.40/SHA256SUMS-alpha.40.txt)
 
 ## Uso rapido
 

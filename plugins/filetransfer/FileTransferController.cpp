@@ -195,7 +195,7 @@ bool FileTransferController::openFile()
 	{
 		delete m_fileReadThread;
 		m_fileReadThread = nullptr;
-		Q_EMIT errorOccured( tr( "Could not open file \"%1\" for reading! Please check your permissions!" ).arg( m_currentFileIndex ) );
+		Q_EMIT errorOccured( tr( "Could not open file \"%1\" for reading! Please check your permissions!" ).arg( m_files[m_currentFileIndex] ) );
 		return false;
 	}
 
@@ -205,7 +205,7 @@ bool FileTransferController::openFile()
 	m_currentTransferId = QUuid::createUuid();
 
 	m_plugin->sendStartMessage( m_currentTransferId, QFileInfo( m_files[m_currentFileIndex] ).fileName(),
-								m_flags.testFlag( OverwriteExistingFiles ), m_interfaces );
+								m_flags.testFlag( OverwriteExistingFiles ), m_interfaces, QFileInfo(m_files[m_currentFileIndex]).size() );
 
 	return true;
 }
@@ -226,7 +226,11 @@ bool FileTransferController::transferFile()
 		return false;
 	}
 
-	m_plugin->sendDataMessage( m_currentTransferId, m_fileReadThread->currentChunk(), m_interfaces );
+	const auto chunk=m_fileReadThread->currentChunk();
+	if(chunk.isEmpty() && !m_fileReadThread->atEnd()){
+		const auto name=m_files[m_currentFileIndex];stop();Q_EMIT errorOccured(tr("Reading %1 failed; transfer cancelled.").arg(name));return false;
+	}
+	m_plugin->sendDataMessage( m_currentTransferId, chunk, m_interfaces );
 
 	m_fileReadThread->readNextChunk( ChunkSize );
 

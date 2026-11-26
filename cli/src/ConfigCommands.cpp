@@ -116,7 +116,10 @@ CommandLinePluginInterface::RunResult ConfigCommands::handle_import( const QStri
 	Configuration::JsonStore xs( Configuration::JsonStore::System, fileName );
 
 	// merge configuration
-	VeyonCore::config() += VeyonConfiguration( &xs );
+	Configuration::Object imported;
+	xs.load(&imported);
+	if(!xs.errorString().isEmpty()) return operationError(xs.errorString());
+	static_cast<Configuration::Object&>(VeyonCore::config()) += imported;
 
 	return applyConfiguration();
 }
@@ -144,7 +147,9 @@ CommandLinePluginInterface::RunResult ConfigCommands::handle_export( const QStri
 	}
 
 	// write current configuration to output file
-	Configuration::JsonStore( Configuration::JsonStore::System, fileName ).flush( &VeyonCore::config() );
+	Configuration::JsonStore store(Configuration::JsonStore::System,fileName);
+	store.flush(&VeyonCore::config());
+	if(!store.errorString().isEmpty()) return operationError(store.errorString());
 
 	return Successful;
 }

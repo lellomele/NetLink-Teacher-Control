@@ -24,7 +24,9 @@
 
 #pragma once
 
-#include <QFile>
+#include <QTemporaryFile>
+#include <QTimer>
+#include <memory>
 
 #include "ConfigurationPagePluginInterface.h"
 #include "FeatureProviderInterface.h"
@@ -47,7 +49,7 @@ public:
 		DataChunk,
 		OpenFileInApplication,
 		OverwriteExistingFile,
-		Files
+		Files, ExpectedSize, Committed
 	};
 	Q_ENUM(Argument)
 
@@ -102,7 +104,7 @@ public:
 	bool handleFeatureMessage( VeyonWorkerInterface& worker, const FeatureMessage& message ) override;
 
 	void sendStartMessage( QUuid transferId, const QString& fileName,
-						   bool overwriteExistingFile, const ComputerControlInterfaceList& interfaces );
+						   bool overwriteExistingFile, const ComputerControlInterfaceList& interfaces, qint64 size );
 	void sendDataMessage( QUuid transferId, const QByteArray& data, const ComputerControlInterfaceList& interfaces );
 	void sendCancelMessage( QUuid transferId, const ComputerControlInterfaceList& interfaces );
 	void sendFinishMessage( QUuid transferId, const QString& fileName,
@@ -120,7 +122,7 @@ private:
 		FileTransferContinueCommand,
 		FileTransferCancelCommand,
 		FileTransferFinishCommand,
-		OpenTransferFolder,
+		OpenTransferFolder, Receipt,
 		CommandCount
 	};
 
@@ -133,7 +135,17 @@ private:
 
 	FileTransferController* m_fileTransferController{nullptr};
 
-	QFile m_currentFile{};
+	std::unique_ptr<QTemporaryFile> m_currentFile;
+	QTimer m_receiveIdle;
+	qint64 m_expectedSize{-1};
+	bool m_overwrite{false};
+	QHash<QUuid,MessageContext> m_origins;
+	QHash<QUuid,ComputerControlInterfaceList> m_pending;
+public:
+	bool handleFeatureMessage(ComputerControlInterface::Pointer client,const FeatureMessage& message) override;
+Q_SIGNALS:
+	void deliveryStatus(const QString& text);
+private:
 	QString m_currentFileName{};
 	QUuid m_currentTransferId{};
 
